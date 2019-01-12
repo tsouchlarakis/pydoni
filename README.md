@@ -23,7 +23,7 @@ Completed Date : <in progress>
 #### `os`
 > Operating System. Addresses handling files on the filesystem.
 
-#### `py`
+#### `pyobj`
 > Python Objects. Addresses recurrent handling methods on Python objects.
 
 #### `sh`
