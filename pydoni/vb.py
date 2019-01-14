@@ -60,7 +60,7 @@ def echoWarn(msg, fn_name=None):
 
 def clickfmt(string, fmt=['numeric', 'filename', 'filepath', 'url', 'date', 'arrow', 'green', 'red', 'yellow']):
     import click
-    from PyFunctions import echoError
+    from pydoni.vb import echo
     if fmt == 'numeric':
         return click.style(string, fg='yellow', bold=True)
     elif fmt == 'filename':
@@ -80,11 +80,12 @@ def clickfmt(string, fmt=['numeric', 'filename', 'filepath', 'url', 'date', 'arr
     elif fmt == 'white':
         return click.style(string, fg='white', bold=True)
     else:
-        echoError("Invalid 'fmt' parameter", abort=False)
+        echo("Invalid 'fmt' parameter", error=True, abort=False)
 
 def verboseHeader(string, time_in_sec, round_digits=2):
     import click
-    from PyFunctions import echo, fmtSeconds
+    from pydoni.vb import echo
+    from pydoni.pyobj import fmtSeconds
     esttime = fmtSeconds(time_in_sec, round_digits=round_digits)
     echo('{} {} Est. time: {}'.format(
         click.style(string, fg='white', bold=True),

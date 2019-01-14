@@ -88,39 +88,9 @@ def removeFinderTags(filepath, tags):
 
 def checkDpath(dpaths=[]):
     import os
-    from PyFunctions import echo, clickfmt
+    from pydoni.vb import echo, clickfmt
     if not isinstance(dpaths, list):
         dpaths = [dpaths]
     for dpath in dpaths:
         if not os.path.isdir(dpath):
             echo('Directory {} does not exist'.format(clickfmt(dpath, 'filepath')), abort=True)
-
-def fmtSeconds(time_in_sec, units='auto', round_digits=4):  # Format time in seconds
-    from PyFunctions import echoError
-    if units == 'auto':
-        if time_in_sec < 60:
-            time_diff = round(time_in_sec, round_digits)
-            time_measure = 'seconds'
-        elif time_in_sec >= 60 and time_in_sec < 3600:
-            time_diff = round(time_in_sec/60, round_digits)
-            time_measure = 'minutes'
-        elif time_in_sec >= 3600 and time_in_sec < 86400:
-            time_diff = round(time_in_sec/3600, round_digits)
-            time_measure = 'hours'
-        else:
-            time_diff = round(time_in_sec/86400, round_digits)
-            time_measure = 'days'
-    elif units in ['seconds', 'minutes', 'hours', 'days']:
-        time_measure = units
-        if units == 'seconds':
-            time_diff = round(time_in_sec, round_digits)
-        elif units == 'minutes':
-            time_diff = round(time_in_sec/60, round_digits)
-        elif units == 'minutes':
-            time_diff = round(time_in_sec/3600, round_digits)
-        else:  # Days
-            time_diff = round(time_in_sec/86400, round_digits)
-    else:
-        echoError("Invalid 'units' parameter. Must be one of 'auto', 'seconds', 'minutes', 'hours' or 'days'")
-        return None
-    return dict(zip(['units', 'value'], [time_measure, time_diff]))

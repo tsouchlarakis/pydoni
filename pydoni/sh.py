@@ -23,7 +23,7 @@ def syscmd(cmd, encoding=''):
 
 def exiftool(filepath, rmtags=None):
     import subprocess, re
-    from PyFunctions import syscmd, echoError
+    from pydoni.sh import syscmd
     if rmtags:
         if isinstance(rmtags, str):
             res = syscmd('exiftool -overwrite_original -{}= "{}"'.format(rmtags, filepath))
@@ -31,7 +31,7 @@ def exiftool(filepath, rmtags=None):
             for tag in remove_tags:
                 res = syscmd('exiftool -overwrite_original -{}= "{}"'.format(tag, filepath))
         else:
-            echoError("Parameter 'rmtags' must be of type str or list", fn_name='exiftool')
+            echo("Parameter 'rmtags' must be of type str or list", fn_name='exiftool', abort=True)
         return None
     # Normal call to this function
     res = subprocess.run('exiftool "%s"' % filepath, stdout=subprocess.PIPE, shell=True)
@@ -42,14 +42,14 @@ def exiftool(filepath, rmtags=None):
     return dict(zip(keys, vals))
 
 def stat(fname):  # Call 'stat' UNIX command and parse output into a Python dictionary
-    from PyFunctions import syscmd
+    from pydoni.sh import syscmd
     def parseDatestring(fname, datestring):
         import datetime
         try:
             dt = datetime.datetime.strptime(datestring, '%a %b %d %H:%M:%S %Y')
             return dt.strftime('%Y-%m-%d %H:%M:%S')
         except Exception as e:
-            from PyFunctions import echo, clickfmt
+            from pydoni.vb import echo, clickfmt
             echo("Unable to parse date string {} for {} (original date string returned)". \
                     format(clickfmt(datestring, 'date'), clickfmt(fname, 'filename')), warn=True)
             return datestring
@@ -57,14 +57,14 @@ def stat(fname):  # Call 'stat' UNIX command and parse output into a Python dict
     res = syscmd(cmd).decode('utf-8')
     res = [x.strip() for x in res.split('\n')]
     return dict(
-        File     = res[0].split(':')[1].split('"')[1],
-        Size     = res[1].split(':')[1].strip().split(' ')[0],
-        FileType = res[1].split(':')[1].strip().split(' ')[1],
-        Mode     = res[2].split(':')[1].strip().split(' ')[0],
-        Uid      = res[2].split(':')[2].replace('Gid', '').strip(),
-        Device   = res[3].split(':')[1].replace('Inode', '').strip(),
-        Inode    = res[3].split(':')[2].replace('Links', '').strip(),
-        Links    = res[3].split(':')[3].strip(),
+        File       = res[0].split(':')[1].split('"')[1],
+        Size       = res[1].split(':')[1].strip().split(' ')[0],
+        FileType   = res[1].split(':')[1].strip().split(' ')[1],
+        Mode       = res[2].split(':')[1].strip().split(' ')[0],
+        Uid        = res[2].split(':')[2].replace('Gid', '').strip(),
+        Device     = res[3].split(':')[1].replace('Inode', '').strip(),
+        Inode      = res[3].split(':')[2].replace('Links', '').strip(),
+        Links      = res[3].split(':')[3].strip(),
         AccessDate = parseDatestring(fname, res[4].replace('Access:', '').strip()),
         ModifyDate = parseDatestring(fname, res[5].replace('Modify:', '').strip()),
         ChangeDate = parseDatestring(fname, res[6].replace('Change:', '').strip()))

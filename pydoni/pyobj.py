@@ -38,17 +38,17 @@ def sysdate(stripchars=False):
 
 def validatelen(varlist, varnames):  # Ensure lengths of variables are equal, otherwise error
     import click
-    from PyFunctions import echoError
+    from pydoni.vb import echo
     lengths = [len(x) for x in varlist]
     if len(set(lengths)) > 1:
-        echoError("Unequal variable lengths: {}. Respective lengths are {}".format(
+        echo("Unequal variable lengths: {}. Respective lengths are {}".format(
             ', '.join("'" + click.style(item,      fg='red', bold=True) + "'" for item in varnames),
             ', '.join("'" + click.style(str(item), fg='red', bold=True) + "'" for item in lengths)),
         fn_name='validatelen', abort=True)
 
 def userSelectFromList(lst, indent=0, msg=None, allow_range=True):
     import re
-    from PyFunctions import echo
+    from pydoni.vb import echo
     tab = '\t' * indent
     if not msg:
         msg = 'Please make a selection (hyphen-separated range ok): ' \
@@ -86,3 +86,32 @@ def userSelectFromList(lst, indent=0, msg=None, allow_range=True):
             continue
     return val
 
+def fmtSeconds(time_in_sec, units='auto', round_digits=4):  # Format time in seconds
+    from pydoni.vb import echo
+    if units == 'auto':
+        if time_in_sec < 60:
+            time_diff = round(time_in_sec, round_digits)
+            time_measure = 'seconds'
+        elif time_in_sec >= 60 and time_in_sec < 3600:
+            time_diff = round(time_in_sec/60, round_digits)
+            time_measure = 'minutes'
+        elif time_in_sec >= 3600 and time_in_sec < 86400:
+            time_diff = round(time_in_sec/3600, round_digits)
+            time_measure = 'hours'
+        else:
+            time_diff = round(time_in_sec/86400, round_digits)
+            time_measure = 'days'
+    elif units in ['seconds', 'minutes', 'hours', 'days']:
+        time_measure = units
+        if units == 'seconds':
+            time_diff = round(time_in_sec, round_digits)
+        elif units == 'minutes':
+            time_diff = round(time_in_sec/60, round_digits)
+        elif units == 'minutes':
+            time_diff = round(time_in_sec/3600, round_digits)
+        else:  # Days
+            time_diff = round(time_in_sec/86400, round_digits)
+    else:
+        echo("Invalid 'units' parameter. Must be one of 'auto', 'seconds', 'minutes', 'hours' or 'days'", abort=True)
+        return None
+    return dict(zip(['units', 'value'], [time_measure, time_diff]))

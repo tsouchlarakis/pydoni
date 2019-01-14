@@ -10,7 +10,7 @@
 
 ```
 Author         : Andoni Sooklaris  
-Language.      : Python
+Language       : Python
 Started Date   : 2018-11-25
 Completed Date : <in progress>
 ```

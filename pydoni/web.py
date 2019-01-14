@@ -20,11 +20,10 @@ def getElementBySelector(url, selector, attr=None):  # Defaults to extracting HT
         elem = [soup.select(selector)[i].text for i in range(len(soup.select(selector)))]
         return elem
     except Exception as e:
-        import click
-        from PyFunctions import echoError
-        echoError("Unable to parse {} for element {}".format(
+        from pydoni.vb import echo
+        echo("Unable to parse {} for element {}".format(
             clickfmt(url, fmt='url'), clickfmt(selector, fmt='red')), str(e),
-            fn_name='GetElementBySelector', abort=False)
+            fn_name='GetElementBySelector', error=True)
 
 def downloadfile(url, destfile):
     import requests, shutil
