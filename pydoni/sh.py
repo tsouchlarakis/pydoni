@@ -21,7 +21,7 @@ def syscmd(cmd, encoding=''):
             return output
     return p.returncode
 
-def exiftool(filepath, rmtags=None):
+def exiftool(filepath, rmtags=None, attr_name=None):
     import subprocess, re
     from pydoni.sh import syscmd
     if rmtags:
@@ -39,7 +39,13 @@ def exiftool(filepath, rmtags=None):
     exif = [x for x in res.split('\n') if x > '']
     keys = [re.sub(r'^(.*?)(:)(.*)$', r'\1', x).strip() for x in exif]
     vals = [re.sub(r'^(.*?)(:)(.*)$', r'\3', x).strip() for x in exif]
-    return dict(zip(keys, vals))
+    exif_dict = dict(zip(keys, vals))
+    if attr_name:  # Filter result
+        if isinstance(attr_name, str):
+            attr_name = [attr_name]
+        return {key: exif_dict[key] for key in attr_name}
+    else:
+        return exif_dict
 
 def stat(fname):  # Call 'stat' UNIX command and parse output into a Python dictionary
     from pydoni.sh import syscmd
@@ -68,3 +74,20 @@ def stat(fname):  # Call 'stat' UNIX command and parse output into a Python dict
         AccessDate = parseDatestring(fname, res[4].replace('Access:', '').strip()),
         ModifyDate = parseDatestring(fname, res[5].replace('Modify:', '').strip()),
         ChangeDate = parseDatestring(fname, res[6].replace('Change:', '').strip()))
+
+def mid3v2(fpath, attr_name, attr_value, quiet=True):
+    # Use mid3v2 to add or overwrite a metadata attribute to a file
+    from pydoni.sh import syscmd
+    from pydoni.vb import echo
+    valid_attr_name = ['artist', 'album', 'song', 'comment', 'picture', 'genre', 'year', \
+        'date', 'track']
+    if not isinstance(attr_name, str):
+        echo('mid3v2 attribute name must be of type string', abort=True)
+    if attr_name not in valid_attr_name:
+        echo('mid3v2 attribute name must be one of ' + ', '.join(x for x in valid_attr_name), abort=True)
+    if quiet:
+        out = syscmd('mid3v2 --{}="{}" "{}"'.format(attr_name, attr_value, fpath))
+    else:
+        syscmd('mid3v2 --{}="{}" "{}"'.format(attr_name, attr_value, fpath))
+    return None
+
