@@ -1,9 +1,7 @@
 def syscmd(cmd, encoding=''):
-    """
-    Runs a command on the system, waits for the command to finish, and then
+    """Runs a command on the system, waits for the command to finish, and then
     returns the text output of the command. If the command produces no text
-    output, the command's return code will be returned instead.
-    """
+    output, the command's return code will be returned instead."""
     import subprocess
     p = subprocess.Popen(
         cmd,

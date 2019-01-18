@@ -115,3 +115,6 @@ def fmtSeconds(time_in_sec, units='auto', round_digits=4):  # Format time in sec
         echo("Invalid 'units' parameter. Must be one of 'auto', 'seconds', 'minutes', 'hours' or 'days'", abort=True)
         return None
     return dict(zip(['units', 'value'], [time_measure, time_diff]))
+
+def listmode(lst):  # Get the most frequently-occurring value in a list
+    return max(set(lst), key=lst.count)
