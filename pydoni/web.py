@@ -21,9 +21,22 @@ def getElementBySelector(url, selector, attr=None):  # Defaults to extracting HT
         return elem
     except Exception as e:
         from pydoni.vb import echo
-        echo("Unable to parse {} for element {}".format(
+        echo("Unable to parse CSS Selector {} for element {}".format(
             clickfmt(url, fmt='url'), clickfmt(selector, fmt='red')), str(e),
-            fn_name='GetElementBySelector', error=True)
+            fn_name='getElementBySelector', error=True)
+
+def getElementByXPath(url, xpath):
+    import requests
+    from lxml import html
+    try:
+        page = requests.get(url)
+        tree = html.fromstring(page.content)
+        return tree.xpath(xpath)
+    except Exception as e:
+        from pydoni.vb import echo
+        echo("Unable to parse XPath {} for element {}".format(
+            clickfmt(url, fmt='url'), clickfmt(selector, fmt='red')), str(e),
+            fn_name='getElementByXPath', error=True)
 
 def downloadfile(url, destfile):
     import requests, shutil

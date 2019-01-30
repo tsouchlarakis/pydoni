@@ -46,7 +46,9 @@ def exiftool(filepath, rmtags=None, attr_name=None):
         return exif_dict
 
 def stat(fname):  # Call 'stat' UNIX command and parse output into a Python dictionary
+    import os
     from pydoni.sh import syscmd
+    from pydoni.vb import echo, clickfmt
     def parseDatestring(fname, datestring):
         import datetime
         try:
@@ -57,6 +59,9 @@ def stat(fname):  # Call 'stat' UNIX command and parse output into a Python dict
             echo("Unable to parse date string {} for {} (original date string returned)". \
                     format(clickfmt(datestring, 'date'), clickfmt(fname, 'filename')), warn=True)
             return datestring
+    if not os.path.isfile(fname):
+        echo('No such file or directory {}'.format(clickfmt(fname, 'filename')), error=True)
+        return None
     cmd = 'stat -x "{}"'.format(fname)
     res = syscmd(cmd).decode('utf-8')
     res = [x.strip() for x in res.split('\n')]
@@ -82,7 +87,8 @@ def mid3v2(fpath, attr_name, attr_value, quiet=True):
     if not isinstance(attr_name, str):
         echo('mid3v2 attribute name must be of type string', abort=True)
     if attr_name not in valid_attr_name:
-        echo('mid3v2 attribute name must be one of ' + ', '.join(x for x in valid_attr_name), abort=True)
+        echo('mid3v2 attribute name was "{}" must be one of '.format(attr_name) + \
+            ', '.join(x for x in valid_attr_name), abort=True)
     if quiet:
         out = syscmd('mid3v2 --{}="{}" "{}"'.format(attr_name, attr_value, fpath))
     else:

@@ -32,33 +32,7 @@ def echo(msg, indent=0, sleep=0, timestamp=False,
         import sys
         sys.exit()
 
-def echoError(msg, error_msg=None, fn_name=None, abort=True, stop=None):
-    import sys, click
-    if fn_name:
-        print_msg = '{} {} {}'.format(
-            click.style('ERROR in function', fg='red', bold=True),
-            click.style(fn_name + '():', fg='red', bold=True), msg)
-    else:
-        print_msg = '{} {}'.format(click.style('ERROR:', fg='red', bold=True), msg)
-    click.echo(print_msg)
-    if error_msg:
-        click.echo(error_msg)
-    if abort or stop:
-        quit_msg = 'Quitting program'
-        click.secho(quit_msg, fg='red', bold=True)
-        exit()
-
-def echoWarn(msg, fn_name=None):
-    import sys, click
-    if fn_name:
-        print_msg = '{} {} {}'.format(
-            click.style('WARNING in function', fg='yellow', bold=True),
-            click.style(fn_name + '():', fg='yellow', bold=True), msg)
-    else:
-        print_msg = '{} {}'.format(click.style('WARNING:', fg='yellow', bold=True), msg)
-    click.echo(print_msg)
-
-def clickfmt(string, fmt=['numeric', 'filename', 'filepath', 'url', 'date', 'arrow', 'green', 'red', 'yellow']):
+def clickfmt(string, fmt=['numeric', 'filename', 'filepath', 'url', 'date', 'arrow', 'green', 'red', 'yellow', 'cyan']):
     import click
     from pydoni.vb import echo
     if fmt == 'numeric':
@@ -79,6 +53,10 @@ def clickfmt(string, fmt=['numeric', 'filename', 'filepath', 'url', 'date', 'arr
         return click.style(string, fg='yellow', bold=True)
     elif fmt == 'white':
         return click.style(string, fg='white', bold=True)
+    elif fmt == 'cyan':
+        return click.style(string, fg='cyan', bold=True)
+    elif fmt == 'blue':
+        return click.style(string, fg='blue', bold=True)
     else:
         echo("Invalid 'fmt' parameter", error=True, abort=False)
 
@@ -101,5 +79,11 @@ def printColumns(lst, ncol, delay=None):  # Print a list as side-by-side columns
     col_width = max(len(word) for row in lstlst for word in row) + 2
     for row in lstlst:
         print(''.join(word.ljust(col_width) for word in row))
-        if delay > 0:
-            time.sleep(delay)
+        if delay:
+            if delay > 0:
+                time.sleep(delay)
+
+def programComplete(custom_string=None):
+    import emoji, click
+    msg = 'Program complete!' if not custom_string else custom_string
+    click.echo('{} {}'.format(click.style(msg, fg='green'), emoji.emojize(':thumbs_up:')))

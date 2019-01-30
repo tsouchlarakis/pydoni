@@ -37,14 +37,21 @@ def listdirs(path='.', full_names=False):
 def getFinderComment(filepath):
     import os
     cmd = 'mdls -r -nullMarker "" -n kMDItemFinderComment "%s"' % filepath
-    return os.popen(cmd).read()
+    res = os.popen(cmd).read()
+    res = '' if 'could not find ' + os.path.basename(filepath) in res else res
+    return res
 
 def writeFinderComment(filepath, comment):
     import re
+    from pydoni.sh import syscmd
     cmd = '/usr/bin/osascript -e'
-    applescript = 'set filepath to POSIX file "%s"\nset the_file to filepath as alias\ntell application "Finder" to set the comment of the_file to "%s"' % (filepath, comment)
-    applescript = re.sub(r'"', r'\"', applescript)
-    syscmd(cmd + ' "' + applescript + '"')
+    applescript = 'set filepath to POSIX file "{}"\nset the_file to filepath as alias\ntell application "Finder" to set the comment of the_file to "{}"'
+    applescript_clear = applescript.format(filepath, 'test')
+    applescript_set = applescript.format(filepath, comment)
+    applescript_clear = re.sub(r'"', r'\"', applescript_clear)
+    applescript_set = re.sub(r'"', r'\"', applescript_set)
+    res = syscmd(cmd + ' "' + applescript_clear + '"')
+    res = syscmd(cmd + ' "' + applescript_set + '"')
 
 def removeFinderComment(filepath):
     import os, re
@@ -59,10 +66,12 @@ def getFinderTags(filepath):
     tags = os.popen(cmd).read()
     tags = [x.strip() for x in tags.split('\n') if '(' not in x and ')' not in x]
     tags = [x.replace(',', '') for x in tags]
-    return tags if isinstance(tags, list) and len(tags) > 1 else tags[0]
+    tags = [tags] if isinstance(tags, str) else tags
+    return tags
 
 def writeFinderTags(filepath, tags):
     import os
+    from pydoni.sh import syscmd
     if isinstance(tags, list):
         for tag in tags:
             syscmd('tag --add "%s" "%s"' % (tag, filepath))
@@ -73,6 +82,7 @@ def writeFinderTags(filepath, tags):
 
 def removeFinderTags(filepath, tags):
     import os
+    from pydoni.sh import syscmd
     if tags == 'all':
         tags_exist = GetFinderTag(filepath)
         for tag in tags_exist:
