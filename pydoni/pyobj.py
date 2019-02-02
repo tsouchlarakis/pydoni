@@ -118,3 +118,6 @@ def fmtSeconds(time_in_sec, units='auto', round_digits=4):  # Format time in sec
 
 def listmode(lst):  # Get the most frequently-occurring value in a list
     return max(set(lst), key=lst.count)
+
+def dict_filter(d, keys):
+    return {k.lower().replace(' ', '_'): v for k, v in d.items() if k.lower().replace(' ', '_') in keys}
