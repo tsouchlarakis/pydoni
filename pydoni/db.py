@@ -83,25 +83,4 @@ class Postgres(object):
         values_final = ', '.join(str(x) for x in vals_cleaned)
         sql = "INSERT INTO {}.{} ({}) VALUES ({});"
         return sql.format(schema, table, columns, values_final)
-    def extract_datetime(self, value):
-        """Given a string with a date or datetime value, extract datetime value and
-        apply any timezone adjustment if necessary"""
-        import datefinder, re
-        from datetime import datetime, timedelta
-        def clean_value(value):
-            value = str(value) if not isinstance(value, str) else value
-            value = value.strip()
-            return value
-        value = clean_value(value)
-        rgx = dict(
-            date = r'^(\d{4}).(\d{2}).(\d{2}).*',
-            datetime = r'^(\d{4}).(\d{2}).(\d{2})\s+(\d{2}).(\d{2}).(\d{2}).*',
-            datetime_tz = r'^(\d{4}).(\d{2}).(\d{2})\s+(\d{2}).(\d{2}).(\d{2}).(\d+).(\d+).*')
-        if re.search(rgx['datetime_tz'], value):
-            return re.sub(rgx['datetime_tz'], r'\1-\2-\3 \4:\5:\6-\7:\8', value)
-        elif re.search(rgx['datetime'], value):
-            return re.sub(rgx['datetime'], r'\1-\2-\3 \4:\5:\6', value)
-        elif re.search(rgx['date'], value):
-            return re.sub(rgx['date'], r'\1-\2-\3', value)
-        else:
-            return None
+

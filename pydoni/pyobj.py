@@ -123,8 +123,7 @@ def dict_filter(d, keys):
     return {k.lower().replace(' ', '_'): v for k, v in d.items() if k.lower().replace(' ', '_') in keys}
 
 def extract_datetime(value):
-    """Given a string with a date or datetime value, extract datetime value and
-    apply any timezone adjustment if necessary"""
+    """Given a string with a date or datetime value, extract datetime value"""
     import datefinder, re
     from datetime import datetime, timedelta
     def clean_value(value):
