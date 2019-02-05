@@ -176,3 +176,94 @@ class Postgres(object):
         values_final = ', '.join(str(x) for x in vals_cleaned)
         sql = "INSERT INTO {}.{} ({}) VALUES ({});"
         return sql.format(schema, table, columns, values_final)
+
+class Movie(object):
+    def __init__(self, fname):
+        import re
+        from pydoni.os import getFinderComment
+        self.fname = fname
+        (self.title, self.year, self.ext) = self.parse_movie_year_ext()
+        self.omdb_populated = False  # Will be set to True if self.query_omdb() is successful
+    def parse_movie_year_ext(self):
+        import re, os
+        ext       = os.path.splitext(self.fname)[1]
+        movie     = os.path.splitext(self.fname)[0]
+        rgx_movie = r'^(.*?)\((\d{4})\)'
+        title     = re.sub(rgx_movie, r'\1', movie).strip()
+        year      = re.sub(rgx_movie, r'\2', movie)
+        return (title, year, ext)
+    def query_omdb(self):
+        import omdb
+        try:
+            met = omdb.get(title=self.title, year=self.year, fullplot=False, tomatoes=False)
+            met = None if not len(met) else met
+            if met:
+                for key, val in met.items():
+                    setattr(self, key, val)
+                self.parse_ratings()
+                self.manual_clean_values()
+                self.omdb_populated = True
+                del self.title, self.year, self.ext
+        except:
+            self.omdb_populated = False  # Query unsuccessful
+    def parse_ratings(self):
+        import re, numpy as np
+        if len(self.ratings):
+            for rating in self.ratings:
+                source = rating['source']
+                if source.lower() not in ['internet movie database', 'rotten tomatoes', 'metacritic']:
+                    continue
+                source = re.sub('internet movie database', 'rating_imdb', source, flags=re.IGNORECASE)
+                source = re.sub('rotten tomatoes', 'rating_rt', source, flags=re.IGNORECASE)
+                source = re.sub('metacritic', 'rating_mc', source, flags=re.IGNORECASE)
+                source = source.replace(' ', '')
+                value = rating['value']
+                value = value.replace('/100', '')
+                value = value.replace('/10', '')
+                value = value.replace('%', '')
+                value = value.replace('.', '')
+                value = value.replace(',', '')
+                setattr(self, source, value)
+        self.rating_imdb = np.nan if not hasattr(self, 'rating_imdb') else self.rating_imdb
+        self.rating_rt   = np.nan if not hasattr(self, 'rating_rt') else self.rating_rt
+        self.rating_mc   = np.nan if not hasattr(self, 'rating_mc') else self.rating_mc
+        if hasattr(self, 'ratings'):
+            del self.ratings
+        if hasattr(self, 'imdb_rating'):
+            del self.imdb_rating
+        if hasattr(self, 'metascore'):
+            del self.metascore
+    def manual_clean_values(self):
+        def convert_to_int(value):
+            import numpy as np
+            if isinstance(value, int):
+                return value
+            try:
+                return int(value.replace(',', '').replace('.', '').replace('min', '').replace(' ', '').strip())
+            except:
+                return np.nan
+        def convert_to_datetime(value):
+            import numpy as np
+            from datetime import datetime
+            if not isinstance(value, str):
+                return np.nan
+            try:
+                return datetime.strptime(value, '%d %b %Y').strftime('%Y-%m-%d')
+            except:
+                return np.nan
+        for attr in ['rating_imdb', 'rating_mc', 'rating_rt', 'imdb_votes', 'runtime']:
+            if hasattr(self, attr):
+                setattr(self, attr, convert_to_int(getattr(self, attr)))
+        self.released = convert_to_datetime(self.released)
+        self.dvd      = convert_to_datetime(self.dvd)
+        self.replace_value('N/A', np.nan)
+        if self.response == 'True':
+            self.response = True
+        elif self.response == 'False':
+            self.response = False
+        else:
+            self.response = np.nan
+    def replace_value(self, value, replacement):
+        for key, val in self.__dict__.items():
+            if val == value:
+                setattr(self, key, replacement)
