@@ -1,3 +1,23 @@
+class ProgramEnv(object):
+    """Handle a temporary program environment for a Python program"""
+    def __init__(self, path, overwrite=True):
+        import os, shutil
+        from pydoni.vb import echo
+        self.path = path
+        if os.path.isdir(self.path):
+            if overwrite:
+                shutil.rmtree(self.path)
+            else:
+                echo("Specified path already exists and 'overwrite' set to False", abort=True)
+        os.mkdir(self.path)
+    def copyfile(self, fname):
+        """Copy a file into the environment"""
+        import shutil
+        shutil.copyfile(fname, os.path.join(self.path, os.path.basename(fname)))
+    def delete_env(self):
+        import shutil
+        shutil.rmtree(self.path)
+
 class Audio(object):
     """Operate on an audio file"""
     def __init__(self, fname):
@@ -60,13 +80,13 @@ class Audio(object):
         sound.export(outfile, format='mp3')
         self.fname = outfile
         return None
-    def set_google_credentials(google_application_credentials_json):
+    def set_google_credentials(self, google_application_credentials_json):
         """Set environment variable as path to Google credentials JSON file"""
         import os
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_application_credentials_json
     def transcribe(self):
         """Transcribe the given audio file using Google Cloud Speech Recognition"""
-        import re
+        import re, os
         from google.cloud import speech_v1p1beta1 as speech
         # Convert audio file to wav if mp3
         if self.fmt == 'mp3':
@@ -107,6 +127,7 @@ class Audio(object):
                 transcript = self.transcript
         def smart_dictation(transcript):
             """Apply corrections to spoken keywords like 'comma', 'period' or 'quote'/'unquote'"""
+            import re
             dictation_map = {
                 ' comma'             : ',',
                 ' colon'             : ':',
@@ -125,10 +146,11 @@ class Audio(object):
                 r' tag emphasized\n' : '<em>\n',
                 r' emphasized\n'     : '<em>\n'}
             for string, replacement in dictation_map.items():
-                res = re.sub(string, replacement, transcript, flags=re.IGNORECASE)
-            return res
+                transcript = re.sub(string, replacement, transcript, flags=re.IGNORECASE)
+            return transcript
         def smart_capitalize(transcript):
             """Capitalize transcript intelligently"""
+            import re
             from pydoni.pyobj import capNthChar, replaceNthChar, insertNthChar
             # Capitalize first letter
             val = transcript
@@ -176,10 +198,11 @@ class Audio(object):
                 'grace'                 : 'Grace',
                 'the west'              : 'the West',
                 'The west'              : 'The West',
-                'on certain'            : 'uncertain'}
+                'on certain'            : 'uncertain',
+                'advent'                : 'advent'}
             for string, replacement in dictation_map.items():
-                res = re.sub(string, replacement, transcript, flags=re.IGNORECASE)
-            return res
+                transcript = re.sub(string, replacement, transcript, flags=re.IGNORECASE)
+            return transcript
         self.transcript = smart_dictation(self.transcript)
         self.transcript = smart_capitalize(self.transcript)
         self.transcript = manual_corrections(self.transcript)
@@ -193,6 +216,9 @@ class Audio(object):
             duration = frames / float(rate)
         self.duration = duration
         return duration
+    def write(self, outfile):
+        with open(outfile, 'w') as f:
+            f.write(self.transcript)
 
 class Postgres(object):
     def __init__(self, pg_user, pg_dbname):
