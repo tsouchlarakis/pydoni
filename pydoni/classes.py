@@ -96,13 +96,16 @@ class Audio(object):
         transcript = re.sub(r' +', ' ', ' '.join(transcript)).strip()
         self.transcript = transcript
         return transcript
-    def apply_transcription_corrections(self, transcript=self.transcript):
+    def apply_transcription_corrections(self, transcript=None):
         """Apply any and all corrections to output of self.transcribe()"""
-        if not hasattr(self, 'transcript'):
-            from pydoni.vb import echo
-            echo('Must create transcript before calling Audio.apply_smart_dictation_corrections.smart_dictation()! Try running Audio.transcribe() first', error=True)
-            return None
-        def smart_dictation(self, transcript):
+        if not transcript:
+            if not hasattr(self, 'transcript'):
+                from pydoni.vb import echo
+                echo('Must create transcript before calling Audio.apply_smart_dictation_corrections.smart_dictation()! Try running Audio.transcribe() first', error=True)
+                return None
+            else:
+                transcript = self.transcript
+        def smart_dictation(transcript):
             """Apply corrections to spoken keywords like 'comma', 'period' or 'quote'/'unquote'"""
             dictation_map = {
                 ' comma'             : ',',
@@ -114,20 +117,21 @@ class Audio(object):
                 ' unquote'           : '"',
                 ' end quote'         : '"',
                 'quote '             : '"',
-                ' hyphen '           : '-'
+                ' hyphen '           : '-',
                 r'(\b)(tab)(\b)'     : '  ',
                 r'( *)(new line)( *)': '\n',
-                r' tag emphasis\n'   : '<em>\n'
-                r' emphasis\n'       : '<em>\n'
-                r' tag emphasized\n' : '<em>\n'
+                r' tag emphasis\n'   : '<em>\n',
+                r' emphasis\n'       : '<em>\n',
+                r' tag emphasized\n' : '<em>\n',
                 r' emphasized\n'     : '<em>\n'}
             for string, replacement in dictation_map.items():
-                self.transcript = re.sub(string, replacement, self.transcript, flags=re.IGNORECASE)
-        def smart_capitalize(self, transcript):
+                res = re.sub(string, replacement, transcript, flags=re.IGNORECASE)
+            return res
+        def smart_capitalize(transcript):
             """Capitalize transcript intelligently"""
             from pydoni.pyobj import capNthChar, replaceNthChar, insertNthChar
             # Capitalize first letter
-            val = self.transcript
+            val = transcript
             val = capNthChar(val, 0)
             # Capitalize word following keyphrase 'make capital'
             cap_idx = [m.start()+len('make capital')+1 for m in re.finditer('make capital', val)]
@@ -149,8 +153,8 @@ class Audio(object):
                 q_idx = [m.start()+len('? ') for m in re.finditer(r'\? ', val)]
                 for idx in q_idx:
                     val = capNthChar(val, idx)
-            self.transcript = val
-        def manual_corrections(self, transcript):
+            return val
+        def manual_corrections(transcript):
             """Apply manual corrections to transcription"""
                 # Regex word replacements
             import re
@@ -174,10 +178,11 @@ class Audio(object):
                 'The west'              : 'The West',
                 'on certain'            : 'uncertain'}
             for string, replacement in dictation_map.items():
-                self.transcript = re.sub(string, replacement, flags=re.IGNORECASE)
-        smart_dictation(transcript)
-        smart_capitalize(transcript)
-        manual_corrections(transcript)
+                res = re.sub(string, replacement, transcript, flags=re.IGNORECASE)
+            return res
+        self.transcript = smart_dictation(self.transcript)
+        self.transcript = smart_capitalize(self.transcript)
+        self.transcript = manual_corrections(self.transcript)
     def get_duration(self):
         """Get the duration of audio file"""
         import wave
