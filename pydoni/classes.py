@@ -20,7 +20,7 @@ class Audio(object):
         self.fmt = dest_fmt
         return None
     def split(self, segment_time=60):
-        """Split audio file into segments of given length"""
+        """Split audio file into segments of given length using ffmpeg"""
         import os, re
         from pydoni.sh import syscmd
         from pydoni.os import listfiles
@@ -30,10 +30,6 @@ class Audio(object):
             os.path.splitext(self.fname)[0],
             os.path.splitext(self.fname)[1])
         res = syscmd(cmd)
-        # out_pattern = os.path.splitext(self.fname)[0] + '-' + r'\d{3}' + os.path.splitext(self.fname)[1]
-        # out_pattern = os.path.basename(out_pattern)
-        # files_written = [f for f in os.listdir(dirname) if re.search(out_pattern, f)]
-        # return [os.path.join(dirname, f) for f in files_written]
         self.fnames_split = listfiles(pattern=r'ffmpeg-\d{3}\.%s' % self.fmt)
         return None
     def join(self, audiofiles, silence_between=1000):
@@ -65,10 +61,11 @@ class Audio(object):
         self.fname = outfile
         return None
     def set_google_credentials(google_application_credentials_json):
+        """Set environment variable as path to Google credentials JSON file"""
         import os
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_application_credentials_json
     def transcribe(self):
-        """Transcribe the given audio file"""
+        """Transcribe the given audio file using Google Cloud Speech Recognition"""
         import re
         from google.cloud import speech_v1p1beta1 as speech
         # Convert audio file to wav if mp3
@@ -99,7 +96,90 @@ class Audio(object):
         transcript = re.sub(r' +', ' ', ' '.join(transcript)).strip()
         self.transcript = transcript
         return transcript
+    def apply_transcription_corrections(self, transcript=self.transcript):
+        """Apply any and all corrections to output of self.transcribe()"""
+        if not hasattr(self, 'transcript'):
+            from pydoni.vb import echo
+            echo('Must create transcript before calling Audio.apply_smart_dictation_corrections.smart_dictation()! Try running Audio.transcribe() first', error=True)
+            return None
+        def smart_dictation(self, transcript):
+            """Apply corrections to spoken keywords like 'comma', 'period' or 'quote'/'unquote'"""
+            dictation_map = {
+                ' comma'             : ',',
+                ' colon'             : ':',
+                ' semicolon'         : ';',
+                ' period'            : '.',
+                ' exclamation point' : '!',
+                ' question mark'     : '?',
+                ' unquote'           : '"',
+                ' end quote'         : '"',
+                'quote '             : '"',
+                ' hyphen '           : '-'
+                r'(\b)(tab)(\b)'     : '  ',
+                r'( *)(new line)( *)': '\n',
+                r' tag emphasis\n'   : '<em>\n'
+                r' emphasis\n'       : '<em>\n'
+                r' tag emphasized\n' : '<em>\n'
+                r' emphasized\n'     : '<em>\n'}
+            for string, replacement in dictation_map.items():
+                self.transcript = re.sub(string, replacement, self.transcript, flags=re.IGNORECASE)
+        def smart_capitalize(self, transcript):
+            """Capitalize transcript intelligently"""
+            from pydoni.pyobj import capNthChar, replaceNthChar, insertNthChar
+            # Capitalize first letter
+            val = self.transcript
+            val = capNthChar(val, 0)
+            # Capitalize word following keyphrase 'make capital'
+            cap_idx = [m.start()+len('make capital')+1 for m in re.finditer('make capital', val)]
+            if len(cap_idx):
+                for idx in cap_idx:
+                    val = capNthChar(val, idx)
+                val = val.replace('make capital ', '')
+            # Capitalize and concatenate letters following keyphrase 'make letter'. Ex: 'make letter a' -> 'A'
+            letter_idx = [m.start()+len('make letter')+1 for m in re.finditer('make letter', val)]
+            if len(letter_idx):
+                for idx in letter_idx:
+                    val = capNthChar(val, idx)
+                    val = replaceNthChar(val, idx+1, '.')
+                    if idx == letter_idx[len(letter_idx)-1]:
+                        val = insertNthChar(val, idx+2, ' ')
+                val = val.replace('make letter ', '')
+            # Capitalize letter following '?'
+            if '? ' in val:
+                q_idx = [m.start()+len('? ') for m in re.finditer(r'\? ', val)]
+                for idx in q_idx:
+                    val = capNthChar(val, idx)
+            self.transcript = val
+        def manual_corrections(self, transcript):
+            """Apply manual corrections to transcription"""
+                # Regex word replacements
+            import re
+            dictation_map = {
+                r'(\b)(bye bye)(\b)'    : r'\1Baba\3',
+                r'(\b)(Theon us)(\b)'   : r'\1Thea Anna\'s\3',
+                r'(\b)(Theon as)(\b)'   : r'\1Thea Anna\'s\3',
+                r'(\b)(the ana\'s)(\b)' : r'\1Thea Anna\'s\3',
+                r'(\b)(the ionos)(\b)'  : r'\1Thea Anna\'s\3',
+                r'(\b)(tab)(\b)'        : ' ',
+                r'( *)(new line)( *)'   : '\n',
+                # Capitalize first letter of sentence following tab indentation,
+                r'\n([A-Za-z])'         : lambda x: '\n' + x.groups()[0].upper(),
+                r'\n  ([A-Za-z])'       : lambda x: '\n  ' + x.groups()[0].upper(),
+                r'\n    ([A-Za-z])'     : lambda x: '\n    ' + x.groups()[0].upper(),
+                r'\n      ([A-Za-z])'   : lambda x: '\n      ' + x.groups()[0].upper(),
+                r'\n        ([A-Za-z])' : lambda x: '\n        ' + x.groups()[0].upper(),
+                r"s\'s"                 : "s'",
+                'grace'                 : 'Grace',
+                'the west'              : 'the West',
+                'The west'              : 'The West',
+                'on certain'            : 'uncertain'}
+            for string, replacement in dictation_map.items():
+                self.transcript = re.sub(string, replacement, flags=re.IGNORECASE)
+        smart_dictation(transcript)
+        smart_capitalize(transcript)
+        manual_corrections(transcript)
     def get_duration(self):
+        """Get the duration of audio file"""
         import wave
         import contextlib
         with contextlib.closing(wave.open(self.fname,'r')) as f:

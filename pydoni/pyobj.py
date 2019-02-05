@@ -143,3 +143,12 @@ def extract_datetime(value):
         return re.sub(rgx['date'], r'\1-\2-\3', value)
     else:
         return None
+
+def capNthChar(string, n):
+    return string[:n] + string[n].capitalize() + string[n+1:]
+
+def replaceNthChar(string, n, replacement):
+    return string[:n] + replacement + string[n+1:]
+
+def insertNthChar(string, n, char):
+    return string [:n] + char + string[n:]
