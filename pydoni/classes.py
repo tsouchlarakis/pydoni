@@ -63,10 +63,12 @@ class Audio(object):
         import os
         self.fname = fname
         self.fmt = os.path.splitext(self.fname)[1].replace('.', '').lower()
-    def convert(self, dest_fmt):
+    def convert(self, dest_fmt, verbose=False):
         """Convert an audio file to destination format and write with identical filename"""
         import os
         from pydub import AudioSegment
+        from pydoni.vb import echo
+        echo("Converting input file to format '{}'".format(dest_fmt)) if verbose else None
         if self.fmt == 'mp3' and dest_fmt == 'wav':
             sound = AudioSegment.from_mp3(self.fname)
         elif self.fmt == 'wav' and dest_fmt == 'mp3':
@@ -79,11 +81,13 @@ class Audio(object):
         self.fname = outfile
         self.fmt = dest_fmt
         return None
-    def split(self, segment_time=55):
+    def split(self, segment_time=55, verbose=False):
         """Split audio file into segments of given length using ffmpeg"""
         import os, re
         from pydoni.sh import syscmd
         from pydoni.os import listfiles
+        from pydoni.vb import echo
+        echo("Duration longer than 55 seconds, splitting audio file with ffmpeg") if verbose else None
         # dirname = os.path.dirname(self.fname)
         cmd = 'ffmpeg -i "{}" -f segment -segment_time {} -c copy "{}-ffmpeg-%03d{}"'.format(
             self.fname, segment_time,
@@ -99,6 +103,7 @@ class Audio(object):
         import os, re
         from pydub import AudioSegment
         from pydoni.pyobj import systime
+        from pydoni.vb import echo
         sound = AudioSegment.silent(duration=1)
         audiofiles = [self.fname] + audiofiles
         for fname in audiofiles:
@@ -124,16 +129,18 @@ class Audio(object):
         """Set environment variable as path to Google credentials JSON file"""
         import os
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_application_credentials_json
-    def transcribe(self):
+    def transcribe(self, verbose=False):
         """Transcribe the given audio file using Google Cloud Speech Recognition"""
         import re, os, tqdm
         from google.cloud import speech_v1p1beta1 as speech
+        from pydoni.vb import echo
         # Convert audio file to wav if mp3
         if self.fmt == 'mp3':
-            self.convert('wav')
+            self.convert('wav', verbose=verbose)
         # Split audio file into segments if longer than 60 seconds
         if self.get_duration() > 55:
-            self.split(55)
+            self.split(55, verbose=verbose)
+        echo('Transcribing audio file') if verbose else None
         fnames_transcribe = self.fnames_split if hasattr(self, 'fnames_split') else [self.fname]
         client = speech.SpeechClient()
         transcript = []
@@ -263,9 +270,11 @@ class Audio(object):
             duration = frames / float(rate)
         self.duration = duration
         return duration
-    def write(self, outfile):
+    def write(self, outfile, verbose=False):
+        from pydoni.vb import echo, clickfmt
         with open(outfile, 'w') as f:
             f.write(self.transcript)
+            echo('Transcript written to {}'.format(clickfmt(outfile, 'filepath'))) if verbose else None
 
 class Postgres(object):
     def __init__(self, pg_user, pg_dbname):
