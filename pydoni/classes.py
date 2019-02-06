@@ -309,7 +309,7 @@ class Postgres(object):
                 # Get datatype
                 if isinstance(val, bool) or str(val).lower() in ['true', 'false']:
                     pass
-                elif isinstance(val, int):
+                elif isinstance(val, int) or isinstance(val, float):
                     pass
                 else:  # Assume string, handle quotes
                     val = val.replace("'", "''")  # Escape single quotes
@@ -334,7 +334,7 @@ class Postgres(object):
                 val = 'NULL'
             elif isinstance(val, bool) or str(val).lower() in ['true', 'false']:
                 pass
-            elif isinstance(val, int):
+            elif isinstance(val, int) or isinstance(val, float):
                 pass
             else:  # Assume string, handle quotes
                 val = val.replace("'", "''")  # Escape single quotes
@@ -343,6 +343,11 @@ class Postgres(object):
         values_final = ', '.join(str(x) for x in vals_cleaned)
         sql = "INSERT INTO {}.{} ({}) VALUES ({});"
         return sql.format(schema, table, columns, values_final)
+    def get_column_names(self, schema, table):
+        column_sql = "SELECT column_name FROM information_schema.columns WHERE table_schema = '{}' AND table_name = '{}'"
+        return self.read_sql(column_sql.format(schema, table)).squeeze().tolist()
+    def get_full_table(self, schema, table):
+        return self.read_sql("SELECT * FROM {}.{}".format(schema, table))
 
 class Movie(object):
     def __init__(self, fname):
