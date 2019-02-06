@@ -20,7 +20,7 @@ class Attribute(object):
 class GlobalVar(object):
     """Hold all program variables in a single Python object"""
     def __init__(self):
-        self.dir = Attribute()
+        pass
 
 class ProgramEnv(object):
     """Handle a temporary program environment for a Python program"""
