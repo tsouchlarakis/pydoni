@@ -4,16 +4,31 @@ class ProgramEnv(object):
         import os, shutil
         from pydoni.vb import echo
         self.path = path
+        # 'focus' is the current working file, if specified
+        self.focus = None
+        # Overwrite existing directory if specified and directory exists
         if os.path.isdir(self.path):
             if overwrite:
                 shutil.rmtree(self.path)
             else:
                 echo("Specified path already exists and 'overwrite' set to False", abort=True)
         os.mkdir(self.path)
-    def copyfile(self, fname):
+    def copyfile(self, fname, set_focus=False):
         """Copy a file into the environment"""
-        import shutil
-        shutil.copyfile(fname, os.path.join(self.path, os.path.basename(fname)))
+        import os, shutil
+        env_dest = os.path.join(self.path, os.path.basename(fname))
+        shutil.copyfile(fname, env_dest)
+        if set_focus:
+            self.focus = env_dest
+    def listfiles(self, path='.', pattern=None, full_names=False, recursive=False, ignore_case=True, include_hidden_files=False):
+        from pydoni.os import listfiles
+        files = listfiles(path=path, pattern=pattern, full_names=full_names,
+            recursive=recursive, ignore_case=ignore_case,
+            include_hidden_files=include_hidden_files)
+        return files
+    def listdirs(self, path='.', full_names=False):
+        from pydoni.os import listdirs
+        return listdirs(path=path, full_names=full_names)
     def delete_env(self):
         import shutil
         shutil.rmtree(self.path)
@@ -26,6 +41,7 @@ class Audio(object):
         self.fmt = os.path.splitext(self.fname)[1].replace('.', '').lower()
     def convert(self, dest_fmt):
         """Convert an audio file to destination format and write with identical filename"""
+        import os
         from pydub import AudioSegment
         if self.fmt == 'mp3' and dest_fmt == 'wav':
             sound = AudioSegment.from_mp3(self.fname)
@@ -210,7 +226,7 @@ class Audio(object):
         """Get the duration of audio file"""
         import wave
         import contextlib
-        with contextlib.closing(wave.open(self.fname,'r')) as f:
+        with contextlib.closing(wave.open(self.fname, 'r')) as f:
             frames = f.getnframes()
             rate = f.getframerate()
             duration = frames / float(rate)
