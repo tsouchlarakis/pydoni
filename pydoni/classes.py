@@ -1,3 +1,27 @@
+class Attribute(object):
+    def __init__(self):
+        pass
+    def flatten(self):
+        """Combine all subattributes of an Attribute. If all lists, flatten to single
+        list. If all strings, join into a list."""
+        dct = self.__dict__
+        is_list = list(set([True for k, v in dct.items() if isinstance(v, list)]))
+        if len(is_list) == 0:
+            # Assume string, no matches for isinstance(..., list)
+            return [v for k, v in dct.items()]
+        elif len(is_list) > 1:
+            print('ERROR: Unable to flatten, varying datatypes (list, string, ...)')
+            return None
+        else:
+            # Flatten list of lists
+            lst_of_lst = [v for k, v in dct.items()]
+            return [item for sublist in lst_of_lst for item in sublist]
+
+class GlobalVar(object):
+    """Hold all program variables in a single Python object"""
+    def __init__(self):
+        self.dir = Attribute()
+
 class ProgramEnv(object):
     """Handle a temporary program environment for a Python program"""
     def __init__(self, path, overwrite=True):
@@ -55,7 +79,7 @@ class Audio(object):
         self.fname = outfile
         self.fmt = dest_fmt
         return None
-    def split(self, segment_time=60):
+    def split(self, segment_time=55):
         """Split audio file into segments of given length using ffmpeg"""
         import os, re
         from pydoni.sh import syscmd
@@ -102,18 +126,18 @@ class Audio(object):
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_application_credentials_json
     def transcribe(self):
         """Transcribe the given audio file using Google Cloud Speech Recognition"""
-        import re, os
+        import re, os, tqdm
         from google.cloud import speech_v1p1beta1 as speech
         # Convert audio file to wav if mp3
         if self.fmt == 'mp3':
             self.convert('wav')
         # Split audio file into segments if longer than 60 seconds
-        if self.get_duration() > 60:
-            self.split(60)
+        if self.get_duration() > 55:
+            self.split(55)
         fnames_transcribe = self.fnames_split if hasattr(self, 'fnames_split') else [self.fname]
         client = speech.SpeechClient()
         transcript = []
-        for fname in fnames_transcribe:
+        for fname in tqdm.tqdm(fnames_transcribe):
             with open(fname, 'rb') as audio_file:
                 content = audio_file.read()
             audio = speech.types.RecognitionAudio(content=content)
@@ -145,22 +169,27 @@ class Audio(object):
             """Apply corrections to spoken keywords like 'comma', 'period' or 'quote'/'unquote'"""
             import re
             dictation_map = {
-                ' comma'             : ',',
-                ' colon'             : ':',
-                ' semicolon'         : ';',
-                ' period'            : '.',
-                ' exclamation point' : '!',
-                ' question mark'     : '?',
-                ' unquote'           : '"',
-                ' end quote'         : '"',
-                'quote '             : '"',
-                ' hyphen '           : '-',
-                r'(\b)(tab)(\b)'     : '  ',
-                r'( *)(new line)( *)': '\n',
-                r' tag emphasis\n'   : '<em>\n',
-                r' emphasis\n'       : '<em>\n',
-                r' tag emphasized\n' : '<em>\n',
-                r' emphasized\n'     : '<em>\n'}
+                r'(\b|\s)(comma)(\s|\b)'            : r',\3',
+                r'(\b|\s)(colon)(\s|\b)'            : r':\3',
+                r'(\b|\s)(semicolon)(\s|\b)'        : r';\3',
+                r'(\b|\s)(period)(\s|\b)'           : r'.\3',
+                r'(\b|\s)(exclamation point)(\s|\b)': r'!\3',
+                r'(\b|\s)(question mark)(\s|\b)'    : r'?\3',
+                r'(\b|\s)(unquote)(\s|\b)'          : r'"\3',
+                r'(\b|\s)(end quote)(\s|\b)'        : r'"\3',
+                r'(\b|\s)(quote)(\s|\b)'            : r'\1"',
+                r'(\b|\s)(hyphen)(\s|\b)'           : '-',
+                ' , '                               : ', ',
+                ' . '                               : '. ',
+                r'(\b|\s)(tab)(\s|\b)'              : '\t',
+                r'( *)(new line)( *)'               : '\n',
+                r'( *)(newline)( *)'                : '\n',
+                r'(\b|\s)(tag title)\n'             : r'\1<title>\n',
+                r'(\b|\s)(tag heading)\n'           : r'\1<h>\n',
+                r'(\b|\s)(tag emphasis)\n'          : r'\1<em>\n',
+                r'(\b|\s)(emphasis)\n'              : r'\1<em>\n',
+                r'(\b|\s)(tag emphasized)\n'        : r'\1<em>\n',
+                r'(\b|\s)(emphasized)\n'            : r'\1<em>\n'}
             for string, replacement in dictation_map.items():
                 transcript = re.sub(string, replacement, transcript, flags=re.IGNORECASE)
             return transcript
@@ -192,18 +221,19 @@ class Audio(object):
                 for idx in q_idx:
                     val = capNthChar(val, idx)
             return val
+        def excess_spaces(transcript):
+            import re
+            return re.sub(r' +', ' ', transcript)
         def manual_corrections(transcript):
             """Apply manual corrections to transcription"""
                 # Regex word replacements
             import re
             dictation_map = {
-                r'(\b)(bye bye)(\b)'    : r'\1Baba\3',
-                r'(\b)(Theon us)(\b)'   : r'\1Thea Anna\'s\3',
-                r'(\b)(Theon as)(\b)'   : r'\1Thea Anna\'s\3',
-                r'(\b)(the ana\'s)(\b)' : r'\1Thea Anna\'s\3',
-                r'(\b)(the ionos)(\b)'  : r'\1Thea Anna\'s\3',
-                r'(\b)(tab)(\b)'        : ' ',
-                r'( *)(new line)( *)'   : '\n',
+                r'(\b)(bye bye)(\b)'    : 'Baba',
+                r'(\b)(Theon us)(\b)'   : "Thea Anna's",
+                r'(\b)(Theon as)(\b)'   : "Thea Anna's",
+                r'(\b)(the ana\'s)(\b)' : "Thea Anna's",
+                r'(\b)(the ionos)(\b)'  : "Thea Anna's",
                 # Capitalize first letter of sentence following tab indentation,
                 r'\n([A-Za-z])'         : lambda x: '\n' + x.groups()[0].upper(),
                 r'\n  ([A-Za-z])'       : lambda x: '\n  ' + x.groups()[0].upper(),
@@ -221,6 +251,7 @@ class Audio(object):
             return transcript
         self.transcript = smart_dictation(self.transcript)
         self.transcript = smart_capitalize(self.transcript)
+        self.transcript = excess_spaces(self.transcript)
         self.transcript = manual_corrections(self.transcript)
     def get_duration(self):
         """Get the duration of audio file"""
