@@ -457,11 +457,16 @@ class DoniDt(object):
         self.rgx.d = r'(\d{4}).(\d{2}).(\d{2})'
         self.rgx.dt = r'(\d{4}).(\d{2}).(\d{2})\s+(\d{2}).(\d{2}).(\d{2})'
         self.rgx.dt_tz = r'(\d{4}).(\d{2}).(\d{2})\s+(\d{2}).(\d{2}).(\d{2})(.)(\d+).(\d+)'
+    def exact_fmt(self):
+        """Test if input string is exactly a date or datetime value"""
+        import re
+        m = [bool(re.search(pattern, self.val)) for pattern in \
+                ['^' + x + '$' for x in  self.rgx.__flatten__()]]
+        return any(m)
     def extract_first(self, apply_tz=False):
         """Given a string with a date or datetime value, extract the FIRST datetime
         value as string"""
-        import datefinder, re
-        import datetime
+        import re, datetime
         val = self.val
         val = str(val).strip() if not isinstance(val, str) else val.strip()
         if re.search(self.rgx.dt_tz, val):
