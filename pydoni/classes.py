@@ -305,8 +305,8 @@ class Postgres(object):
         for i in range(len(columns)):
             col = columns[i]
             val = values[i]
-            if re.match('^\d{4}.\d{2}.\d{2}', val):
-                val = extract_datetime(val, apply_tz=True)
+            if DoniDt(val).contains():
+                val = DoniDt(val).extract_first(apply_tz=True)
             if str(val).lower() in ['nan', 'n/a', 'null', '']:
                 val = 'NULL'
             else:
@@ -328,7 +328,7 @@ class Postgres(object):
         """Construct SQL INSERT statement"""
         import re
         from pydoni.vb import echo
-        from pydoni.pyobj import extract_datetime
+        from pydoni.classes import DoniDt
         columns = [columns] if isinstance(columns, str) else columns
         values = [values] if isinstance(values, str) else values
         if len(columns) != len(values):
@@ -336,8 +336,8 @@ class Postgres(object):
         columns = ', '.join(columns)
         vals_cleaned = []
         for val in values:
-            if re.match('^\d{4}.\d{2}.\d{2}', val):
-                val = extract_datetime(val, apply_tz=True)
+            if DoniDt(val).contains():
+                val = DoniDt(val).extract_first(apply_tz=True)
             if str(val) in ['nan', 'N/A', 'null', '']:
                 val = 'NULL'
             elif isinstance(val, bool) or str(val).lower() in ['true', 'false']:
@@ -461,7 +461,7 @@ class DoniDt(object):
         """Test if input string is exactly a date or datetime value"""
         import re
         m = [bool(re.search(pattern, self.val)) for pattern in \
-                ['^' + x + '$' for x in  self.rgx.__flatten__()]]
+            ['^' + x + '$' for x in  self.rgx.__flatten__()]]
         return any(m)
     def contains(self):
         """Test if input string contains a date or datetime value"""
