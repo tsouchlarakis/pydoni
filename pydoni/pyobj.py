@@ -122,27 +122,66 @@ def listmode(lst):  # Get the most frequently-occurring value in a list
 def dict_filter(d, keys):
     return {k.lower().replace(' ', '_'): v for k, v in d.items() if k.lower().replace(' ', '_') in keys}
 
-def extract_datetime(value):
-    """Given a string with a date or datetime value, extract datetime value"""
-    import datefinder, re
-    from datetime import datetime, timedelta
-    def clean_value(value):
-        value = str(value) if not isinstance(value, str) else value
-        value = value.strip()
-        return value
-    value = clean_value(value)
-    rgx = dict(
-        date = r'^(\d{4}).(\d{2}).(\d{2}).*',
-        datetime = r'^(\d{4}).(\d{2}).(\d{2})\s+(\d{2}).(\d{2}).(\d{2}).*',
-        datetime_tz = r'^(\d{4}).(\d{2}).(\d{2})\s+(\d{2}).(\d{2}).(\d{2}).(\d+).(\d+).*')
-    if re.search(rgx['datetime_tz'], value):
-        return re.sub(rgx['datetime_tz'], r'\1-\2-\3 \4:\5:\6-\7:\8', value)
-    elif re.search(rgx['datetime'], value):
-        return re.sub(rgx['datetime'], r'\1-\2-\3 \4:\5:\6', value)
-    elif re.search(rgx['date'], value):
-        return re.sub(rgx['date'], r'\1-\2-\3', value)
-    else:
-        return None
+class DoniDt(object):
+    """Custom date/datetime handling"""
+    def __init__(self, val):
+        from pydoni.classes import Attribute
+        self.rgx = Attribute()
+        self.val = val
+        self.rgx.d = r'(\d{4}).(\d{2}).(\d{2})'
+        self.rgx.dt = r'(\d{4}).(\d{2}).(\d{2})\s+(\d{2}).(\d{2}).(\d{2})'
+        self.rgx.dt_tz = r'(\d{4}).(\d{2}).(\d{2})\s+(\d{2}).(\d{2}).(\d{2})(.)(\d+).(\d+)'
+    def extract_first(self, apply_tz=False):
+        """Given a string with a date or datetime value, extract the FIRST datetime
+        value as string"""
+        import datefinder, re
+        import datetime
+        val = self.val
+        val = str(val).strip() if not isinstance(val, str) else val.strip()
+        if re.search(self.rgx.dt_tz, val):
+            m = re.search(self.rgx.dt_tz, val)
+            if m:
+                dt = '{}-{}-{} {}:{}:{}'.format(
+                    m.group(1), m.group(2), m.group(3), m.group(4), m.group(5), m.group(6))
+                dt = datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S')
+                tz = '{}{}:{}'.format(m.group(7), m.group(8), m.group(9))
+                if apply_tz:
+                    if ':' in tz:
+                        tz = tz.split(':')[0]
+                        try:
+                            tz = int(tz)
+                            dt = dt + datetime.timedelta(hours=tz)
+                            return dt.strftime('%Y-%m-%d %H:%M:%S')
+                        except:
+                            print("Invalid timezone '{}'".format(tz))
+                            return dt
+                    else:
+                        return '{}{}'.format(dt.strftime('%Y-%m-%d %H:%M:%S'), tz)
+                else:
+                    return '{}{}'.format(dt.strftime('%Y-%m-%d %H:%M:%S'), tz)
+            else:
+                return val
+        elif re.search(self.rgx.dt, val):
+            m = re.search(self.rgx.dt, val)
+            if m:
+                dt = '{}-{}-{} {}:{}:{}'.format(
+                    m.group(1), m.group(2), m.group(3), m.group(4), m.group(5), m.group(6))
+                return dt
+            else:
+                return val
+        elif re.search(self.rgx.d, val):
+            m = re.search(self.rgx.d, val)
+            if m:
+                dt = '{}-{}-{} {}:{}:{}'.format(m.group(1), m.group(2), m.group(3))
+                return dt
+            else:
+                return val
+        else:
+            return val
+        
+        
+
+def extract_datetime(value, apply_tz=False):
 
 def capNthChar(string, n):
     return string[:n] + string[n].capitalize() + string[n+1:]

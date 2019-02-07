@@ -1,7 +1,7 @@
 class Attribute(object):
     def __init__(self):
         pass
-    def flatten(self):
+    def __flatten__(self):
         """Combine all subattributes of an Attribute. If all lists, flatten to single
         list. If all strings, join into a list."""
         dct = self.__dict__
@@ -294,7 +294,9 @@ class Postgres(object):
         return pd.read_sql(sql, con=self.con)
     def build_update(self, schema, table, pkey_name, pkey_value, columns, values):
         """Construct SQL UPDATE statement"""
+        import re
         from pydoni.vb import echo
+        from pydoni.pyobj import extract_datetime
         columns = [columns] if isinstance(columns, str) else columns
         values = [values] if isinstance(values, str) else values
         if len(columns) != len(values):
@@ -303,6 +305,8 @@ class Postgres(object):
         for i in range(len(columns)):
             col = columns[i]
             val = values[i]
+            if re.match('^\d{4}.\d{2}.\d{2}', val):
+                val = extract_datetime(val, apply_tz=True)
             if str(val).lower() in ['nan', 'n/a', 'null', '']:
                 val = 'NULL'
             else:
@@ -322,7 +326,9 @@ class Postgres(object):
         return sql.format(schema, table, ', '.join(str(x) for x in lst), pkey_name, pkey_value)
     def build_insert(self, schema, table, columns, values):
         """Construct SQL INSERT statement"""
+        import re
         from pydoni.vb import echo
+        from pydoni.pyobj import extract_datetime
         columns = [columns] if isinstance(columns, str) else columns
         values = [values] if isinstance(values, str) else values
         if len(columns) != len(values):
@@ -330,6 +336,8 @@ class Postgres(object):
         columns = ', '.join(columns)
         vals_cleaned = []
         for val in values:
+            if re.match('^\d{4}.\d{2}.\d{2}', val):
+                val = extract_datetime(val, apply_tz=True)
             if str(val) in ['nan', 'N/A', 'null', '']:
                 val = 'NULL'
             elif isinstance(val, bool) or str(val).lower() in ['true', 'false']:
@@ -343,10 +351,10 @@ class Postgres(object):
         values_final = ', '.join(str(x) for x in vals_cleaned)
         sql = "INSERT INTO {}.{} ({}) VALUES ({});"
         return sql.format(schema, table, columns, values_final)
-    def get_column_names(self, schema, table):
+    def colnames(self, schema, table):
         column_sql = "SELECT column_name FROM information_schema.columns WHERE table_schema = '{}' AND table_name = '{}'"
         return self.read_sql(column_sql.format(schema, table)).squeeze().tolist()
-    def get_full_table(self, schema, table):
+    def read_table(self, schema, table):
         return self.read_sql("SELECT * FROM {}.{}".format(schema, table))
 
 class Movie(object):
@@ -439,3 +447,60 @@ class Movie(object):
         for key, val in self.__dict__.items():
             if val == value:
                 setattr(self, key, replacement)
+
+class DoniDt(object):
+    """Custom date/datetime handling"""
+    def __init__(self, val):
+        from pydoni.classes import Attribute
+        self.rgx = Attribute()
+        self.val = val
+        self.rgx.d = r'(\d{4}).(\d{2}).(\d{2})'
+        self.rgx.dt = r'(\d{4}).(\d{2}).(\d{2})\s+(\d{2}).(\d{2}).(\d{2})'
+        self.rgx.dt_tz = r'(\d{4}).(\d{2}).(\d{2})\s+(\d{2}).(\d{2}).(\d{2})(.)(\d+).(\d+)'
+    def extract_first(self, apply_tz=False):
+        """Given a string with a date or datetime value, extract the FIRST datetime
+        value as string"""
+        import datefinder, re
+        import datetime
+        val = self.val
+        val = str(val).strip() if not isinstance(val, str) else val.strip()
+        if re.search(self.rgx.dt_tz, val):
+            m = re.search(self.rgx.dt_tz, val)
+            if m:
+                dt = '{}-{}-{} {}:{}:{}'.format(
+                    m.group(1), m.group(2), m.group(3), m.group(4), m.group(5), m.group(6))
+                dt = datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S')
+                tz = '{}{}:{}'.format(m.group(7), m.group(8), m.group(9))
+                if apply_tz:
+                    if ':' in tz:
+                        tz = tz.split(':')[0]
+                        try:
+                            tz = int(tz)
+                            dt = dt + datetime.timedelta(hours=tz)
+                            return dt.strftime('%Y-%m-%d %H:%M:%S')
+                        except:
+                            print("Invalid timezone '{}'".format(tz))
+                            return dt
+                    else:
+                        return '{}{}'.format(dt.strftime('%Y-%m-%d %H:%M:%S'), tz)
+                else:
+                    return '{}{}'.format(dt.strftime('%Y-%m-%d %H:%M:%S'), tz)
+            else:
+                return val
+        elif re.search(self.rgx.dt, val):
+            m = re.search(self.rgx.dt, val)
+            if m:
+                dt = '{}-{}-{} {}:{}:{}'.format(
+                    m.group(1), m.group(2), m.group(3), m.group(4), m.group(5), m.group(6))
+                return dt
+            else:
+                return val
+        elif re.search(self.rgx.d, val):
+            m = re.search(self.rgx.d, val)
+            if m:
+                dt = '{}-{}-{} {}:{}:{}'.format(m.group(1), m.group(2), m.group(3))
+                return dt
+            else:
+                return val
+        else:
+            return val
