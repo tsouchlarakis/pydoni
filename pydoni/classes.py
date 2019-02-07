@@ -296,7 +296,7 @@ class Postgres(object):
         """Construct SQL UPDATE statement"""
         import re
         from pydoni.vb import echo
-        from pydoni.pyobj import extract_datetime
+        from pydoni.classes import DoniDt
         columns = [columns] if isinstance(columns, str) else columns
         values = [values] if isinstance(values, str) else values
         if len(columns) != len(values):
@@ -453,15 +453,20 @@ class DoniDt(object):
     def __init__(self, val):
         from pydoni.classes import Attribute
         self.rgx = Attribute()
-        self.val = val
+        self.val = str(val)
         self.rgx.d = r'(\d{4}).(\d{2}).(\d{2})'
         self.rgx.dt = r'(\d{4}).(\d{2}).(\d{2})\s+(\d{2}).(\d{2}).(\d{2})'
         self.rgx.dt_tz = r'(\d{4}).(\d{2}).(\d{2})\s+(\d{2}).(\d{2}).(\d{2})(.)(\d+).(\d+)'
-    def exact_fmt(self):
+    def exact(self):
         """Test if input string is exactly a date or datetime value"""
         import re
         m = [bool(re.search(pattern, self.val)) for pattern in \
                 ['^' + x + '$' for x in  self.rgx.__flatten__()]]
+        return any(m)
+    def contains(self):
+        """Test if input string contains a date or datetime value"""
+        import re
+        m = [bool(re.search(pattern, self.val)) for pattern in self.rgx.__flatten__()]
         return any(m)
     def extract_first(self, apply_tz=False):
         """Given a string with a date or datetime value, extract the FIRST datetime
