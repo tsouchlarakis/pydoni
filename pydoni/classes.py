@@ -277,6 +277,7 @@ class Audio(object):
             echo('Transcript written to {}'.format(clickfmt(outfile, 'filepath'))) if verbose else None
 
 class Postgres(object):
+    # TODO: add validate option to build_insert
     def __init__(self, pg_user, pg_dbname):
         self.user = pg_user
         self.db = pg_dbname
@@ -303,7 +304,88 @@ class Postgres(object):
     def read_sql(self, sql):
         import pandas as pd
         return pd.read_sql(sql, con=self.con)
-    def build_update(self, schema, table, pkey_name, pkey_value, columns, values, validate=None:
+    def validate_dtype(self, schema, table, column, val):
+        """Query database for datatype of value and validate that the Python value to
+        insert to that column is compatible with the SQL datatype"""
+        from pydoni.vb import echo
+        dtype = self.read_sql("""
+            SELECT data_type
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE table_schema = '{}'
+                AND table_name = '{}'
+                AND column_name = '{}'
+            """.format(schema, table, column)).squeeze()
+        # Check that input value datatype matches queried table column datatype
+        dtype_map = {
+            'bigint'           : 'int',
+            'int8'             : 'int',
+            'bigserial'        : 'int',
+            'serial8'          : 'int',
+            'integer'          : 'int',
+            'int'              : 'int',
+            'int4'             : 'int',
+            'smallint'         : 'int',
+            'int2'             : 'int',
+            'float'            : 'float',
+            'float4'           : 'float',
+            'float8'           : 'float',
+            'numeric'          : 'float',
+            'decimal'          : 'float',
+            'character'        : 'str',
+            'char'             : 'str',
+            'character varying': 'str',
+            'varchar'          : 'str',
+            'text'             : 'str',
+            'boolean'          : 'bool',
+            'bool'             : 'bool'}
+        python_dtype = [v for k, v in dtype_map.items() if dtype in k][0]
+        msg = "SQL column {}.{}.{} is type '{}' but Python value '{}' is type '{}'".format(
+            schema, table, column, dtype, val, type(val).__name__)
+        if python_dtype == 'bool':
+            if isinstance(val, bool):
+                return True
+            else:
+                if isinstance(val, str):
+                    if val.lower() in ['t', 'true', 'f', 'false']:
+                        return True
+                    else:
+                        echo(msg, abort=True, fn_name='Postgres.build_update.validate_dtype')
+                        return False
+                else:
+                    echo(msg, abort=True, fn_name='Postgres.build_update.validate_dtype')
+                    return False
+        elif python_dtype == 'int':
+            if isinstance(val, int):
+                return True
+            else:
+                if isinstance(val, str):
+                    if val.isdigit():
+                        return True
+                    else:
+                        echo(msg, abort=True, fn_name='Postgres.build_update.validate_dtype')
+                        return False
+                else:
+                    echo(msg, abort=True, fn_name='Postgres.build_update.validate_dtype')
+                    return False
+        elif python_dtype == 'float':
+            if isinstance(val, float):
+                return True
+            else:
+                if val == 'inf':
+                    echo(msg, abort=True, fn_name='Postgres.build_update.validate_dtype')
+                    return False
+                try:
+                    test = float(val)
+                    return True
+                except:
+                    echo(msg, abort=True, fn_name='Postgres.build_update.validate_dtype')
+                    return False
+        elif python_dtype == 'str':
+            if isinstance(val, str):
+                return True
+        else:
+            return True
+    def build_update(self, schema, table, pkey_name, pkey_value, columns, values, validate=True):
         """
                                     Construct SQL UPDATE statement
         By default, this method will:
@@ -320,8 +402,7 @@ class Postgres(object):
             columns    : columns to consider in UPDATE statement
             values     : values to consider in UPDATE statement
             validate   : [OPTIONAL] query column type from DB, validate that datatypes of existing
-                         column and value to insert are the same. If specified, must be a tuple
-                         in the format (schema, table, column)
+                         column and value to insert are the same.
         """
         import re
         from pydoni.vb import echo
@@ -332,85 +413,6 @@ class Postgres(object):
                 val = val.replace("'", "''")
                 val = "'" + val + "'"
             return val
-        def validate_dtype(self, val):
-            """Query database for datatype of value and validate that the Python value to
-            insert to that column is compatible with the SQL datatype"""
-            from pydoni.vb import echo
-            schema, table, column = validate
-            dtype = self.read_sql("""
-                SELECT data_type
-                FROM INFORMATION_SCHEMA.COLUMNS
-                WHERE table_schema = '{}'
-                    AND table_name = '{}'
-                    AND column_name = '{}'
-                """.format(schema, table, column)).squeeze()
-            # Check that input value datatype matches queried table column datatype
-            dtype_map = {
-                'bigint'           : 'int',
-                'int8'             : 'int',
-                'bigserial'        : 'int',
-                'serial8'          : 'int',
-                'integer'          : 'int',
-                'int'              : 'int',
-                'int4'             : 'int',
-                'smallint'         : 'int',
-                'int2'             : 'int',
-                'float'            : 'float',
-                'float4'           : 'float',
-                'float8'           : 'float',
-                'numeric'          : 'float',
-                'decimal'          : 'float',
-                'character'        : 'str',
-                'char'             : 'str',
-                'character varying': 'str',
-                'varchar'          : 'str',
-                'text'             : 'str',
-                'boolean'          : 'bool',
-                'bool'             : 'bool'}
-            python_dtype = [v for k, v in dtype_map.items() if dtype in k][0]
-            msg = "SQL column {}.{}.{} is type '{}' but Python value '{}' is type '{}'".format(
-                schema, table, column, dtype, val, type(val).__name__)
-            if python_dtype == 'bool':
-                if isinstance(val, bool):
-                    return True
-                else:
-                    if isinstance(val, str):
-                        if val.lower() in ['t', 'true', 'f', 'false']:
-                            return True
-                        else:
-                            echo(msg, abort=True, fn_name='Postgres.build_update.validate_dtype')
-                            return False
-                    else:
-                        echo(msg, abort=True, fn_name='Postgres.build_update.validate_dtype')
-                        return False
-            elif python_dtype == 'int':
-                if isinstance(val, int):
-                    return True
-                else:
-                    if isinstance(val, str):
-                        if val.isdigit():
-                            return True
-                        else:
-                            echo(msg, abort=True, fn_name='Postgres.build_update.validate_dtype')
-                            return False
-                    else:
-                        echo(msg, abort=True, fn_name='Postgres.build_update.validate_dtype')
-                        return False
-            elif python_dtype == 'float':
-                if isinstance(val, float):
-                    return True
-                else:
-                    try:
-                        test = float(val)
-                        return True
-                    except:
-                        echo(msg, abort=True, fn_name='Postgres.build_update.validate_dtype')
-                        return False
-            elif python_dtype == 'str':
-                if isinstance(val, str):
-                    return True
-            else:
-                return True
         columns = [columns] if isinstance(columns, str) else columns
         values = [values] if isinstance(values, str) else values
         if len(columns) != len(values):
@@ -421,14 +423,8 @@ class Postgres(object):
         for i in range(len(columns)):
             col = columns[i]
             val = values[i]
-
-            # 
-
-
             if validate:
-
-
-
+                is_validated = self.validate_dtype(schema, table, col, val)
             if DoniDt(val).is_exact():
                 val = DoniDt(val).extract_first(apply_tz=True)
             if str(val).lower() in ['nan', 'n/a', 'null', '']:
