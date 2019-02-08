@@ -450,71 +450,74 @@ class Movie(object):
 
 class DoniDt(object):
     """Custom date/datetime handling"""
-    def __init__(self, val):
+    def __init__(self, val, exact=False, apply_tz=True):
         from pydoni.classes import Attribute
-        self.rgx = Attribute()
         self.val = str(val)
         sep = r'\.|\/|-|_'
-        self.rgx.d = r'(?P<year>\d{4})(%s)(?P<month>\d{2})(%s)(?P<day>\d{2})' % \
-            (sep, sep)
-        self.rgx.dt = r'%s(\s+)(?P<hours>\d{2})(%s)(?P<minutes>\d{2})(?P<seconds>%s)(\d{2})' % \
-            (self.rgx.d, sep, sep)
-        self.rgx.dt_tz = r'%s(?P<tz_sign>-)(?P<tz_hours>\d{1,2})(:)(?P<tz_minutes>\d{1,2})' % \
-            (self.rgx.dt)
-    def exact(self):
+        rgx = Attribute()
+        rgx.d = r'(?P<year>\d{4})(%s)(?P<month>\d{2})(%s)(?P<day>\d{2})' % (sep, sep)
+        rgx.dt = r'%s(\s+)(?P<hours>\d{2})(%s)(?P<minutes>\d{2})(?P<seconds>%s)(\d{2})' % (rgx.d, sep, sep)
+        rgx.dt_tz = r'%s(?P<tz_sign>-)(?P<tz_hours>\d{1,2})(:)(?P<tz_minutes>\d{1,2})' % (rgx.dt)
+        self.dtype, self.match = self.detect_dtype()
+        if not exact:
+            self.val = self.extract_first(apply_tz=apply_tz)
+            self.dtype, self.match = self.detect_dtype()
+    def is_exact(self):
         """Test if input string is exactly a date or datetime value, returns bool"""
         import re
         m = [bool(re.search(pattern, self.val)) for pattern in \
-            ['^' + x + '$' for x in  self.rgx.__flatten__()]]
+            ['^' + x + '$' for x in  rgx.__flatten__()]]
         return any(m)
     def contains(self):
         """Test if input string contains a date or datetime value, returns bool"""
         import re
-        m = [bool(re.search(pattern, self.val)) for pattern in self.rgx.__flatten__()]
+        m = [bool(re.search(pattern, self.val)) for pattern in rgx.__flatten__()]
         return any(m)
-    def extract_first(self, apply_tz=False):
+    def extract_first(self, apply_tz=True):
         """Given a string with a date or datetime value, extract the FIRST datetime
         value as string"""
         import re, datetime
         val = self.val
         val = str(val).strip() if not isinstance(val, str) else val.strip()
-        if re.search(self.rgx.dt_tz, val):
-            m = re.search(self.rgx.dt_tz, val)
-            if m:
+        if self.match:
+            m = self.match
+            if self.dtype == 'dt_tz':
                 dt = '{}-{}-{} {}:{}:{}'.format(
-                    m.group('years'), m.group('month'), m.group('day'),
+                    m.group('year'), m.group('month'), m.group('day'),
                     m.group('hours'), m.group('minutes'), m.group('seconds'))
-                dt = datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S')
                 tz = '{}{}:{}'.format(m.group('tz_sign'),
                     m.group('tz_hours'), m.group('tz_minutes'))
                 if apply_tz:
                     tz = tz.split(':')[0]
                     try:
                         tz = int(tz)
+                        dt = datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S')
                         dt = dt + datetime.timedelta(hours=tz)
+                        self.dtype = 'dt_tz'
                         return dt.strftime('%Y-%m-%d %H:%M:%S')
                     except:
                         print("Invalid timezone '{}'".format(tz))
+                        self.dtype = 'dt'
                         return dt
                 else:
-                    return '{}{}'.format(dt.strftime('%Y-%m-%d %H:%M:%S'), tz)
-            else:
-                return val
-        elif re.search(self.rgx.dt, val):
-            m = re.search(self.rgx.dt, val)
-            if m:
+                    return dt
+            elif self.dtype == 'dt':
                 dt = '{}-{}-{} {}:{}:{}'.format(
-                    m.group('years'), m.group('month'), m.group('day'),
+                    m.group('year'), m.group('month'), m.group('day'),
                     m.group('hours'), m.group('minutes'), m.group('seconds'))
                 return dt
-            else:
-                return val
-        elif re.search(self.rgx.d, val):
-            m = re.search(self.rgx.d, val)
-            if m:
-                dt = '{}-{}-{}'.format(m.group('years'), m.group('month'), m.group('day'))
+            elif self.dtype == 'd':
+                dt = '{}-{}-{}'.format(m.group('year'), m.group('month'), m.group('day'))
                 return dt
-            else:
-                return val
+    def detect_dtype(self):
+        """Get datatype as one of 'd', 'dt', 'dt_tz', and return regex match object"""
+        import re
+        if re.search(rgx.dt_tz, val):
+            return ('dt_tz', re.search(rgx.dt_tz, val))
+        elif re.search(rgx.dt, val):
+            return ('dt', re.search(rgx.dt, val))
+        elif re.search(rgx.d, val):
+            return ('d', re.search(rgx.d, val))
         else:
-            return val
+            return (None, None)
+
