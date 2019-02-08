@@ -285,27 +285,151 @@ class Postgres(object):
         from sqlalchemy import create_engine
         return create_engine('postgresql://{}@localhost:5432/{}'.format(
             self.user, self.db))
-    def execute(self, sql):
+    def execute(self, sql, progress=False):
+        """Execute list of SQL statements or a single statement, in a transaction"""
         from sqlalchemy import text
+        if not isinstance(sql, str) and not isinstance(sql, list):
+            from pydoni.vb import echo
+            echo("Parameter 'sql' must be either str or list")
+        sql = [sql] if not isinstance(sql, list) else sql
         with self.con.begin() as con:
-            con.execute(text(sql))
+            if progress:
+                from tqdm import tqdm
+                for stmt in tqdm(sql):
+                    con.execute(text(stmt))
+            else:
+                for stmt in sql:
+                    con.execute(text(stmt))
     def read_sql(self, sql):
         import pandas as pd
         return pd.read_sql(sql, con=self.con)
-    def build_update(self, schema, table, pkey_name, pkey_value, columns, values):
-        """Construct SQL UPDATE statement"""
+    def build_update(self, schema, table, pkey_name, pkey_value, columns, values, validate=None:
+        """
+                                    Construct SQL UPDATE statement
+        By default, this method will:
+            - Attempt to coerce a date value to proper format if the input value is detect_dtype
+              as a date but possibly in the improper format. Ex: '2019:02:08' -> '2019-02-08'
+            - Quote all values passed in as strings. This may include numeric values.
+            - Unquote all values passed in as integer or boolean values.
+            - Primary key value is quoted if passed in as a string. Otherwise, not quoted.
+        Parameters:
+            schema     : schema name
+            table      : table name
+            pkey_name  : name of primary key in table
+            pkey_value : value of primary key for value to update
+            columns    : columns to consider in UPDATE statement
+            values     : values to consider in UPDATE statement
+            validate   : [OPTIONAL] query column type from DB, validate that datatypes of existing
+                         column and value to insert are the same. If specified, must be a tuple
+                         in the format (schema, table, column)
+        """
         import re
         from pydoni.vb import echo
         from pydoni.classes import DoniDt
+        def handle_single_quote(val):
+            """Escape single quotes and put single quotes around value if string value"""
+            if isinstance(val, str):
+                val = val.replace("'", "''")
+                val = "'" + val + "'"
+            return val
+        def validate_dtype(self, val):
+            """Query database for datatype of value and validate that the Python value to
+            insert to that column is compatible with the SQL datatype"""
+            from pydoni.vb import echo
+            schema, table, column = validate
+            dtype = self.read_sql("""
+                SELECT data_type
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE table_schema = '{}'
+                    AND table_name = '{}'
+                    AND column_name = '{}'
+                """.format(schema, table, column)).squeeze()
+            # Check that input value datatype matches queried table column datatype
+            dtype_map = {
+                'bigint'           : 'int',
+                'int8'             : 'int',
+                'bigserial'        : 'int',
+                'serial8'          : 'int',
+                'integer'          : 'int',
+                'int'              : 'int',
+                'int4'             : 'int',
+                'smallint'         : 'int',
+                'int2'             : 'int',
+                'float'            : 'float',
+                'float4'           : 'float',
+                'float8'           : 'float',
+                'numeric'          : 'float',
+                'decimal'          : 'float',
+                'character'        : 'str',
+                'char'             : 'str',
+                'character varying': 'str',
+                'varchar'          : 'str',
+                'text'             : 'str',
+                'boolean'          : 'bool',
+                'bool'             : 'bool'}
+            python_dtype = [v for k, v in dtype_map.items() if dtype in k][0]
+            msg = "SQL column {}.{}.{} is type '{}' but Python value '{}' is type '{}'".format(
+                schema, table, column, dtype, val, type(val).__name__)
+            if python_dtype == 'bool':
+                if isinstance(val, bool):
+                    return True
+                else:
+                    if isinstance(val, str):
+                        if val.lower() in ['t', 'true', 'f', 'false']:
+                            return True
+                        else:
+                            echo(msg, abort=True, fn_name='Postgres.build_update.validate_dtype')
+                            return False
+                    else:
+                        echo(msg, abort=True, fn_name='Postgres.build_update.validate_dtype')
+                        return False
+            elif python_dtype == 'int':
+                if isinstance(val, int):
+                    return True
+                else:
+                    if isinstance(val, str):
+                        if val.isdigit():
+                            return True
+                        else:
+                            echo(msg, abort=True, fn_name='Postgres.build_update.validate_dtype')
+                            return False
+                    else:
+                        echo(msg, abort=True, fn_name='Postgres.build_update.validate_dtype')
+                        return False
+            elif python_dtype == 'float':
+                if isinstance(val, float):
+                    return True
+                else:
+                    try:
+                        test = float(val)
+                        return True
+                    except:
+                        echo(msg, abort=True, fn_name='Postgres.build_update.validate_dtype')
+                        return False
+            elif python_dtype == 'str':
+                if isinstance(val, str):
+                    return True
+            else:
+                return True
         columns = [columns] if isinstance(columns, str) else columns
         values = [values] if isinstance(values, str) else values
         if len(columns) != len(values):
             echo("Parameters 'column' and 'value' must be of equal length", abort=True)
+        # Escape quotes in primary key val
+        pkey_value = handle_single_quote(pkey_value)
         lst = []
         for i in range(len(columns)):
             col = columns[i]
             val = values[i]
-            if DoniDt(val).contains():
+
+            # 
+
+
+            if validate:
+
+
+
+            if DoniDt(val).is_exact():
                 val = DoniDt(val).extract_first(apply_tz=True)
             if str(val).lower() in ['nan', 'n/a', 'null', '']:
                 val = 'NULL'
@@ -319,9 +443,6 @@ class Postgres(object):
                     val = val.replace("'", "''")  # Escape single quotes
                     val = val = "'" + val + "'"  # Single quote string values
             lst.append('{}={}'.format(col, val))
-        # Escape quotes in primary key val
-        pkey_value = pkey_value.replace("'", "''") if "'" in pkey_value else pkey_value
-        pkey_value = "'" + pkey_value + "'" if isinstance(pkey_value, str) else pkey_value
         sql = "UPDATE {}.{} SET {} WHERE {} = {};"
         return sql.format(schema, table, ', '.join(str(x) for x in lst), pkey_name, pkey_value)
     def build_insert(self, schema, table, columns, values):
