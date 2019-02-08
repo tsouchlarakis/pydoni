@@ -450,28 +450,26 @@ class Movie(object):
 
 class DoniDt(object):
     """Custom date/datetime handling"""
-    def __init__(self, val, exact=False, apply_tz=True):
+    def __init__(self, val, apply_tz=True):
         from pydoni.classes import Attribute
         self.val = str(val)
-        sep = r'\.|\/|-|_'
+        sep = r'\.|\/|-|_|\:'
         rgx = Attribute()
         rgx.d = r'(?P<year>\d{4})(%s)(?P<month>\d{2})(%s)(?P<day>\d{2})' % (sep, sep)
-        rgx.dt = r'%s(\s+)(?P<hours>\d{2})(%s)(?P<minutes>\d{2})(?P<seconds>%s)(\d{2})' % (rgx.d, sep, sep)
-        rgx.dt_tz = r'%s(?P<tz_sign>-)(?P<tz_hours>\d{1,2})(:)(?P<tz_minutes>\d{1,2})' % (rgx.dt)
+        rgx.dt = r'%s(\s+)(?P<hours>\d{2})(%s)(?P<minutes>\d{2})(%s)(?P<seconds>\d{2})' % (rgx.d, sep, sep)
+        rgx.dt_tz = r'%s(?P<tz_sign>-|\+)(?P<tz_hours>\d{1,2})(:)(?P<tz_minutes>\d{1,2})' % (rgx.dt)
+        self.rgx = rgx
         self.dtype, self.match = self.detect_dtype()
-        if not exact:
-            self.val = self.extract_first(apply_tz=apply_tz)
-            self.dtype, self.match = self.detect_dtype()
     def is_exact(self):
         """Test if input string is exactly a date or datetime value, returns bool"""
         import re
         m = [bool(re.search(pattern, self.val)) for pattern in \
-            ['^' + x + '$' for x in  rgx.__flatten__()]]
+            ['^' + x + '$' for x in  self.rgx.__flatten__()]]
         return any(m)
     def contains(self):
         """Test if input string contains a date or datetime value, returns bool"""
         import re
-        m = [bool(re.search(pattern, self.val)) for pattern in rgx.__flatten__()]
+        m = [bool(re.search(pattern, self.val)) for pattern in self.rgx.__flatten__()]
         return any(m)
     def extract_first(self, apply_tz=True):
         """Given a string with a date or datetime value, extract the FIRST datetime
@@ -491,33 +489,37 @@ class DoniDt(object):
                     tz = tz.split(':')[0]
                     try:
                         tz = int(tz)
-                        dt = datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S')
-                        dt = dt + datetime.timedelta(hours=tz)
-                        self.dtype = 'dt_tz'
-                        return dt.strftime('%Y-%m-%d %H:%M:%S')
                     except:
                         print("Invalid timezone '{}'".format(tz))
                         self.dtype = 'dt'
                         return dt
+                    dt = datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S')
+                    dt = dt + datetime.timedelta(hours=tz)
+                    self.dtype = 'dt_tz'
+                    return dt.strftime('%Y-%m-%d %H:%M:%S')
                 else:
+                    self.dtype = 'dt'
                     return dt
             elif self.dtype == 'dt':
                 dt = '{}-{}-{} {}:{}:{}'.format(
                     m.group('year'), m.group('month'), m.group('day'),
                     m.group('hours'), m.group('minutes'), m.group('seconds'))
+                self.dtype = 'dt'
                 return dt
             elif self.dtype == 'd':
                 dt = '{}-{}-{}'.format(m.group('year'), m.group('month'), m.group('day'))
+                self.dtype = 'd'
                 return dt
+        else:
+            return val
     def detect_dtype(self):
         """Get datatype as one of 'd', 'dt', 'dt_tz', and return regex match object"""
         import re
-        if re.search(rgx.dt_tz, val):
-            return ('dt_tz', re.search(rgx.dt_tz, val))
-        elif re.search(rgx.dt, val):
-            return ('dt', re.search(rgx.dt, val))
-        elif re.search(rgx.d, val):
-            return ('d', re.search(rgx.d, val))
+        if re.search(self.rgx.dt_tz, self.val):
+            return ('dt_tz', re.search(self.rgx.dt_tz, self.val))
+        elif re.search(self.rgx.dt, self.val):
+            return ('dt', re.search(self.rgx.dt, self.val))
+        elif re.search(self.rgx.d, self.val):
+            return ('d', re.search(self.rgx.d, self.val))
         else:
             return (None, None)
-
