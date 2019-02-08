@@ -454,17 +454,21 @@ class DoniDt(object):
         from pydoni.classes import Attribute
         self.rgx = Attribute()
         self.val = str(val)
-        self.rgx.d = r'(\d{4}).(\d{2}).(\d{2})'
-        self.rgx.dt = r'(\d{4}).(\d{2}).(\d{2})\s+(\d{2}).(\d{2}).(\d{2})'
-        self.rgx.dt_tz = r'(\d{4}).(\d{2}).(\d{2})\s+(\d{2}).(\d{2}).(\d{2})(.)(\d+).(\d+)'
+        sep = r'\.|\/|-|_'
+        self.rgx.d = r'(?P<year>\d{4})(%s)(?P<month>\d{2})(%s)(?P<day>\d{2})' % \
+            (sep, sep)
+        self.rgx.dt = r'%s(\s+)(?P<hours>\d{2})(%s)(?P<minutes>\d{2})(?P<seconds>%s)(\d{2})' % \
+            (self.rgx.d, sep, sep)
+        self.rgx.dt_tz = r'%s(?P<tz_sign>-)(?P<tz_hours>\d{1,2})(:)(?P<tz_minutes>\d{1,2})' % \
+            (self.rgx.dt)
     def exact(self):
-        """Test if input string is exactly a date or datetime value"""
+        """Test if input string is exactly a date or datetime value, returns bool"""
         import re
         m = [bool(re.search(pattern, self.val)) for pattern in \
             ['^' + x + '$' for x in  self.rgx.__flatten__()]]
         return any(m)
     def contains(self):
-        """Test if input string contains a date or datetime value"""
+        """Test if input string contains a date or datetime value, returns bool"""
         import re
         m = [bool(re.search(pattern, self.val)) for pattern in self.rgx.__flatten__()]
         return any(m)
@@ -478,21 +482,20 @@ class DoniDt(object):
             m = re.search(self.rgx.dt_tz, val)
             if m:
                 dt = '{}-{}-{} {}:{}:{}'.format(
-                    m.group(1), m.group(2), m.group(3), m.group(4), m.group(5), m.group(6))
+                    m.group('years'), m.group('month'), m.group('day'),
+                    m.group('hours'), m.group('minutes'), m.group('seconds'))
                 dt = datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S')
-                tz = '{}{}:{}'.format(m.group(7), m.group(8), m.group(9))
+                tz = '{}{}:{}'.format(m.group('tz_sign'),
+                    m.group('tz_hours'), m.group('tz_minutes'))
                 if apply_tz:
-                    if ':' in tz:
-                        tz = tz.split(':')[0]
-                        try:
-                            tz = int(tz)
-                            dt = dt + datetime.timedelta(hours=tz)
-                            return dt.strftime('%Y-%m-%d %H:%M:%S')
-                        except:
-                            print("Invalid timezone '{}'".format(tz))
-                            return dt
-                    else:
-                        return '{}{}'.format(dt.strftime('%Y-%m-%d %H:%M:%S'), tz)
+                    tz = tz.split(':')[0]
+                    try:
+                        tz = int(tz)
+                        dt = dt + datetime.timedelta(hours=tz)
+                        return dt.strftime('%Y-%m-%d %H:%M:%S')
+                    except:
+                        print("Invalid timezone '{}'".format(tz))
+                        return dt
                 else:
                     return '{}{}'.format(dt.strftime('%Y-%m-%d %H:%M:%S'), tz)
             else:
@@ -501,14 +504,15 @@ class DoniDt(object):
             m = re.search(self.rgx.dt, val)
             if m:
                 dt = '{}-{}-{} {}:{}:{}'.format(
-                    m.group(1), m.group(2), m.group(3), m.group(4), m.group(5), m.group(6))
+                    m.group('years'), m.group('month'), m.group('day'),
+                    m.group('hours'), m.group('minutes'), m.group('seconds'))
                 return dt
             else:
                 return val
         elif re.search(self.rgx.d, val):
             m = re.search(self.rgx.d, val)
             if m:
-                dt = '{}-{}-{} {}:{}:{}'.format(m.group(1), m.group(2), m.group(3))
+                dt = '{}-{}-{}'.format(m.group('years'), m.group('month'), m.group('day'))
                 return dt
             else:
                 return val
