@@ -24,10 +24,14 @@ class GlobalVar(object):
 
 class ProgramEnv(object):
     """Handle a temporary program environment for a Python program"""
-    def __init__(self, path, overwrite=True):
+    def __init__(self, path, overwrite=False):
         import os, shutil
         from pydoni.vb import echo
         self.path = path
+        if self.path == os.path.expanduser('~'):
+            echo('Path cannot be home directory', abort=True)
+        elif self.path == '/':
+            echo('Path cannot be root directory', abort=True)
         # 'focus' is the current working file, if specified
         self.focus = None
         # Overwrite existing directory if specified and directory exists
@@ -277,7 +281,6 @@ class Audio(object):
             echo('Transcript written to {}'.format(clickfmt(outfile, 'filepath'))) if verbose else None
 
 class Postgres(object):
-    # TODO: add validate option to build_insert
     def __init__(self, pg_user, pg_dbname):
         self.user = pg_user
         self.db = pg_dbname
@@ -317,28 +320,35 @@ class Postgres(object):
             """.format(schema, table, column)).squeeze()
         # Check that input value datatype matches queried table column datatype
         dtype_map = {
-            'bigint'           : 'int',
-            'int8'             : 'int',
-            'bigserial'        : 'int',
-            'serial8'          : 'int',
-            'integer'          : 'int',
-            'int'              : 'int',
-            'int4'             : 'int',
-            'smallint'         : 'int',
-            'int2'             : 'int',
-            'float'            : 'float',
-            'float4'           : 'float',
-            'float8'           : 'float',
-            'numeric'          : 'float',
-            'decimal'          : 'float',
-            'character'        : 'str',
-            'char'             : 'str',
-            'character varying': 'str',
-            'varchar'          : 'str',
-            'text'             : 'str',
-            'boolean'          : 'bool',
-            'bool'             : 'bool'}
-        python_dtype = [v for k, v in dtype_map.items() if dtype in k][0]
+            'bigint'                     : 'int',
+            'int8'                       : 'int',
+            'bigserial'                  : 'int',
+            'serial8'                    : 'int',
+            'integer'                    : 'int',
+            'int'                        : 'int',
+            'int4'                       : 'int',
+            'smallint'                   : 'int',
+            'int2'                       : 'int',
+            'float'                      : 'float',
+            'float4'                     : 'float',
+            'float8'                     : 'float',
+            'numeric'                    : 'float',
+            'decimal'                    : 'float',
+            'character'                  : 'str',
+            'char'                       : 'str',
+            'character varying'          : 'str',
+            'varchar'                    : 'str',
+            'text'                       : 'str',
+            'timestamp'                  : 'str',
+            'timestamp with time zone'   : 'str',
+            'timestamp without time zone': 'str',
+            'boolean'                    : 'bool',
+            'bool'                       : 'bool'}
+        python_dtype = [v for k, v in dtype_map.items() if dtype in k]
+        if not len(python_dtype):
+            echo("Column {}.{}.{} is datatype '{}' which is not in 'dtype_map' in class method Postgres.validate_dtype".format(schema, table, column, dtype), abort=True)
+        else:
+            python_dtype = python_dtype[0]
         msg = "SQL column {}.{}.{} is type '{}' but Python value '{}' is type '{}'".format(
             schema, table, column, dtype, val, type(val).__name__)
         if python_dtype == 'bool':
@@ -391,8 +401,9 @@ class Postgres(object):
         By default, this method will:
             - Attempt to coerce a date value to proper format if the input value is detect_dtype
               as a date but possibly in the improper format. Ex: '2019:02:08' -> '2019-02-08'
-            - Quote all values passed in as strings. This may include numeric values.
-            - Unquote all values passed in as integer or boolean values.
+            - Quote all values passed in as strings. This will include string values that are
+              coercible to numerics. Ex: '5', '7.5'.
+            - Do not quote all values passed in as integer or boolean values.
             - Primary key value is quoted if passed in as a string. Otherwise, not quoted.
         Parameters:
             schema     : schema name
@@ -402,23 +413,17 @@ class Postgres(object):
             columns    : columns to consider in UPDATE statement
             values     : values to consider in UPDATE statement
             validate   : [OPTIONAL] query column type from DB, validate that datatypes of existing
-                         column and value to insert are the same.
+                         column and value to insert are the same
         """
         import re
         from pydoni.vb import echo
         from pydoni.classes import DoniDt
-        def handle_single_quote(val):
-            """Escape single quotes and put single quotes around value if string value"""
-            if isinstance(val, str):
-                val = val.replace("'", "''")
-                val = "'" + val + "'"
-            return val
         columns = [columns] if isinstance(columns, str) else columns
         values = [values] if isinstance(values, str) else values
         if len(columns) != len(values):
             echo("Parameters 'column' and 'value' must be of equal length", abort=True)
         # Escape quotes in primary key val
-        pkey_value = handle_single_quote(pkey_value)
+        pkey_value = self.__handle_single_quote__(pkey_value)
         lst = []
         for i in range(len(columns)):
             col = columns[i]
@@ -436,13 +441,30 @@ class Postgres(object):
                 elif isinstance(val, int) or isinstance(val, float):
                     pass
                 else:  # Assume string, handle quotes
-                    val = val.replace("'", "''")  # Escape single quotes
-                    val = val = "'" + val + "'"  # Single quote string values
+                    val = self.__handle_single_quote__(val)
             lst.append('{}={}'.format(col, val))
         sql = "UPDATE {}.{} SET {} WHERE {} = {};"
         return sql.format(schema, table, ', '.join(str(x) for x in lst), pkey_name, pkey_value)
-    def build_insert(self, schema, table, columns, values):
-        """Construct SQL INSERT statement"""
+    def build_insert(self, schema, table, columns, values, validate=False):
+        """
+                                    Construct SQL INSERT statement
+        By default, this method will:
+            - Attempt to coerce a date value to proper format if the input value is detect_dtype
+              as a date but possibly in the improper format. Ex: '2019:02:08' -> '2019-02-08'
+            - Quote all values passed in as strings. This will include string values that are
+              coercible to numerics. Ex: '5', '7.5'.
+            - Do not quote all values passed in as integer or boolean values.
+            - Primary key value is quoted if passed in as a string. Otherwise, not quoted.
+        Parameters:
+            schema     : schema name
+            table      : table name
+            pkey_name  : name of primary key in table
+            pkey_value : value of primary key for value to update
+            columns    : columns to consider in INSERT statement
+            values     : values to consider in INSERT statement
+            validate   : [OPTIONAL] query column type from DB, validate that datatypes of existing
+                         column and value to insert are the sames
+        """
         import re
         from pydoni.vb import echo
         from pydoni.classes import DoniDt
@@ -450,10 +472,13 @@ class Postgres(object):
         values = [values] if isinstance(values, str) else values
         if len(columns) != len(values):
             echo("Parameters 'column' and 'value' must be of equal length", abort=True)
-        columns = ', '.join(columns)
-        vals_cleaned = []
+        lst = []
         for val in values:
-            if DoniDt(val).contains():
+            val = values[i]
+            col = columns[i]
+            if validate:
+                is_validated = self.validate_dtype(schema, table, col, val)
+            if DoniDt(val).is_exact():
                 val = DoniDt(val).extract_first(apply_tz=True)
             if str(val) in ['nan', 'N/A', 'null', '']:
                 val = 'NULL'
@@ -462,10 +487,10 @@ class Postgres(object):
             elif isinstance(val, int) or isinstance(val, float):
                 pass
             else:  # Assume string, handle quotes
-                val = val.replace("'", "''")  # Escape single quotes
-                val = val = "'" + val + "'"  # Single quote string values
-            vals_cleaned.append(val)
-        values_final = ', '.join(str(x) for x in vals_cleaned)
+                val = self.__handle_single_quote__(val)
+            lst.append(val)
+        values_final = ', '.join(str(x) for x in lst)
+        columns = ', '.join(columns)
         sql = "INSERT INTO {}.{} ({}) VALUES ({});"
         return sql.format(schema, table, columns, values_final)
     def colnames(self, schema, table):
@@ -473,6 +498,12 @@ class Postgres(object):
         return self.read_sql(column_sql.format(schema, table)).squeeze().tolist()
     def read_table(self, schema, table):
         return self.read_sql("SELECT * FROM {}.{}".format(schema, table))
+    def __handle_single_quote__(self, val):
+        """Escape single quotes and put single quotes around value if string value"""
+        if isinstance(val, str):
+            val = val.replace("'", "''")
+            val = "'" + val + "'"
+        return val
 
 class Movie(object):
     def __init__(self, fname):
