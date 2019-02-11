@@ -396,15 +396,14 @@ class Postgres(object):
         else:
             return True
     def build_update(self, schema, table, pkey_name, pkey_value, columns, values, validate=True):
-        """
-                                    Construct SQL UPDATE statement
+        """                     Construct SQL UPDATE statement
         By default, this method will:
-            - Attempt to coerce a date value to proper format if the input value is detect_dtype
+            * Attempt to coerce a date value to proper format if the input value is detect_dtype
               as a date but possibly in the improper format. Ex: '2019:02:08' -> '2019-02-08'
-            - Quote all values passed in as strings. This will include string values that are
+            * Quote all values passed in as strings. This will include string values that are
               coercible to numerics. Ex: '5', '7.5'.
-            - Do not quote all values passed in as integer or boolean values.
-            - Primary key value is quoted if passed in as a string. Otherwise, not quoted.
+            * Do not quote all values passed in as integer or boolean values.
+            * Primary key value is quoted if passed in as a string. Otherwise, not quoted.
         Parameters:
             schema     : schema name
             table      : table name
@@ -412,8 +411,8 @@ class Postgres(object):
             pkey_value : value of primary key for value to update
             columns    : columns to consider in UPDATE statement
             values     : values to consider in UPDATE statement
-            validate   : [OPTIONAL] query column type from DB, validate that datatypes of existing
-                         column and value to insert are the same
+            validate   : Query column type from DB, validate that datatypes of existing
+                         column and value to insert are the same [OPTIONAL] 
         """
         import re
         from pydoni.vb import echo
@@ -446,15 +445,14 @@ class Postgres(object):
         sql = "UPDATE {}.{} SET {} WHERE {} = {};"
         return sql.format(schema, table, ', '.join(str(x) for x in lst), pkey_name, pkey_value)
     def build_insert(self, schema, table, columns, values, validate=False):
-        """
-                                    Construct SQL INSERT statement
+        """                     Construct SQL INSERT statement
         By default, this method will:
-            - Attempt to coerce a date value to proper format if the input value is detect_dtype
+            * Attempt to coerce a date value to proper format if the input value is detect_dtype
               as a date but possibly in the improper format. Ex: '2019:02:08' -> '2019-02-08'
-            - Quote all values passed in as strings. This will include string values that are
+            * Quote all values passed in as strings. This will include string values that are
               coercible to numerics. Ex: '5', '7.5'.
-            - Do not quote all values passed in as integer or boolean values.
-            - Primary key value is quoted if passed in as a string. Otherwise, not quoted.
+            * Do not quote all values passed in as integer or boolean values.
+            * Primary key value is quoted if passed in as a string. Otherwise, not quoted.
         Parameters:
             schema     : schema name
             table      : table name
@@ -462,8 +460,8 @@ class Postgres(object):
             pkey_value : value of primary key for value to update
             columns    : columns to consider in INSERT statement
             values     : values to consider in INSERT statement
-            validate   : [OPTIONAL] query column type from DB, validate that datatypes of existing
-                         column and value to insert are the sames
+            validate   : Query column type from DB, validate that datatypes of existing
+                         column and value to insert are the sames [OPTIONAL] 
         """
         import re
         from pydoni.vb import echo
@@ -473,7 +471,7 @@ class Postgres(object):
         if len(columns) != len(values):
             echo("Parameters 'column' and 'value' must be of equal length", abort=True)
         lst = []
-        for val in values:
+        for i in range(len(values)):
             val = values[i]
             col = columns[i]
             if validate:
@@ -597,7 +595,8 @@ class Movie(object):
                 setattr(self, key, replacement)
 
 class DoniDt(object):
-    """Custom date/datetime handling"""
+    """Custom date/datetime handling. By default:
+        * Miliseconds will be deleted"""
     def __init__(self, val, apply_tz=True):
         from pydoni.classes import Attribute
         self.val = str(val)
@@ -606,6 +605,7 @@ class DoniDt(object):
         rgx.d = r'(?P<year>\d{4})(%s)(?P<month>\d{2})(%s)(?P<day>\d{2})' % (sep, sep)
         rgx.dt = r'%s(\s+)(?P<hours>\d{2})(%s)(?P<minutes>\d{2})(%s)(?P<seconds>\d{2})' % (rgx.d, sep, sep)
         rgx.dt_tz = r'%s(?P<tz_sign>-|\+)(?P<tz_hours>\d{1,2})(:)(?P<tz_minutes>\d{1,2})' % (rgx.dt)
+        rgx.dt_ms = r'%s\.(?P<miliseconds>\d+)$' % (rgx.dt)
         self.rgx = rgx
         self.dtype, self.match = self.detect_dtype()
     def is_exact(self):
@@ -623,6 +623,7 @@ class DoniDt(object):
         """Given a string with a date or datetime value, extract the FIRST datetime
         value as string"""
         import re, datetime
+        from pydoni.vb import echo
         val = self.val
         val = str(val).strip() if not isinstance(val, str) else val.strip()
         if self.match:
@@ -638,7 +639,8 @@ class DoniDt(object):
                     try:
                         tz = int(tz)
                     except:
-                        print("Invalid timezone '{}'".format(tz))
+                        echo("Invalid timezone (no coercible to integer) '{}'".format(tz),
+                            error=True, fn_name='DoniDt.extract_first')
                         self.dtype = 'dt'
                         return dt
                     dt = datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S')

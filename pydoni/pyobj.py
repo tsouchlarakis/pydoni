@@ -130,3 +130,21 @@ def replaceNthChar(string, n, replacement):
 
 def insertNthChar(string, n, char):
     return string [:n] + char + string[n:]
+
+def human_filesize(nbytes: int) -> str:
+    """Convert number of bytes to human-readable filesize string"""
+    # https://stackoverflow.com/questions/5194057/better-way-to-convert-file-sizes-in-python
+    base = 1
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']:
+        n = nbytes / base
+        if n < 9.95 and unit != 'B':
+            # Less than 10 then keep 1 decimal place
+            value = "{:.1f}{}".format(n, unit)
+            return value
+        if round(n) < 1000:
+            # Less than 4 digits so use this
+            value = "{}{}".format(round(n), unit)
+            return value
+        base *= 1024
+    value = "{}{}".format(round(n), unit)
+    return value
