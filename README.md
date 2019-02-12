@@ -35,6 +35,9 @@ Completed Date : <in progress>
 #### `web`
 > Web. Addresses webscraping, parsing web documents, or any other web-related calls from Python.
 
+#### `classes`
+> Houses all pydoni class objects.
+
 ---
 
 ## Changelog
