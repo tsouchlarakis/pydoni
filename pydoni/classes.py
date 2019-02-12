@@ -678,3 +678,41 @@ class DoniDt(object):
             return ('d', re.search(self.rgx.d, self.val))
         else:
             return (None, None)
+
+
+class EXIF(object):
+    """Extract and handle EXIF metadata from file"""
+    def __init__(self, fname):
+        from pydoni.sh import exiftool
+        self.fname = fname
+        self.exif = exiftool(fname)
+        self.exif = {k.lower().replace(' ', '_'): v for k, v in exif.items()}
+    def rename_keys(self, key_dict)
+        """Rename exif dictionary keys. Ex: key_dict={'file_name': 'fname'} will result in the
+        original key 'file_name' being renamed to 'fname'"""
+        for k, v in key_dict.items():
+            if k in self.exif.keys():
+                self.exif[v] = self.exif.pop(k)
+    def coerce(self, key, fmt)
+        """Attempt to coerce a dictionary value to specified type or format
+        Examples:
+        fmt='int':
+            '+7' -> 7
+            '-7' -> -7
+        fmt='date':
+            '2018:02:29 01:28:10' -> ''2018-02-29 01:28:10''
+
+            """
+        val = self.exif[key]
+        if fmt == 'int':
+            import re
+            if re.match(r'^\+\d+$', val):
+                val = val.replace('+', '')
+            return int(val)
+        elif fmt == 'date':
+            from pydoni.classes import DoniDt
+            if DoniDt(val).is_exact():
+                val = DoniDt(val).extract_first(apply_tz=True)
+            return val
+        else:
+            return val
