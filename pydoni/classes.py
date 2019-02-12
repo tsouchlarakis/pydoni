@@ -686,33 +686,60 @@ class EXIF(object):
         from pydoni.sh import exiftool
         self.fname = fname
         self.exif = exiftool(fname)
-        self.exif = {k.lower().replace(' ', '_'): v for k, v in exif.items()}
-    def rename_keys(self, key_dict)
+        self.exif = {k.lower().replace(' ', '_'): v for k, v in self.exif.items()}
+    def rename_keys(self, key_dict):
         """Rename exif dictionary keys. Ex: key_dict={'file_name': 'fname'} will result in the
         original key 'file_name' being renamed to 'fname'"""
         for k, v in key_dict.items():
             if k in self.exif.keys():
                 self.exif[v] = self.exif.pop(k)
-    def coerce(self, key, fmt)
+    def coerce(self, key, fmt=['int', 'date'], onerror=['raise', 'null', 'revert']):
         """Attempt to coerce a dictionary value to specified type or format
+        Parameters:
+            key: name of EXIF key
+            fmt: format to coerce to
+            onerror: determine behavior if a value cannot be coerced
+                - raise: raise an error (stop the program)
+                - null: return None
+                - revert: return original value
         Examples:
         fmt='int':
             '+7' -> 7
             '-7' -> -7
         fmt='date':
             '2018:02:29 01:28:10' -> ''2018-02-29 01:28:10''
-
-            """
-        val = self.exif[key]
+        fmt='float':
+            '11.11' -> 11.11
+        """
+        import re
+        from pydoni.classes import DoniDt
+        val = str(self.exif[key])  # Start by casting value as string
+        def evalutate_error(val, onerror, e="Unable to coerce value"):
+            if onerror == 'raise':
+                raise e
+            elif onerror == 'null':
+                return None
+            elif onerror == 'revert':
+                return val
         if fmt == 'int':
-            import re
-            if re.match(r'^\+\d+$', val):
-                val = val.replace('+', '')
-            return int(val)
+            val = val.replace('+', '') if re.match(r'^\+\d+$', val) else val
+            val = val.replace(',', '') if ',' in val else val
+            try:
+                val = int(val)
+            except Exception as e:
+                val = evalutate_error(val, onerror, e)
         elif fmt == 'date':
-            from pydoni.classes import DoniDt
             if DoniDt(val).is_exact():
                 val = DoniDt(val).extract_first(apply_tz=True)
-            return val
-        else:
-            return val
+            else:
+                val = evalutate_error(val, onerror,
+                    e="Unable to coerce value '{}' to type '{}'".format(val, fmt))
+        elif fmt == 'float':
+            val = val.replace('+', '') if re.match(r'^\+\d+', val) else val
+            val = val.replace(',', '') if ',' in val else val
+            try:
+                val = float(val)
+            except Exception as e:
+                val = evalutate_error(val, onerror, e)
+        return val
+
