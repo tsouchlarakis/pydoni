@@ -285,6 +285,7 @@ class Postgres(object):
         self.user = pg_user
         self.db = pg_dbname
         self.con = self.connect()
+        self.dtypes = self.coldtypes()
     def connect(self):
         from sqlalchemy import create_engine
         return create_engine('postgresql://{}@localhost:5432/{}'.format(
@@ -499,6 +500,15 @@ class Postgres(object):
     def colnames(self, schema, table):
         column_sql = "SELECT column_name FROM information_schema.columns WHERE table_schema = '{}' AND table_name = '{}'"
         return self.read_sql(column_sql.format(schema, table)).squeeze().tolist()
+    def coldtypes(self, schema, table):
+        import pandas as pd
+        dtype = self.read_sql("""
+            SELECT column_name, data_type
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE table_schema = '{}'
+                AND table_name = '{}'
+            """.format(schema, table)).squeeze()
+        return dtype.set_index('column_name')['data_type'].to_dict()
     def read_table(self, schema, table):
         return self.read_sql("SELECT * FROM {}.{}".format(schema, table))
     def __handle_single_quote__(self, val):
