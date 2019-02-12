@@ -285,7 +285,7 @@ class Postgres(object):
         self.user = pg_user
         self.db = pg_dbname
         self.con = self.connect()
-    def connect(self,):
+    def connect(self):
         from sqlalchemy import create_engine
         return create_engine('postgresql://{}@localhost:5432/{}'.format(
             self.user, self.db))
@@ -307,7 +307,7 @@ class Postgres(object):
     def read_sql(self, sql):
         import pandas as pd
         return pd.read_sql(sql, con=self.con)
-    def validate_dtype(self, schema, table, column, val):
+    def validate_dtype(self, schema, table, col, val):
         """Query database for datatype of value and validate that the Python value to
         insert to that column is compatible with the SQL datatype"""
         from pydoni.vb import echo
@@ -317,7 +317,7 @@ class Postgres(object):
             WHERE table_schema = '{}'
                 AND table_name = '{}'
                 AND column_name = '{}'
-            """.format(schema, table, column)).squeeze()
+            """.format(schema, table, col)).squeeze()
         # Check that input value datatype matches queried table column datatype
         dtype_map = {
             'bigint'                     : 'int',
@@ -346,11 +346,11 @@ class Postgres(object):
             'bool'                       : 'bool'}
         python_dtype = [v for k, v in dtype_map.items() if dtype in k]
         if not len(python_dtype):
-            echo("Column {}.{}.{} is datatype '{}' which is not in 'dtype_map' in class method Postgres.validate_dtype".format(schema, table, column, dtype), abort=True)
+            echo("Column {}.{}.{} is datatype '{}' which is not in 'dtype_map' in class method Postgres.validate_dtype".format(schema, table, col, dtype), abort=True)
         else:
             python_dtype = python_dtype[0]
         msg = "SQL column {}.{}.{} is type '{}' but Python value '{}' is type '{}'".format(
-            schema, table, column, dtype, val, type(val).__name__)
+            schema, table, col, dtype, val, type(val).__name__)
         if python_dtype == 'bool':
             if isinstance(val, bool):
                 return True
@@ -369,9 +369,10 @@ class Postgres(object):
                 return True
             else:
                 if isinstance(val, str):
-                    if val.isdigit():
+                    try:
+                        test = int(val)
                         return True
-                    else:
+                    except:
                         echo(msg, abort=True, fn_name='Postgres.build_update.validate_dtype')
                         return False
                 else:
@@ -491,6 +492,10 @@ class Postgres(object):
         columns = ', '.join(columns)
         sql = "INSERT INTO {}.{} ({}) VALUES ({});"
         return sql.format(schema, table, columns, values_final)
+    def build_delete(self, schema, table, pkey_name, pkey_value):
+        """Construct SQL DELETE FROM statement"""
+        pkey_value = self.__handle_single_quote__(pkey_value)
+        return "DELETE FROM {}.{} WHERE {} = {};".format(schema, table, pkey_name, pkey_value)
     def colnames(self, schema, table):
         column_sql = "SELECT column_name FROM information_schema.columns WHERE table_schema = '{}' AND table_name = '{}'"
         return self.read_sql(column_sql.format(schema, table)).squeeze().tolist()
