@@ -38,6 +38,7 @@ def exiftool(filepath, rmtags=None, attr_name=None):
     keys = [re.sub(r'^(.*?)(:)(.*)$', r'\1', x).strip() for x in exif]
     vals = [re.sub(r'^(.*?)(:)(.*)$', r'\3', x).strip() for x in exif]
     exif_dict = dict(zip(keys, vals))
+    exif_dict = {k.lower().replace(' ', '_'): v for k, v in exif_dict.items()}
     if attr_name:  # Filter result
         if isinstance(attr_name, str):
             attr_name = [attr_name]
