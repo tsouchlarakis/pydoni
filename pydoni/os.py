@@ -1,4 +1,4 @@
-def listfiles(path='.', pattern=None, full_names=False, recursive=False, ignore_case=True, include_hidden_files=False):
+def listfiles(path='.', pattern=None, ext=None, full_names=False, recursive=False, ignore_case=True, include_hidden_files=False):
     import os, sys
     if not os.path.isdir(path):
         print("ERROR: Invalid 'path' argument")
@@ -16,6 +16,10 @@ def listfiles(path='.', pattern=None, full_names=False, recursive=False, ignore_
             fnames = [x for x in fnames if re.search(pattern, x, re.IGNORECASE)]
         else:
             fnames = [x for x in fnames if re.search(pattern, x)]
+    if ext:
+        ext = [x.lower() for x in ext]
+        ext = ['.' + x if not x.startswith('.') else x for x in ext]
+        fnames = [x for x in fnames if os.path.splitext(x)[1].lower() in ext]
     if full_names:
         path_expand = os.getcwd() if path == '.' else path
         fnames = [os.path.join(path_expand, fname) for fname in fnames]

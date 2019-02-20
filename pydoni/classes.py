@@ -282,14 +282,13 @@ class Audio(object):
 
 class Postgres(object):
     def __init__(self, pg_user, pg_dbname):
-        self.user = pg_user
-        self.db = pg_dbname
-        self.con = self.connect()
-        self.dtypes = self.coldtypes()
+        self.dbuser = pg_user
+        self.dbname = pg_dbname
+        self.dbcon = self.connect()
     def connect(self):
         from sqlalchemy import create_engine
         return create_engine('postgresql://{}@localhost:5432/{}'.format(
-            self.user, self.db))
+            self.dbuser, self.dbname))
     def execute(self, sql, progress=False):
         """Execute list of SQL statements or a single statement, in a transaction"""
         from sqlalchemy import text
@@ -297,7 +296,7 @@ class Postgres(object):
             from pydoni.vb import echo
             echo("Parameter 'sql' must be either str or list")
         sql = [sql] if not isinstance(sql, list) else sql
-        with self.con.begin() as con:
+        with self.dbcon.begin() as con:
             if progress:
                 from tqdm import tqdm
                 for stmt in tqdm(sql):
@@ -307,18 +306,12 @@ class Postgres(object):
                     con.execute(text(stmt))
     def read_sql(self, sql):
         import pandas as pd
-        return pd.read_sql(sql, con=self.con)
+        return pd.read_sql(sql, con=self.dbcon)
     def validate_dtype(self, schema, table, col, val):
         """Query database for datatype of value and validate that the Python value to
         insert to that column is compatible with the SQL datatype"""
         from pydoni.vb import echo
-        dtype = self.read_sql("""
-            SELECT data_type
-            FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE table_schema = '{}'
-                AND table_name = '{}'
-                AND column_name = '{}'
-            """.format(schema, table, col)).squeeze()
+        dtype = self.coldtypes(schema, table)[col]
         # Check that input value datatype matches queried table column datatype
         dtype_map = {
             'bigint'                     : 'int',
@@ -345,13 +338,16 @@ class Postgres(object):
             'timestamp without time zone': 'str',
             'boolean'                    : 'bool',
             'bool'                       : 'bool'}
+        # Get python equivalent of SQL column datatype according to dtype_map above
         python_dtype = [v for k, v in dtype_map.items() if dtype in k]
         if not len(python_dtype):
             echo("Column {}.{}.{} is datatype '{}' which is not in 'dtype_map' in class method Postgres.validate_dtype".format(schema, table, col, dtype), abort=True)
         else:
             python_dtype = python_dtype[0]
+        # Prepare message (most likely will not be used)
         msg = "SQL column {}.{}.{} is type '{}' but Python value '{}' is type '{}'".format(
             schema, table, col, dtype, val, type(val).__name__)
+        # Begin validation
         if python_dtype == 'bool':
             if isinstance(val, bool):
                 return True
