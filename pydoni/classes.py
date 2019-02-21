@@ -692,7 +692,6 @@ class EXIF(object):
         from pydoni.sh import exiftool
         self.fname = fname
         self.exif = exiftool(fname)
-        self.exif = {k.lower().replace(' ', '_'): v for k, v in self.exif.items()}
     def rename_keys(self, key_dict):
         """Rename exif dictionary keys. Ex: key_dict={'file_name': 'fname'} will result in the
         original key 'file_name' being renamed to 'fname'"""

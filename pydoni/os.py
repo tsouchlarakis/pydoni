@@ -17,6 +17,7 @@ def listfiles(path='.', pattern=None, ext=None, full_names=False, recursive=Fals
         else:
             fnames = [x for x in fnames if re.search(pattern, x)]
     if ext:
+        ext = [ext] if isinstance(ext, str) else ext
         ext = [x.lower() for x in ext]
         ext = ['.' + x if not x.startswith('.') else x for x in ext]
         fnames = [x for x in fnames if os.path.splitext(x)[1].lower() in ext]

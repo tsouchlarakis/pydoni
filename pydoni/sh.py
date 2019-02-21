@@ -46,6 +46,23 @@ def exiftool(filepath, rmtags=None, attr_name=None):
     else:
         return exif_dict
 
+def adobe_dng_converter(fpath, overwrite=False):
+    """Run Adobe DNG Converter on a file"""
+    from pydoni.vb import echo
+    from pydoni.sh import syscmd
+    from os.path import join, splitext, basename, isfile
+    # Check if destination file already exists
+    destfile = join(splitext(fpath)[0], '.dng')
+    app = join('/', 'Applications', 'Adobe DNG Converter.app', 'Contents', 'MacOS', 'Adobe DNG Converter')
+    cmd = '"{}" "{}"'.format(app, fpath)
+    if isfile(destfile):
+        if overwrite:
+            syscmd(cmd)
+        else:
+            echo('Destination file {} already exists'.format(destfile), warn=True)
+    else:
+        syscmd(cmd)
+
 def stat(fname):  # Call 'stat' UNIX command and parse output into a Python dictionary
     import os
     from pydoni.sh import syscmd
