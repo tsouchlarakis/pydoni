@@ -109,3 +109,9 @@ def checkDpath(dpaths=[]):
     for dpath in dpaths:
         if not os.path.isdir(dpath):
             echo('Directory {} does not exist'.format(clickfmt(dpath, 'filepath')), abort=True)
+
+def unarchive(fpath, dest_dir):
+    """Unzip a .zip archive"""
+    import zipfile
+    with zipfile.ZipFile(fpath, 'r') as zip_ref:
+        zip_ref.extractall(dest_dir)
