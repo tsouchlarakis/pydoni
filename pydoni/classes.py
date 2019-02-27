@@ -39,8 +39,10 @@ class ProgramEnv(object):
             if overwrite:
                 shutil.rmtree(self.path)
             else:
-                echo("Specified path already exists and 'overwrite' set to False", abort=True)
-        os.mkdir(self.path)
+                if not click.confirm("Specified path {} already exists and 'overwrite' set to False. Continue with this path anyway?".format(self.path)):
+                    echo('Quitting program', abort=True)
+        if not os.path.isdir(self.path):
+            os.mkdir(self.path)
     def copyfile(self, fname, set_focus=False):
         """Copy a file into the environment"""
         import os, shutil
@@ -74,6 +76,9 @@ class ProgramEnv(object):
             zip_ref.extractall(dest_dir)
     def delete_env(self):
         import shutil
+        from os import chdir
+        from os.path import dirname
+        chdir(dirname(self.path))
         shutil.rmtree(self.path)
 
 class Audio(object):
