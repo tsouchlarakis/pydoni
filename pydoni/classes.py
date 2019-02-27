@@ -49,14 +49,29 @@ class ProgramEnv(object):
         if set_focus:
             self.focus = env_dest
     def listfiles(self, path='.', pattern=None, full_names=False, recursive=False, ignore_case=True, include_hidden_files=False):
+        """List files at given path"""
         from pydoni.os import listfiles
         files = listfiles(path=path, pattern=pattern, full_names=full_names,
             recursive=recursive, ignore_case=ignore_case,
             include_hidden_files=include_hidden_files)
         return files
     def listdirs(self, path='.', full_names=False):
+        """List directories at given path"""
         from pydoni.os import listdirs
         return listdirs(path=path, full_names=full_names)
+    def downloadfile(self, url, destfile):
+        """Download a file to environment"""
+        import requests, shutil
+        r = requests.get(url, stream=True)
+        with open(destfile, 'wb') as f:
+            r.raw.decode_content = True
+            shutil.copyfileobj(r.raw, f)
+    def unarchive(fpath):
+        """Extract a .zip archive to the same directory"""
+        import zipfile, os
+        dest_dir = os.path.dirname(fpath)
+        with zipfile.ZipFile(fpath, 'r') as zip_ref:
+            zip_ref.extractall(dest_dir)
     def delete_env(self):
         import shutil
         shutil.rmtree(self.path)
@@ -685,20 +700,21 @@ class DoniDt(object):
         else:
             return (None, None)
 
-
 class EXIF(object):
     """Extract and handle EXIF metadata from file"""
     def __init__(self, fname):
-        from pydoni.sh import exiftool
         self.fname = fname
-        self.exif = exiftool(fname)
+    def run(self):
+        from pydoni.sh import exiftool
+        self.exif = exiftool(self.fname)
+        return self.exif
     def rename_keys(self, key_dict):
         """Rename exif dictionary keys. Ex: key_dict={'file_name': 'fname'} will result in the
         original key 'file_name' being renamed to 'fname'"""
         for k, v in key_dict.items():
             if k in self.exif.keys():
                 self.exif[v] = self.exif.pop(k)
-    def coerce(self, key, fmt=['int', 'date'], onerror=['raise', 'null', 'revert']):
+    def coerce(self, key, val, fmt=['int', 'date', 'float'], onerror=['raise', 'null', 'revert']):
         """Attempt to coerce a dictionary value to specified type or format
         Parameters:
             key: name of EXIF key
@@ -718,7 +734,10 @@ class EXIF(object):
         """
         import re
         from pydoni.classes import DoniDt
-        val = str(self.exif[key])  # Start by casting value as string
+        if hasattr(self, 'exif'):
+            val = str(self.exif[key])  # Start by casting value as string
+        else:
+            val = val
         def evalutate_error(val, onerror, e="Unable to coerce value"):
             if onerror == 'raise':
                 raise e
@@ -727,7 +746,7 @@ class EXIF(object):
             elif onerror == 'revert':
                 return val
         if fmt == 'int':
-            val = val.replace('+', '') if re.match(r'^\+\d+$', val) else val
+            val = val.replace('+', '') if re.match(r'^\+', val) else val
             val = val.replace(',', '') if ',' in val else val
             try:
                 val = int(val)
@@ -747,4 +766,3 @@ class EXIF(object):
             except Exception as e:
                 val = evalutate_error(val, onerror, e)
         return val
-
