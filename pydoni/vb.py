@@ -17,7 +17,7 @@ def echo(msg, indent=0, sleep=0, timestamp=False,
     msg = tab + msg
     if timestamp:
         from datetime import datetime
-        timestamp = click.style(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), fg='cyan', bold=True)
+        timestamp = click.style(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), fg='cyan', bold=False)
         if tab == '':
             msg = timestamp + ' ' + msg
         else:
