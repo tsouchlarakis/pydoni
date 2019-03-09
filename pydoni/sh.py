@@ -21,7 +21,11 @@ def syscmd(cmd, encoding=''):
 
 def exiftool(filepath, rmtags=None, attr_name=None):
     import subprocess, re
+    from os.path import isfile
     from pydoni.sh import syscmd
+    if not isfile(filepath):
+        from pydoni.vb import echo
+        echo("Filepath '%s' does not exist!" % filepath, fn_name='exiftool', abort=True)
     if rmtags:
         if isinstance(rmtags, str):
             res = syscmd('exiftool -overwrite_original -{}= "{}"'.format(rmtags, filepath))
