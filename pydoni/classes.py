@@ -25,7 +25,7 @@ class GlobalVar(object):
 class ProgramEnv(object):
     """Handle a temporary program environment for a Python program"""
     def __init__(self, path, overwrite=False):
-        import os, shutil
+        import os, shutil, click
         from pydoni.vb import echo
         self.path = path
         if self.path == os.path.expanduser('~'):
@@ -184,6 +184,9 @@ class Audio(object):
             for result in response.results:
                 # The first alternative is the most likely one for this portion.
                 transcript.append(result.alternatives[0].transcript)
+        # De-capitalize first letter of each transcript. This happens as a long audio segment is
+        # broken into smaller clips, the first word in each of those clips becomes capitalized.
+        transcript = [x[0].lower() + x[1:] for x in transcript]
         transcript = re.sub(r' +', ' ', ' '.join(transcript)).strip()
         self.transcript = transcript
         return transcript
@@ -294,11 +297,6 @@ class Audio(object):
             duration = frames / float(rate)
         self.duration = duration
         return duration
-    def write(self, outfile, verbose=False):
-        from pydoni.vb import echo, clickfmt
-        with open(outfile, 'w') as f:
-            f.write(self.transcript)
-            echo('Transcript written to {}'.format(clickfmt(outfile, 'filepath'))) if verbose else None
 
 class Postgres(object):
     def __init__(self, pg_user, pg_dbname):

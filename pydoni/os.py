@@ -1,15 +1,17 @@
 def listfiles(path='.', pattern=None, ext=None, full_names=False, recursive=False, ignore_case=True, include_hidden_files=False):
-    import os, sys
-    if not os.path.isdir(path):
-        print("ERROR: Invalid 'path' argument")
-        sys.exit()
-    wd = os.getcwd()
-    os.chdir(path)
-    fnames = [os.path.join(dp, f).replace('./', '')        \
-        for dp, dn, filenames in os.walk('.')              \
-        for f in filenames] if recursive else os.listdir()
+    from os import getcwd, walk, listdir, getcwd, chdir
+    from os.path import isdir, join, basename, splitext
+    from pydoni.vb import echo
+    if not isdir(path):
+        echo("Path '{}' does not exist".format(path), fn_name='listfiles', error=True)
+        return None
+    wd = getcwd()
+    chdir(path)
+    fnames = [join(dp, f).replace('./', '')        \
+        for dp, dn, filenames in walk('.')              \
+        for f in filenames] if recursive else listdir()
     if not include_hidden_files:
-        fnames = [fname for fname in fnames if not os.path.basename(fname).startswith('.')]
+        fnames = [fname for fname in fnames if not basename(fname).startswith('.')]
     if pattern:
         import re
         if ignore_case:
@@ -20,11 +22,11 @@ def listfiles(path='.', pattern=None, ext=None, full_names=False, recursive=Fals
         ext = [ext] if isinstance(ext, str) else ext
         ext = [x.lower() for x in ext]
         ext = ['.' + x if not x.startswith('.') else x for x in ext]
-        fnames = [x for x in fnames if os.path.splitext(x)[1].lower() in ext]
+        fnames = [x for x in fnames if splitext(x)[1].lower() in ext]
     if full_names:
-        path_expand = os.getcwd() if path == '.' else path
-        fnames = [os.path.join(path_expand, fname) for fname in fnames]
-    os.chdir(wd)
+        path_expand = getcwd() if path == '.' else path
+        fnames = [join(path_expand, fname) for fname in fnames]
+    chdir(wd)
     return sorted(fnames)
 
 def listdirs(path='.', full_names=False):
