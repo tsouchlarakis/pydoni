@@ -214,8 +214,8 @@ class Audio(object):
                 r'(\b|\s)(quote)(\s|\b)'            : r'\1"',
                 r'(\b|\s)(hyphen)(\s|\b)'           : '-',
                 ' , '                               : ', ',
-                ' . '                               : '. ',
-                r'(\b|\s)(tab)(\s|\b)'              : '\t',
+                r' \. '                               : '. ',
+                r'(\b|\s)(tab)(\s|\b)'              : '  ',
                 r'( *)(new line)( *)'               : '\n',
                 r'( *)(newline)( *)'                : '\n',
                 r'(\b|\s)(tag title)\n'             : r'\1<title>\n',
@@ -231,9 +231,9 @@ class Audio(object):
             """Capitalize transcript intelligently"""
             import re
             from pydoni.pyobj import capNthChar, replaceNthChar, insertNthChar
-            # Capitalize first letter
+            # Capitalize first letter of each sentence, split by newline character
             val = transcript
-            val = capNthChar(val, 0)
+            val = '\n'.join([capNthChar(x, 0) for x in val.split('\n')])
             # Capitalize word following keyphrase 'make capital'
             cap_idx = [m.start()+len('make capital')+1 for m in re.finditer('make capital', val)]
             if len(cap_idx):
@@ -299,14 +299,17 @@ class Audio(object):
         return duration
 
 class Postgres(object):
+    
     def __init__(self, pg_user, pg_dbname):
         self.dbuser = pg_user
         self.dbname = pg_dbname
         self.dbcon = self.connect()
+    
     def connect(self):
         from sqlalchemy import create_engine
         return create_engine('postgresql://{}@localhost:5432/{}'.format(
             self.dbuser, self.dbname))
+    
     def execute(self, sql, progress=False):
         """Execute list of SQL statements or a single statement, in a transaction"""
         from sqlalchemy import text
@@ -322,15 +325,18 @@ class Postgres(object):
             else:
                 for stmt in sql:
                     con.execute(text(stmt))
+    
     def read_sql(self, sql):
         import pandas as pd
         return pd.read_sql(sql, con=self.dbcon)
+    
     def validate_dtype(self, schema, table, col, val):
         """Query database for datatype of value and validate that the Python value to
         insert to that column is compatible with the SQL datatype"""
         from pydoni.vb import echo
-        dtype = self.coldtypes(schema, table)[col]
+        
         # Check that input value datatype matches queried table column datatype
+        dtype = self.coldtypes(schema, table)[col]
         dtype_map = {
             'bigint'                     : 'int',
             'int8'                       : 'int',
@@ -358,15 +364,18 @@ class Postgres(object):
             'timestamp without time zone': 'str',
             'boolean'                    : 'bool',
             'bool'                       : 'bool'}
+        
         # Get python equivalent of SQL column datatype according to dtype_map above
         python_dtype = [v for k, v in dtype_map.items() if dtype in k]
         if not len(python_dtype):
             echo("Column {}.{}.{} is datatype '{}' which is not in 'dtype_map' in class method Postgres.validate_dtype".format(schema, table, col, dtype), abort=True)
         else:
             python_dtype = python_dtype[0]
+        
         # Prepare message (most likely will not be used)
         msg = "SQL column {}.{}.{} is type '{}' but Python value '{}' is type '{}'".format(
             schema, table, col, dtype, val, type(val).__name__)
+        
         # Begin validation
         if python_dtype == 'bool':
             if isinstance(val, bool):
@@ -413,6 +422,7 @@ class Postgres(object):
                 return True
         else:
             return True
+    
     def build_update(self, schema, table, pkey_name, pkey_value, columns, values, validate=True):
         """                     Construct SQL UPDATE statement
         By default, this method will:
@@ -435,10 +445,13 @@ class Postgres(object):
         import re
         from pydoni.vb import echo
         from pydoni.classes import DoniDt
+        
+        # Get columns and values
         columns = [columns] if isinstance(columns, str) else columns
         values = [values] if isinstance(values, str) else values
         if len(columns) != len(values):
             echo("Parameters 'column' and 'value' must be of equal length", abort=True)
+        
         # Escape quotes in primary key val
         pkey_value = self.__handle_single_quote__(pkey_value)
         lst = []
@@ -462,6 +475,7 @@ class Postgres(object):
             lst.append('{}={}'.format(col, val))
         sql = "UPDATE {}.{} SET {} WHERE {} = {};"
         return sql.format(schema, table, ', '.join(str(x) for x in lst), pkey_name, pkey_value)
+    
     def build_insert(self, schema, table, columns, values, validate=False):
         """                     Construct SQL INSERT statement
         By default, this method will:
@@ -484,11 +498,14 @@ class Postgres(object):
         import re
         from pydoni.vb import echo
         from pydoni.classes import DoniDt
+
+        # Get columns and values
         columns = [columns] if isinstance(columns, str) else columns
         values = [values] if isinstance(values, str) else values
         if len(columns) != len(values):
             echo("Parameters 'column' and 'value' must be of equal length", abort=True)
         lst = []
+
         for i in range(len(values)):
             val = values[i]
             col = columns[i]
@@ -505,17 +522,21 @@ class Postgres(object):
             else:  # Assume string, handle quotes
                 val = self.__handle_single_quote__(val)
             lst.append(val)
+        
         values_final = ', '.join(str(x) for x in lst)
         columns = ', '.join(columns)
         sql = "INSERT INTO {}.{} ({}) VALUES ({});"
         return sql.format(schema, table, columns, values_final)
+    
     def build_delete(self, schema, table, pkey_name, pkey_value):
         """Construct SQL DELETE FROM statement"""
         pkey_value = self.__handle_single_quote__(pkey_value)
         return "DELETE FROM {}.{} WHERE {} = {};".format(schema, table, pkey_name, pkey_value)
+    
     def colnames(self, schema, table):
         column_sql = "SELECT column_name FROM information_schema.columns WHERE table_schema = '{}' AND table_name = '{}'"
         return self.read_sql(column_sql.format(schema, table)).squeeze().tolist()
+    
     def coldtypes(self, schema, table):
         import pandas as pd
         dtype = self.read_sql("""
@@ -525,8 +546,73 @@ class Postgres(object):
                 AND table_name = '{}'
             """.format(schema, table)).squeeze()
         return dtype.set_index('column_name')['data_type'].to_dict()
+
     def read_table(self, schema, table):
         return self.read_sql("SELECT * FROM {}.{}".format(schema, table))
+    
+    def dump(self, backup_dir_abspath):
+        """Execute pg_dump command on connected database. Create .sql backup file"""
+        import subprocess
+        cmd = 'pg_dump {} > "{}/{}.sql"'.format(self.dbname, backup_dir_abspath, self.dbname)
+        out = subprocess.call(cmd, shell=True)
+
+    def dump_tables(self, backup_dir_abspath, sep, coerce_csv=False):
+        """Dump each table in database to a textfile with specified separator"""
+        # Define postgres function to dump a database, one table at a time to CSV
+        # https://stackoverflow.com/questions/17463299/export-database-into-csv-file?answertab=oldest#tab-top
+        db_to_csv = """
+        CREATE OR REPLACE FUNCTION db_to_csv(path TEXT) RETURNS void AS $$
+        DECLARE
+           tables RECORD;
+           statement TEXT;
+        BEGIN
+        FOR tables IN 
+           SELECT (table_schema || '.' || table_name) AS schema_table
+           FROM information_schema.tables t
+               INNER JOIN information_schema.schemata s ON s.schema_name = t.table_schema 
+           WHERE t.table_schema NOT IN ('pg_catalog', 'information_schema')
+               AND t.table_type NOT IN ('VIEW')
+           ORDER BY schema_table
+        LOOP
+           statement := 'COPY ' || tables.schema_table || ' TO ''' || path || '/' || tables.schema_table || '.csv' ||''' DELIMITER ''{}'' CSV HEADER';
+           EXECUTE statement;
+        END LOOP;
+        RETURN;  
+        END;
+        $$ LANGUAGE plpgsql;""".format(sep)
+        self.execute(db_to_csv)
+
+        # Execute function, dumping each table to a textfile.
+        # Function is used as follows: SELECT db_to_csv('/path/to/dump/destination');
+        self.execute("SELECT db_to_csv('{}')".format(backup_dir_abspath))
+
+        # If coerce_csv is True, read in each file outputted, then write as a quoted CSV.
+        # Replace 'sep' if different from ',' and quote each text field.
+        if coerce_csv:
+            if sep != ',':
+                import os, csv, pandas as pd
+                from pydoni.os import listfiles
+                wd = os.getcwd()
+                os.chdir(backup_dir_abspath)
+
+                # Get tables that were dumped and build filenames
+                get_dumped_tables = """SELECT (table_schema || '.' || table_name) AS schema_table
+                FROM information_schema.tables t
+                   INNER JOIN information_schema.schemata s ON s.schema_name = t.table_schema 
+                WHERE t.table_schema NOT IN ('pg_catalog', 'information_schema')
+                   AND t.table_type NOT IN ('VIEW')
+                ORDER BY schema_table"""
+                dumped_tables = self.read_sql(get_dumped_tables).squeeze()
+                if isinstance(dumped_tables, pd.Series):
+                    dumped_tables = dumped_tables.tolist()
+                elif isinstance(dumped_tables, str):
+                    dumped_tables = [dumped_tables]
+                dumped_tables = [x + '.csv' for x in dumped_tables]
+
+                # Read in each table and overwrite file with comma sep and quoted text values
+                for csvfile in dumped_tables:
+                    pd.read_csv(csvfile, sep=sep).to_csv(csvfile, quoting=csv.QUOTE_NONNUMERIC, index=False)
+
     def __handle_single_quote__(self, val):
         """Escape single quotes and put single quotes around value if string value"""
         if isinstance(val, str):

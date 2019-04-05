@@ -123,12 +123,19 @@ def dict_filter(d, keys):
     return {k.lower().replace(' ', '_'): v for k, v in d.items() if k.lower().replace(' ', '_') in keys}
 
 def capNthChar(string, n):
+    """Capitalize the Nth character of a string. If 'n' is out of range, return original string"""
+    if n >= len(string):
+        return string
     return string[:n] + string[n].capitalize() + string[n+1:]
 
 def replaceNthChar(string, n, replacement):
+    if n >= len(string):
+        return string
     return string[:n] + replacement + string[n+1:]
 
 def insertNthChar(string, n, char):
+    if n >= len(string):
+        return string
     return string [:n] + char + string[n:]
 
 def human_filesize(nbytes: int) -> str:
