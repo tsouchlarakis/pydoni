@@ -612,6 +612,7 @@ class Postgres(object):
                 # Read in each table and overwrite file with comma sep and quoted text values
                 for csvfile in dumped_tables:
                     pd.read_csv(csvfile, sep=sep).to_csv(csvfile, quoting=csv.QUOTE_NONNUMERIC, index=False)
+                os.chdir(wd)
 
     def __handle_single_quote__(self, val):
         """Escape single quotes and put single quotes around value if string value"""
