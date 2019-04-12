@@ -552,7 +552,8 @@ class Postgres(object):
     
     def dump(self, backup_dir_abspath):
         """Execute pg_dump command on connected database. Create .sql backup file"""
-        import subprocess
+        import subprocess, os
+        backup_dir_abspath = os.path.expanduser(backup_dir_abspath)
         cmd = 'pg_dump {} > "{}/{}.sql"'.format(self.dbname, backup_dir_abspath, self.dbname)
         out = subprocess.call(cmd, shell=True)
 
