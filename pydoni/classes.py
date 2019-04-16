@@ -869,13 +869,13 @@ class Git(object):
     def status(self):
         """Return boolean based on output of 'git status' command. Return True if working tree is
         up to date and does not require commit, False if commit is required."""
-        import subprocess
-        out = subprocess.check_output(['git', 'status']).decode()
-        working_tree_clean = "On branch master\nYour branch is up to date with 'origin/master'.\n\nnothing to commit, working tree clean\n"
+        from pydoni.sh import syscmd
+        out = syscmd('git status').decode()
+        working_tree_clean = "On branch masterYour branch is up to date with 'origin/master'.nothing to commit, working tree clean"
         not_git_repo = 'fatal: not a git repository (or any of the parent directories): .git'
-        if out == working_tree_clean:
+        if out.replace('\n', '') == working_tree_clean:
             return True
-        elif out == not_git_repo:
+        elif out.replace('\n', '') == not_git_repo:
             return None
         else:
             return False
