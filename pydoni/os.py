@@ -7,8 +7,8 @@ def listfiles(path='.', pattern=None, ext=None, full_names=False, recursive=Fals
         return None
     wd = getcwd()
     chdir(path)
-    fnames = [join(dp, f).replace('./', '')        \
-        for dp, dn, filenames in walk('.')              \
+    fnames = [join(dp, f).replace('./', '') \
+        for dp, dn, filenames in walk('.') \
         for f in filenames] if recursive else listdir()
     if not include_hidden_files:
         fnames = [fname for fname in fnames if not basename(fname).startswith('.')]
@@ -29,17 +29,26 @@ def listfiles(path='.', pattern=None, ext=None, full_names=False, recursive=Fals
     chdir(wd)
     return sorted(fnames)
 
-def listdirs(path='.', full_names=False):
+def listdirs(path='.', pattern=None, full_names=False, recursive=False):
     # List subdirectories
     import os
     wd = os.getcwd()
     os.chdir(path)
-    dnames = next(os.walk(path))[1]
+    if recursive:
+        dnames = [os.path.join(root, subdir).replace('./', '') \
+            for root, subdirs, filenames in os.walk('.') \
+            for subdir in subdirs]
+    else:
+        dnames = next(os.walk(path))[1]
+        dnames = sorted(dnames)
     if full_names:
         path_expand = os.getcwd() if path == '.' else path
         dnames = [os.path.join(path_expand, dname) for dname in dnames]
+    if pattern is not None:
+        import re
+        dnames = [x for x in dnames if re.match(pattern, x)]
     os.chdir(wd)
-    return sorted(dnames)
+    return dnames
 
 def getFinderComment(filepath):
     import os
