@@ -29,8 +29,9 @@ def echo(msg, indent=0, sleep=0, timestamp=False,
         import time
         time.sleep(sleep)
     if abort:
-        import sys
-        sys.exit()
+        # import sys
+        # sys.exit()
+        quit()
 
 def clickfmt(string, fmt=['numeric', 'filename', 'filepath', 'url', 'date', 'arrow', 'green', 'red', 'yellow', 'cyan']):
     import click
