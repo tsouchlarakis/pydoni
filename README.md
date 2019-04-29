@@ -4,7 +4,7 @@
 
 # pydoni
 
-> A superior Python package written by Doni.
+> A Python module for commonly-used functions and classes by Andoni Sooklaris.
 
 ---
 
