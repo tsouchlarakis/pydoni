@@ -126,3 +126,52 @@ def unarchive(fpath, dest_dir):
     import zipfile
     with zipfile.ZipFile(fpath, 'r') as zip_ref:
         zip_ref.extractall(dest_dir)
+
+
+def macos_notify(title='', subtitle=None, message='', app_icon=None, content_image=None, command=None, open_iterm=False):
+    """
+    Python wrapper for julienXX's terminal-notifier gem found here:
+    https://github.com/julienXX/terminal-notifier
+
+    Args:
+        title (str): title string for notification
+        subtitle (str): subtitle string for notification
+        message (str): message string for notification
+        app_icon (str): path to image file to display instead of application icon
+        content_image (str): path to image file to attach inside of notification
+        command (str): shell command string to execute when notification is clicked
+        open_iterm (boolean): overwrites 'command' parameter as 'open /Applications/iTerm.app'
+    Returns:
+        nothing
+    """
+    import os
+
+    # Build list of arguments for terminal-notifier and check that each parameter is valid
+    cl_string = []
+    if title is not None:
+        assert isinstance(title, str)
+        cl_string.append('-title {!r}'.format(title))
+    if subtitle is not None:
+        assert isinstance(subtitle, str)
+        cl_string.append('-subtitle {!r}'.format(subtitle))
+    if message is not None:
+        assert isinstance(message, str)
+        cl_string.append('-message {!r}'.format(message))
+    if app_icon is not None:
+        assert isinstance(app_icon, str)
+        assert os.path.isfile(app_icon)
+        cl_string.append('-appIcon {!r}'.format(app_icon))
+    if content_image is not None:
+        assert isinstance(content_image, str)
+        assert os.path.isfile(content_image)
+        cl_string.append('-contentImage {!r}'.format(content_image))
+    assert isinstance(open_iterm, bool)
+    if open_iterm:
+        cl_string.append("-execute 'open /Applications/iTerm.app'")
+    elif command is not None:
+        assert isinstance(command, str)
+        cl_string.append('-execute {!r}'.format(command))
+    
+    # Build final command and execute
+    cmd = 'terminal-notifier {}'.format(' '.join(cl_string))
+    os.system(cmd)
