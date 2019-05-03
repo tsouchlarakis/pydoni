@@ -145,12 +145,17 @@ def macos_notify(title='', subtitle=None, message='', app_icon=None, content_ima
     """
     import os
     from pydoni.sh import syscmd
+    from pydoni.vb import echo
 
     # Check that terminal-notifier is installed
     tnv = syscmd('which terminal-notifier').decode().strip()
     if not os.path.isfile(tnv):
         from pydoni.vb import echo
         echo("terminal-notifier is not installed! Please install it per instructions at https://github.com/julienXX/terminal-notifier", abort=True)
+
+    # Check that operating system is macOS
+    if os.name.lower() != 'posix':
+        echo('Operating system is not macOS!', abort=True)
 
     # Build list of arguments for terminal-notifier and check that each parameter is valid
     cl_string = []
