@@ -143,7 +143,7 @@ def echo(
     
     # Exit program if specified
     if abort:
-        quit() 
+        quit()
 
 def clickfmt(string, fmt=['numeric', 'filename', 'filepath', 'url', 'date', 'arrow', 'green', 'red', 'yellow', 'cyan']):
     import click
