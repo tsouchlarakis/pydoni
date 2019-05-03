@@ -19,6 +19,7 @@ def echo(
     notification=dict(
         title='',
         subtitle=None,
+        message=None,
         app_icon=None,
         content_image=None,
         command=None,
@@ -111,7 +112,7 @@ def echo(
         if 'subtitle' not in notification.keys():
             notification['subtitle'] = None
         if 'message' not in notification.keys():
-            notification['message'] = None
+            notification['message'] = msg_raw
         if 'app_icon' not in notification.keys():
             notification['app_icon'] = None
         if isinstance(notification['app_icon'], str):
@@ -129,7 +130,7 @@ def echo(
         macos_notify(
             title         = notification['title'],
             subtitle      = notification['subtitle'],
-            message       = msg_raw,
+            message       = notification['message'],
             app_icon      = notification['app_icon'],
             content_image = notification['content_image'],
             command       = notification['command'],
@@ -196,7 +197,49 @@ def printColumns(lst, ncol, delay=None):  # Print a list as side-by-side columns
             if delay > 0:
                 time.sleep(delay)
 
-def programComplete(custom_string=None):
+def program_complete(
+    msg='Program complete!',
+    emoji_string=':thumbs_up:',
+    notify=False,
+    notification=dict(
+        title='',
+        subtitle=None,
+        message=None,
+        app_icon=None,
+        content_image=None,
+        command=None,
+        open_iterm=False
+    )
+    ):
+    """
+    Print to STDOUT indicating program was completed. Optionally include the elapsed program
+    time. Optionally send a macOS notification or a notification email indicating program
+    completion.
+
+    Args
+        emoji_string  (str) : Name of emoji to display. Defaults to ':thumbs_up:'.
+        notify        (bool): If True, execute `macos_notify()` to create a macOS notification.
+
+    Returns
+        nothing
+    """
     import emoji, click
-    msg = 'Program complete!' if not custom_string else custom_string
-    click.echo('{} {}'.format(click.style(msg, fg='green'), emoji.emojize(':thumbs_up:')))
+    from pydoni.vb import echo
+
+    # Save original message before any editing is done if the message will be used in a
+    # macOS notification
+    if notify:
+        msg_raw = msg
+
+    # Add colons surrounding emoji string if not already present
+    emoji_string = ':' + emoji_string.replace(':', '') + ':'
+
+    # Create output string
+    msg = '{} {}'.format(click.style(msg, fg='green'), emoji.emojize(emoji_string))
+
+    # Print message and notify if specified
+    if notify:
+        notification['message'] = msg_raw
+        echo(msg, notify=True, notification=notification)
+    else:
+        echo(msg)
