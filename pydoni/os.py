@@ -133,15 +133,15 @@ def macos_notify(title='', subtitle=None, message='', app_icon=None, content_ima
     Python wrapper for julienXX's terminal-notifier gem found here:
     https://github.com/julienXX/terminal-notifier
 
-    Args:
-        title (str): title string for notification
-        subtitle (str): subtitle string for notification
-        message (str): message string for notification
-        app_icon (str): path to image file to display instead of application icon
-        content_image (str): path to image file to attach inside of notification
-        command (str): shell command string to execute when notification is clicked
-        open_iterm (boolean): overwrites 'command' parameter as 'open /Applications/iTerm.app'
-    Returns:
+    Args
+        title         (str)    : title string for notification
+        subtitle      (str)    : subtitle string for notification
+        message       (str)    : message string for notification
+        app_icon      (str)    : path to image file to display instead of application icon
+        content_image (str)    : path to image file to attach inside of notification
+        command       (str)    : shell command string to execute when notification is clicked
+        open_iterm    (boolean): overwrites 'command' parameter as 'open /Applications/iTerm.app'
+    Returns
         nothing
     """
     import os
