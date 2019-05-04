@@ -1,9 +1,12 @@
 class Attribute(object):
     def __init__(self):
         pass
+
     def __flatten__(self):
-        """Combine all subattributes of an Attribute. If all lists, flatten to single
-        list. If all strings, join into a list."""
+        """
+        Combine all subattributes of an Attribute. If all lists, flatten to single
+        list. If all strings, join into a list.
+        """
         dct = self.__dict__
         is_list = list(set([True for k, v in dct.items() if isinstance(v, list)]))
         if len(is_list) == 0:
@@ -18,22 +21,30 @@ class Attribute(object):
             return [item for sublist in lst_of_lst for item in sublist]
 
 class GlobalVar(object):
-    """Hold all program variables in a single Python object"""
+    """
+    Hold all program variables in a single Python object
+    """
     def __init__(self):
         pass
 
 class ProgramEnv(object):
-    """Handle a temporary program environment for a Python program"""
+    """
+    Handle a temporary program environment for a Python program
+    """
     def __init__(self, path, overwrite=False):
         import os, shutil, click
         from pydoni.vb import echo
+        
+        # Assign program environment path
         self.path = path
         if self.path == os.path.expanduser('~'):
             echo('Path cannot be home directory', abort=True)
         elif self.path == '/':
             echo('Path cannot be root directory', abort=True)
-        # 'focus' is the current working file, if specified
+        
+        # self.focus is the current working file, if specified
         self.focus = None
+        
         # Overwrite existing directory if specified and directory exists
         if os.path.isdir(self.path):
             if overwrite:
@@ -43,24 +54,40 @@ class ProgramEnv(object):
                     echo('Quitting program', abort=True)
         if not os.path.isdir(self.path):
             os.mkdir(self.path)
+    
     def copyfile(self, fname, set_focus=False):
-        """Copy a file into the environment"""
+        """
+        Copy a file into the program environment.
+        Args
+            fname     (str) : filename to copy
+            set_focus (bool): if True, set the focus to the newly-copied file
+        Returns
+            nothing
+        """
         import os, shutil
         env_dest = os.path.join(self.path, os.path.basename(fname))
         shutil.copyfile(fname, env_dest)
         if set_focus:
             self.focus = env_dest
+    
     def listfiles(self, path='.', pattern=None, full_names=False, recursive=False, ignore_case=True, include_hidden_files=False):
-        """List files at given path"""
+        """
+        List files at given path.
+        Args
+            path (str): path to search for files in
+            pattern ()
+        """
         from pydoni.os import listfiles
         files = listfiles(path=path, pattern=pattern, full_names=full_names,
             recursive=recursive, ignore_case=ignore_case,
             include_hidden_files=include_hidden_files)
         return files
+    
     def listdirs(self, path='.', full_names=False):
         """List directories at given path"""
         from pydoni.os import listdirs
         return listdirs(path=path, full_names=full_names)
+    
     def downloadfile(self, url, destfile):
         """Download a file to environment"""
         import requests, shutil
@@ -68,12 +95,14 @@ class ProgramEnv(object):
         with open(destfile, 'wb') as f:
             r.raw.decode_content = True
             shutil.copyfileobj(r.raw, f)
+    
     def unarchive(fpath):
         """Extract a .zip archive to the same directory"""
         import zipfile, os
         dest_dir = os.path.dirname(fpath)
         with zipfile.ZipFile(fpath, 'r') as zip_ref:
             zip_ref.extractall(dest_dir)
+    
     def delete_env(self):
         import shutil
         from os import chdir
