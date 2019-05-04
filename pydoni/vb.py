@@ -200,6 +200,8 @@ def printColumns(lst, ncol, delay=None):  # Print a list as side-by-side columns
 def program_complete(
     msg='Program complete!',
     emoji_string=':thumbs_up:',
+    start_time=None,
+    end_time=None,
     notify=False,
     notification=dict(
         title='',
@@ -217,14 +219,17 @@ def program_complete(
     completion.
 
     Args
-        emoji_string  (str) : Name of emoji to display. Defaults to ':thumbs_up:'.
-        notify        (bool): If True, execute `macos_notify()` to create a macOS notification.
+        emoji_string (str)  : Name of emoji to display. Defaults to ':thumbs_up:'. Set to None if no emoji should be printed.
+        start_time   (float): Start time of program as output of time.time(). Used to calculate elapsed time. Leave blank if elapsed time should not be printed.
+        end_time     (float): End time of program as output of time.time(). Used to calculate elapsed time. Leave blank if elapsed time should not be printed.
+        notify       (bool) : If True, execute `macos_notify()` to create a macOS notification.
 
     Returns
         nothing
     """
     import emoji, click
     from pydoni.vb import echo
+    from pydoni.pyobj import fmt_seconds
 
     # Save original message before any editing is done if the message will be used in a
     # macOS notification
@@ -234,8 +239,27 @@ def program_complete(
     # Add colons surrounding emoji string if not already present
     emoji_string = ':' + emoji_string.replace(':', '') + ':'
 
-    # Create output string
-    msg = '{} {}'.format(click.style(msg, fg='green'), emoji.emojize(emoji_string))
+    # Add emoji if specified
+    if emoji_string is not None:
+        msg = '{} {}'.format(click.style(msg, fg='green'), emoji.emojize(emoji_string))
+    else:
+        msg = click.style(msg, fg='green')
+
+    # Get elapsed time if specified
+    if start_time is not None and end_time is not None:
+        import time
+        assert isinstance(start_time, float)
+        assert isinstance(end_time, float)
+        diff = fmt_seconds(end_time - start_time, units='auto', round_digits=2)
+        msg = msg + ' Elapsed time: {}'.format(
+            click.style('{} {}'.format(
+                diff['value'],
+                diff['units']),
+                fg='yellow', bold=True)
+        )
+
+        # Add to msg_raw to include in notification
+        msg_raw = msg_raw + ' Elapsed time: {} {}'.format(diff['value'], diff['units'])
 
     # Print message and notify if specified
     if notify:
