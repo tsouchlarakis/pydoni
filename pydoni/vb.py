@@ -1,29 +1,29 @@
 def echo(
     msg,
-    indent=0,
-    sleep=0,
-    timestamp=False,
-    warn=False,
-    error=False,
-    error_msg=None,
-    abort=False,
-    fn_name=None,
-    fg=None,
-    bg=None,
-    bold=None,
-    dim=None,
-    underline=None,
-    blink=None,
-    reverse=None,
-    notify=False,
-    notification=dict(
-        title='',
-        subtitle=None,
-        message=None,
-        app_icon=None,
-        content_image=None,
-        command=None,
-        open_iterm=False
+    indent       = 0,
+    sleep        = 0,
+    timestamp    = False,
+    warn         = False,
+    error        = False,
+    error_msg    = None,
+    abort        = False,
+    fn_name      = None,
+    fg           = None,
+    bg           = None,
+    bold         = None,
+    dim          = None,
+    underline    = None,
+    blink        = None,
+    reverse      = None,
+    notify       = False,
+    notification = dict(
+        title         = '',
+        subtitle      = None,
+        message       = None,
+        app_icon      = None,
+        content_image = None,
+        command       = None,
+        open_iterm    = False
         )
     ):
     """
@@ -248,19 +248,19 @@ def print_columns(lst, ncol=2, delay=None):
 
 
 def program_complete(
-    msg='Program complete!',
-    emoji_string=':thumbs_up:',
-    start_time=None,
-    end_time=None,
-    notify=False,
-    notification=dict(
-        title='',
-        subtitle=None,
-        message=None,
-        app_icon=None,
-        content_image=None,
-        command=None,
-        open_iterm=False
+    msg          = 'Program complete!',
+    emoji_string = ':thumbs_up:',
+    start_time   = None,
+    end_time     = None,
+    notify       = False,
+    notification = dict(
+        title         = '',
+        subtitle      = None,
+        message       = None,
+        app_icon      = None,
+        content_image = None,
+        command       = None,
+        open_iterm    = False
     )
     ):
     """
