@@ -31,24 +31,24 @@ def echo(
     warning/error message, text styles, and more.
 
     Args
-        msg          (str) : Mandatory. Message to print to console.
-        indent       (int) : Optional. Indentation level of message printed to console.
-        sleep        (int) : Optional. Number of seconds to pause program after printing message.
-        timestamp    (bool): Optional. If True, print datetimestamp preceding message.
-        warn         (bool): Optional. If True, print 'WARNING: ' in yellow preceding message.
-        error        (bool): Optional. If True, print 'ERROR: ' in red preceding message.
-        error_msg    (str) : Optional. Python error message. Intended for use in try/except. Pass in `str(e)` here.
-        abort        (bool): Optional. If True, print 'ERROR (fatal): ' in red preceding message AND exit program.
-        fn_name      (str) : Optional. Name of function, if any, that echo() was called from. Will include function in printed message. Useful for debugging. Only applied if one or more of `warn`, `error` or `abort` are set to True
-        fg           (str) : Optional. Color string indicator color of text. One of [None, 'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
-        bg           (str) : Optional. Color string indicator color of background of text. One of [None, 'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
-        bold         (bool): Optional. If True, print message with bold effect.
-        dim          (bool): Optional. If True, print message with dim effect.
-        underline    (bool): Optional. If True, print message with underline effect.
-        blink        (bool): Optional. If True, print message with blink effect.
-        reverse      (bool): Optional. If True, print message with reverse effect (foreground/background reversed).
-        notify       (bool): Optional. If True, invoke `macos_notify()`. Notification customizations can be altered in `notification` parameter.
-        notification (dict): Optional. Customize macOS notification. Requires that `notify` set to True.
+        msg          (str) : [mandatory] Message to print to console.
+        indent       (int) : [optional] Indentation level of message printed to console.
+        sleep        (int) : [optional] Number of seconds to pause program after printing message.
+        timestamp    (bool): [optional] If True, print datetimestamp preceding message.
+        warn         (bool): [optional] If True, print 'WARNING: ' in yellow preceding message.
+        error        (bool): [optional] If True, print 'ERROR: ' in red preceding message.
+        error_msg    (str) : [optional] Python error message. Intended for use in try/except. Pass in `str(e)` here.
+        abort        (bool): [optional] If True, print 'ERROR (fatal): ' in red preceding message AND exit program.
+        fn_name      (str) : [optional] Name of function, if any, that echo() was called from. Will include function in printed message. Useful for debugging. Only applied if one or more of `warn`, `error` or `abort` are set to True
+        fg           (str) : [optional] Color string indicator color of text. One of [None, 'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
+        bg           (str) : [optional] Color string indicator color of background of text. One of [None, 'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
+        bold         (bool): [optional] If True, print message with bold effect.
+        dim          (bool): [optional] If True, print message with dim effect.
+        underline    (bool): [optional] If True, print message with underline effect.
+        blink        (bool): [optional] If True, print message with blink effect.
+        reverse      (bool): [optional] If True, print message with reverse effect (foreground/background reversed).
+        notify       (bool): [optional] If True, invoke `macos_notify()`. Notification customizations can be altered in `notification` parameter.
+        notification (dict): [optional] Customize macOS notification. Requires that `notify` set to True.
             title         (str) : Title of notification.
             subtitle      (str) : Subtitle of notification.
             app_icon      (str) : Path to app icon image to display on left side of notification.
@@ -146,7 +146,16 @@ def echo(
     if abort:
         quit()
 
-def clickfmt(string, fmt=['numeric', 'filename', 'filepath', 'url', 'date', 'arrow', 'green', 'red', 'yellow', 'cyan']):
+
+def clickfmt(string, fmt):
+    """
+    Create frequently-used `click` formating styles.
+    Args
+        string (str): text string
+        fmt    (str): format type, one of ['numeric', 'filename', 'filepath', 'url', 'date', 'arrow', 'green', 'red', 'yellow', 'cyan']
+    Returns
+        str
+    """
     import click
     from pydoni.vb import echo
     if fmt == 'numeric':
@@ -174,28 +183,69 @@ def clickfmt(string, fmt=['numeric', 'filename', 'filepath', 'url', 'date', 'arr
     else:
         echo("Invalid 'fmt' parameter", error=True, abort=False)
 
-def verboseHeader(string, time_in_sec, round_digits=2):
+
+def verbose_header(string, time_in_sec=None, round_digits=2):
+    """
+    Print STDOUT verbose section header and optionally print estimated time.
+    Args
+        string       (str): header text
+        time_in_sec  (int): [optional] time in seconds that code section will take
+        round_digits (int): [optional] round estimated time to this many digits
+    Returns
+        nothing
+    """
     import click
     from pydoni.vb import echo
     from pydoni.pyobj import fmt_seconds
-    esttime = fmt_seconds(time_in_sec, round_digits=round_digits)
-    echo('{} {} Est. time: {}'.format(
-        click.style(string, fg='white', bold=True),
-        click.style('->', fg='white', bold=True),
-        click.style(str(esttime['value']) + ' ' + esttime['units'], fg='yellow', bold=True)))
 
-def printColumns(lst, ncol, delay=None):  # Print a list as side-by-side columns
+    # Format string as title
+    title = click.style(string, fg='white', bold=True)
+
+    # If time in seconds is given, augment title to incorporate estimated time
+    if isinstance(time_in_sec, int):
+        # Get estimated time as dictionary
+        esttime = fmt_seconds(time_in_sec=time_in_sec, units='auto', round_digits=round_digits)
+        title = '{} {} Est. time {}'.format(
+            title,
+            click.style('->', fg='white', bold=True),
+            click.style(str(esttime['value']) + ' ' + esttime['units'], fg='yellow', bold=True))
+    
+    # Print message
+    echo(title)
+
+
+def print_columns(lst, ncol=2, delay=None):
+    """
+    Print a list as side-by-side columns.
+    Args
+        lst   (list)        : list to print to screen
+        ncol  (int)         : number of columns to print to screen
+        delay (int or float): [optional] if specified, delay this many seconds after each line is printed
+    Returns
+        nothing
+    """
     import time
+    
     def chunks(lst, chunk_size):
+        """
+        Split a list into a list of lists.
+        Args
+            lst        (list): list to split
+            chunk_size (int) : size of chunks
+        Returns
+            list
+        """
         for i in range(0, len(lst), chunk_size):
             yield lst[i:i + chunk_size]
+
     lstlst = list(chunks(lst, ncol))
     col_width = max(len(word) for row in lstlst for word in row) + 2
     for row in lstlst:
         print(''.join(word.ljust(col_width) for word in row))
-        if delay:
+        if delay is not None:
             if delay > 0:
                 time.sleep(delay)
+
 
 def program_complete(
     msg='Program complete!',
@@ -217,13 +267,12 @@ def program_complete(
     Print to STDOUT indicating program was completed. Optionally include the elapsed program
     time. Optionally send a macOS notification or a notification email indicating program
     completion.
-
+    
     Args
         emoji_string (str)  : Name of emoji to display. Defaults to ':thumbs_up:'. Set to None if no emoji should be printed.
         start_time   (float): Start time of program as output of time.time(). Used to calculate elapsed time. Leave blank if elapsed time should not be printed.
         end_time     (float): End time of program as output of time.time(). Used to calculate elapsed time. Leave blank if elapsed time should not be printed.
         notify       (bool) : If True, execute `macos_notify()` to create a macOS notification.
-
     Returns
         nothing
     """
