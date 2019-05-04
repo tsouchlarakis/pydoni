@@ -41,8 +41,6 @@ def exiftool(fpath, rmtags=None, attr_name=None):
     from os.path import isfile
     from pydoni.sh import syscmd
     from pydoni.vb import echo
-    
-    # Check if filepath is valid
     assert isfile(fpath)
 
     # Check if `exiftool` is installed
