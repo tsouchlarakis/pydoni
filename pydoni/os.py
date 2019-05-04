@@ -1,116 +1,265 @@
+from pydoni.vb import echo
 def listfiles(path='.', pattern=None, ext=None, full_names=False, recursive=False, ignore_case=True, include_hidden_files=False):
+    """
+    List files in a given directory.
+    Args
+        path       (str) : directory path in which to search for files
+        pattern    (str) : if specified, filter resulting files by matching regex pattern
+        ext        (str) : extention or list of extensions to filter resulting files by
+        full_names (bool): if True, return full filepath from current directory instead of just the file's basename
+        recursive            (bool): if True, search recursively down the directory tree for files
+        ignore_case          (bool): if True, use re.IGNORECASE flag when filtering files by regex specified in `pattern` parameter
+        include_hidden_files (bool): if True, include hidden files in resulting file list
+    Returns
+        list
+    """
     from os import getcwd, walk, listdir, getcwd, chdir
     from os.path import isdir, join, basename, splitext
     from pydoni.vb import echo
+
+    # Check if specified path exists
     if not isdir(path):
         echo("Path '{}' does not exist".format(path), fn_name='listfiles', error=True)
         return None
+    
+    # Change to specified directory and record original directory to change back to at the end
     wd = getcwd()
     chdir(path)
+
+    # List files, either recursively or not recursively
     fnames = [join(dp, f).replace('./', '') \
         for dp, dn, filenames in walk('.') \
         for f in filenames] if recursive else listdir()
+    
+    # Filter out hidden files if specified
     if not include_hidden_files:
         fnames = [fname for fname in fnames if not basename(fname).startswith('.')]
-    if pattern:
+    
+    # If a regex pattern is specified, filter file list by that pattern
+    if pattern is not None:
         import re
         if ignore_case:
             fnames = [x for x in fnames if re.search(pattern, x, re.IGNORECASE)]
         else:
             fnames = [x for x in fnames if re.search(pattern, x)]
+    
+    # If an extension or list of extensions is specified, filter resulting file list by
+    # that extension or those extensions
     if ext:
         ext = [ext] if isinstance(ext, str) else ext
         ext = [x.lower() for x in ext]
         ext = ['.' + x if not x.startswith('.') else x for x in ext]
         fnames = [x for x in fnames if splitext(x)[1].lower() in ext]
+    
+    # Specify full name from current directory down if specified by joining the current
+    # directory onto each filename
     if full_names:
         path_expand = getcwd() if path == '.' else path
         fnames = [join(path_expand, fname) for fname in fnames]
+    
+    # Change back to original directory
     chdir(wd)
+
+    # Return sorted list of files
     return sorted(fnames)
 
+
 def listdirs(path='.', pattern=None, full_names=False, recursive=False):
-    # List subdirectories
-    import os
-    wd = os.getcwd()
-    os.chdir(path)
+    """
+    List directories at a given directory.
+    Args
+        path       (str) : directory path in which to search for subdirectories
+        pattern    (str) : if specified, filter resulting dirs by matching regex pattern
+        full_names (bool): if True, return full directory path from current directory instead of just the directory's basename
+        recursive  (bool): if True, search recursively down the directory tree for files
+    Returns
+        list
+    """
+    from os import getcwd, walk, getcwd, chdir
+    from os.path import isdir, join
+    from pydoni.vb import echo
+
+    # Check if specified path exists
+    if not isdir(path):
+        echo("Path '{}' does not exist".format(path), fn_name='listdirs', error=True)
+        return None
+
+    # Change to specified directory and record original directory to change back to at the end
+    wd = getcwd()
+    chdir(path)
+
+    # List directories either recursively or not
     if recursive:
-        dnames = [os.path.join(root, subdir).replace('./', '') \
-            for root, subdirs, filenames in os.walk('.') \
+        dnames = [join(root, subdir).replace('./', '') \
+            for root, subdirs, filenames in walk('.') \
             for subdir in subdirs]
     else:
-        dnames = next(os.walk(path))[1]
+        dnames = next(walk(path))[1]
         dnames = sorted(dnames)
+    
+    # Specify full name from current directory down if specified by joining the current
+    # directory onto each dirname
     if full_names:
-        path_expand = os.getcwd() if path == '.' else path
-        dnames = [os.path.join(path_expand, dname) for dname in dnames]
+        path_expand = getcwd() if path == '.' else path
+        dnames = [join(path_expand, dname) for dname in dnames]
+    
+    # If a regex pattern is specified, filter directory list by that pattern
     if pattern is not None:
         import re
         dnames = [x for x in dnames if re.match(pattern, x)]
-    os.chdir(wd)
-    return dnames
+    
+    # Change back to original directory
+    chdir(wd)
 
-def getFinderComment(filepath):
-    import os
-    cmd = 'mdls -r -nullMarker "" -n kMDItemFinderComment "%s"' % filepath
-    res = os.popen(cmd).read()
-    res = '' if 'could not find ' + os.path.basename(filepath) in res else res
-    return res
+    # Return sorted list of dirs
+    return sorted(dnames)
 
-def writeFinderComment(filepath, comment):
-    import re
-    from pydoni.sh import syscmd
-    cmd = '/usr/bin/osascript -e'
-    applescript = 'set filepath to POSIX file "{}"\nset the_file to filepath as alias\ntell application "Finder" to set the comment of the_file to "{}"'
-    applescript_clear = applescript.format(filepath, 'test')
-    applescript_set = applescript.format(filepath, comment)
-    applescript_clear = re.sub(r'"', r'\"', applescript_clear)
-    applescript_set = re.sub(r'"', r'\"', applescript_set)
-    res = syscmd(cmd + ' "' + applescript_clear + '"')
-    res = syscmd(cmd + ' "' + applescript_set + '"')
 
-def removeFinderComment(filepath):
-    import os, re
-    cmd = '/usr/bin/osascript -e'
-    applescript = 'set filepath to POSIX file "%s"\nset the_file to filepath as alias\ntell application "Finder" to set the comment of the_file to ""' % filepath
-    applescript = re.sub(r'"', r'\"', applescript)
-    os.system(cmd + ' "' + applescript + '"')    
+class FinderMacOS(object):
+    """
+    MacOS Finder object. Holds functions to carry out Finder operations on a file or directory.
+    Args
+        fpath (str): path to file
+    """
+    def __init__(self, fpath):
+        from os.path import isfile
+        if not isfile(fpath):
+            from pydoni.vb import echo
+            echo("Specified filepath '{}' does not exist!".format(fpath), abort=True)
+        self.fpath = fpath
+    
+    def get_comment(self):
+        """
+        Call `mdls` BASH command to retrieve a file's Finder comment on macOS.
+        Args: none
+        Returns: str
+        """
+        import os
+        from pydoni.sh import syscmd
+        self.__assert_fpath__()
+        cmd = 'mdls -r -nullMarker "" -n kMDItemFinderComment "%s"' % self.fpath
+        res = syscmd(cmd, encoding='utf-8')
+        if 'could not find ' + os.path.basename(self.fpath) in res:
+            res = ''
+        return res
 
-def getFinderTags(filepath):
-    import os
-    cmd = 'mdls -r -nullMarker "" -n kMDItemUserTags "%s"' % filepath
-    tags = os.popen(cmd).read()
-    tags = [x.strip() for x in tags.split('\n') if '(' not in x and ')' not in x]
-    tags = [x.replace(',', '') for x in tags]
-    tags = [tags] if isinstance(tags, str) else tags
-    return tags
+    def write_comment(self, comment):
+        """
+        Use Applescript to write a Finder comment to a file.
+        Args
+            comment (str): comment string to write to file
+        Returns
+            bool
+        """
+        import re
+        from pydoni.sh import syscmd
+        self.__assert_fpath__()
 
-def writeFinderTags(filepath, tags):
-    import os
-    from pydoni.sh import syscmd
-    if isinstance(tags, list):
-        for tag in tags:
-            syscmd('tag --add "%s" "%s"' % (tag, filepath))
-    elif isinstance(tags, str):
-        syscmd('tag --add "%s" "%s"' % (tags, filepath))
-    else:
-        print("ERROR: 'tags' argument must be of type list or str")
+        # First clear the comment field, then write new value
+        cmd = '/usr/bin/osascript -e'
+        applescript = 'set filepath to POSIX file "{}"\nset the_file to filepath as alias\ntell application "Finder" to set the comment of the_file to "{}"'
+        applescript_clear = applescript.format(self.fpath, 'test')
+        applescript_set = applescript.format(self.fpath, comment)
+        applescript_clear = re.sub(r'"', r'\"', applescript_clear)
+        applescript_set = re.sub(r'"', r'\"', applescript_set)
+        try:
+            res = syscmd(cmd + ' "' + applescript_clear + '"')
+            res = syscmd(cmd + ' "' + applescript_set + '"')
+            return True
+        except:
+            return False
 
-def removeFinderTags(filepath, tags):
-    import os
-    from pydoni.sh import syscmd
-    if tags == 'all':
-        tags_exist = GetFinderTag(filepath)
-        for tag in tags_exist:
-            syscmd('tag --remove "%s" "%s"' % (tag, filepath))
-    else:
-        if isinstance(tags, list):
-            for tag in tags:
-                syscmd('tag --remove "%s" "%s"' % (tag, filepath))
-        elif isinstance(tags, str):
-            syscmd('tag --remove "%s" "%s"' % (tags, filepath))
+    def remove_comment(self):
+        """
+        Use Applescript to remove a file's Finder comment.
+        Args: none; Returns: bool
+        """
+        import os, re
+        from pydoni.vb import echo
+        self.__assert_fpath__()
+        
+        # Remove finder comment by setting to ''
+        cmd = '/usr/bin/osascript -e'
+        applescript = 'set filepath to POSIX file "%s"\nset the_file to filepath as alias\ntell application "Finder" to set the comment of the_file to ""' % self.fpath
+        applescript = re.sub(r'"', r'\"', applescript)
+        try:
+            os.system(cmd + ' "' + applescript + '"')
+            return True
+        except:
+            return False
+
+    def get_tag(self):
+        """
+        Parse `mdls` output to get a file's Finder tags.
+        Args: none; Returns: list
+        """
+        import os
+        from pydoni.sh import syscmd
+        self.__assert_fpath__()
+        cmd = 'mdls -r -nullMarker "" -n kMDItemUserTags "%s"' % self.fpath
+        tags = syscmd(cmd, encoding='utf-8')
+        tags = [x.strip() for x in tags.split('\n') if '(' not in x and ')' not in x]
+        tags = [x.replace(',', '') for x in tags]
+        tags = [tags] if isinstance(tags, str) else tags
+        return tags
+
+    def write_tag(self, tag):
+        """
+        Write Finder tag or tags to a file. Requires Jdberry's 'tag' command line utility to
+        be installed. Install here: https://github.com/jdberry/tag
+        Args
+            tag (str or list): string or list of finder tags. Usually one or more of 'Red', 'Orange', 'Yellow', ...
+        Returns
+            bool
+        """
+        import os
+        from pydoni.sh import syscmd
+        tag = [tag] if isinstance(tag, str) else tag
+        res = []
+        for tg in tag:
+            z = syscmd('tag --add "%s" "%s"' % (tg, self.fpath))
+            res.append(z)
+        if len(list(set(res))) == 1:
+            if list(set(res)) == [0]:
+                return True
+            else:
+                return False
         else:
-            print("ERROR: 'tags' argument must be of type list or str")
+            return False
+
+    def remove_tag(self, tag):
+        """
+        Remove a Finder tag or tags from a file. Requires Jdberry's 'tag' command line utility to
+        be installed. Install here: https://github.com/jdberry/tag
+        Args
+            tag (str or list): name(s) of Finder tags to remove
+        Returns
+            bool
+        """
+        import os
+        from pydoni.sh import syscmd
+        if tag == 'all':
+            tag = self.get_tag()
+        elif isinstance(tag, str):
+            tag = [tag]
+        res = []
+        for tg in tag:
+            z = syscmd('tag --remove "%s" "%s"' % (tg, fpath))
+            res.append(z)
+        if len(list(set(res))) == 1:
+            if list(set(res)) == [0]:
+                return True
+            else:
+                return False
+        else:
+            return False
+    
+    def __assert_fpath__(self):
+        from os.path import isfile
+        from pydoni.vb import echo
+        if not isfile(self.fpath):
+            echo("`self.fpath` '{}' no longer exists!".format(self.fpath),
+                fn_name='FinderMacOS.*', abort=True)
 
 def checkDpath(dpaths=[]):
     import os
