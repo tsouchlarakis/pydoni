@@ -177,8 +177,8 @@ def clickfmt(string, fmt=['numeric', 'filename', 'filepath', 'url', 'date', 'arr
 def verboseHeader(string, time_in_sec, round_digits=2):
     import click
     from pydoni.vb import echo
-    from pydoni.pyobj import fmtSeconds
-    esttime = fmtSeconds(time_in_sec, round_digits=round_digits)
+    from pydoni.pyobj import fmt_seconds
+    esttime = fmt_seconds(time_in_sec, round_digits=round_digits)
     echo('{} {} Est. time: {}'.format(
         click.style(string, fg='white', bold=True),
         click.style('->', fg='white', bold=True),
