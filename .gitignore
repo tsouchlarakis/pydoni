@@ -2,3 +2,5 @@
 *__pycache__/
 *.app/
 *.DS_Store*
+*DS_Store*
+.DS_Store
