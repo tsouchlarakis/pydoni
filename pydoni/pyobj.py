@@ -36,7 +36,7 @@ def sysdate(stripchars=False):
         now = datetime.datetime.now().strftime("%Y-%m-%d")
     return now
 
-def validatelen(varlist, varnames):  # Ensure lengths of variables are equal, otherwise error
+def assert_len(varlist, varnames):  # Ensure lengths of variables are equal, otherwise error
     import click
     from pydoni.vb import echo
     lengths = [len(x) for x in varlist]
@@ -44,7 +44,7 @@ def validatelen(varlist, varnames):  # Ensure lengths of variables are equal, ot
         echo("Unequal variable lengths: {}. Respective lengths are {}".format(
             ', '.join("'" + click.style(item,      fg='red', bold=True) + "'" for item in varnames),
             ', '.join("'" + click.style(str(item), fg='red', bold=True) + "'" for item in lengths)),
-        fn_name='validatelen', abort=True)
+        fn_name='assert_len', abort=True)
 
 def userSelectFromList(lst, indent=0, msg=None, allow_range=True):
     import re
