@@ -327,7 +327,6 @@ class Audio(object):
         self.duration = duration
         return duration
 
-
 class Movie(object):
     def __init__(self, fname):
         import re
