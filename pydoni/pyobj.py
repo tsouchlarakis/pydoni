@@ -86,8 +86,8 @@ def userSelectFromList(lst, indent=0, msg=None, allow_range=True):
             continue
     return val
 
-def fmtSeconds(time_in_sec, units='auto', round_digits=4):  # Format time in seconds
-    from pydoni.vb import echo
+def fmt_seconds(time_in_sec, units='auto', round_digits=4):
+    """Format time in seconds to a custom string"""
     if units == 'auto':
         if time_in_sec < 60:
             time_diff = round(time_in_sec, round_digits)
@@ -112,7 +112,7 @@ def fmtSeconds(time_in_sec, units='auto', round_digits=4):  # Format time in sec
         else:  # Days
             time_diff = round(time_in_sec/86400, round_digits)
     else:
-        echo("Invalid 'units' parameter. Must be one of 'auto', 'seconds', 'minutes', 'hours' or 'days'", abort=True)
+        print("Invalid 'units' parameter. Must be one of 'auto', 'seconds', 'minutes', 'hours' or 'days'")
         return None
     return dict(zip(['units', 'value'], [time_measure, time_diff]))
 
