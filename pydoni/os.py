@@ -260,20 +260,62 @@ class FinderMacOS(object):
             echo("`self.fpath` '{}' no longer exists!".format(self.fpath),
                 fn_name='FinderMacOS.*', abort=True)
 
-def checkDpath(dpaths=[]):
-    import os
+
+def assert_dpath(dpaths=[], abort=True):
+    """
+    Check that a given path or paths exist. Optional abort program if one or more directories
+    do not exist.
+    Args
+        dpaths (str or list): directory path(s) to check for existence
+        abort  (bool)       : if True, `quit()` will be executed if one or more directories do not exist
+    Returns
+        bool
+    """
+    from os.path import isdir, expanduser
     from pydoni.vb import echo, clickfmt
+    
+    # Expand directory paths
     if not isinstance(dpaths, list):
         dpaths = [dpaths]
+    dpaths = [expanduser(x) for x in dpaths]
+
+    # Test whether each directory exists
+    res = []
     for dpath in dpaths:
-        if not os.path.isdir(dpath):
-            echo('Directory {} does not exist'.format(clickfmt(dpath, 'filepath')), abort=True)
+        if isdir(dpath):
+            res.append((dpath, True))
+        else:
+            res.append((dpath, False))
+    
+    # Print directories that do not exist to the screen
+    for dname, exists in res:
+        if not exists:
+            echo("Directory '{}' does not exist!".format(dname), error=True)
+    
+    # Determine return condition or if program should exit
+    if all([exists for dname, exists in res]):
+        # All directories exist
+        return True
+    else:
+        if abort:
+            quit()
+        else:
+            return False
+
 
 def unarchive(fpath, dest_dir):
-    """Unzip a .zip archive"""
+    """
+    Unpack a .zip archive.
+    Args
+        fpath    (str): path to zip archive file
+        dest_dir (str): path to destination extract directory
+    Returns
+        nothing
+    """
     import zipfile
     with zipfile.ZipFile(fpath, 'r') as zip_ref:
         zip_ref.extractall(dest_dir)
+
 
 def macos_notify(title='', subtitle=None, message='', app_icon=None, content_image=None, command=None, open_iterm=False):
     """
