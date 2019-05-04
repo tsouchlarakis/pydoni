@@ -340,7 +340,6 @@ def macos_notify(title='', subtitle=None, message='', app_icon=None, content_ima
     # Check that terminal-notifier is installed
     tnv = syscmd('which terminal-notifier').decode().strip()
     if not os.path.isfile(tnv):
-        from pydoni.vb import echo
         echo("terminal-notifier is not installed! Please install it per instructions at https://github.com/julienXX/terminal-notifier", abort=True)
 
     # Check that operating system is macOS
