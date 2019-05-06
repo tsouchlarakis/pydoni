@@ -499,23 +499,48 @@ class Movie(object):
         fname (str): path to audio file
     """
     def __init__(self, fname):
-        import re
-        from pydoni.os import getFinderComment
-        self.fname = fname
-        (self.title, self.year, self.ext) = self.parse_movie_year_ext()
+        self.fname          = fname
+        self.title          = extract_from_fname(attr='title')
+        self.year           = extract_from_fname(attr='year')
+        self.ext            = extract_from_fname(attr='ext')
         self.omdb_populated = False  # Will be set to True if self.query_omdb() is successful
     
-    def parse_movie_year_ext(self):
-        import re, os
-        ext       = os.path.splitext(self.fname)[1]
-        movie     = os.path.splitext(self.fname)[0]
+    def extract_from_fname(self, attr=['title', 'year', 'ext']):
+        """
+        Extract movie title, year or extension from filename if filename is
+        in format "${TITLE} (${YEAR}).${EXT}".
+        Args
+            fname (str): filename to extract from, may be left as None if `self.fname` is already defined
+            attr (str): attribute to extract, one of ['title', 'year', 'ext']
+        Returns
+            str
+        """
+        import os, re
+        assert attr in ['title', 'year', 'ext']
+
+        # Get filename
+        fname = self.fname if hasattr(self, 'fname') else fname
+        assert isinstance(fname, str)
+        
+        # Define movie regex
         rgx_movie = r'^(.*?)\((\d{4})\)'
-        title     = re.sub(rgx_movie, r'\1', movie).strip()
-        year      = re.sub(rgx_movie, r'\2', movie)
-        return (title, year, ext)
-    
+        assert re.match(rgx_movie, self.fname)
+
+        # Extract attribute
+        movie = os.path.splitext(movie)[0]
+        if attr == 'title':
+            return re.sub(rgx_movie, r'\1', movie).strip()
+        elif attr == 'year':
+            return re.sub(rgx_movie, r'\2', movie).strip()
+        elif attr == 'ext':
+            return os.path.splitext(fname)[1]
+        
     def query_omdb(self):
+        """
+        Query OMDB database from movie title and movie year.
+        """
         import omdb
+        from pydoni.vb import echo
         try:
             met = omdb.get(title=self.title, year=self.year, fullplot=False, tomatoes=False)
             met = None if not len(met) else met
@@ -523,33 +548,47 @@ class Movie(object):
                 for key, val in met.items():
                     setattr(self, key, val)
                 self.parse_ratings()
-                self.manual_clean_values()
+                self.clean_omdb_response()
                 self.omdb_populated = True
-                del self.title, self.year, self.ext
+                # del self.title, self.year, self.ext
         except:
+            echo('OMDB API query failed for {}!'.format(self.fname), error=True, abort=False)
             self.omdb_populated = False  # Query unsuccessful
     
     def parse_ratings(self):
+        """
+        Parse Metacritic, Rotten Tomatoes and IMDB User Ratings from the OMDB API's response.
+        """
         import re, numpy as np
-        if len(self.ratings):
-            for rating in self.ratings:
-                source = rating['source']
-                if source.lower() not in ['internet movie database', 'rotten tomatoes', 'metacritic']:
-                    continue
-                source = re.sub('internet movie database', 'rating_imdb', source, flags=re.IGNORECASE)
-                source = re.sub('rotten tomatoes', 'rating_rt', source, flags=re.IGNORECASE)
-                source = re.sub('metacritic', 'rating_mc', source, flags=re.IGNORECASE)
-                source = source.replace(' ', '')
-                value = rating['value']
-                value = value.replace('/100', '')
-                value = value.replace('/10', '')
-                value = value.replace('%', '')
-                value = value.replace('.', '')
-                value = value.replace(',', '')
-                setattr(self, source, value)
+        
+        # Check that `self` has `ratings` attribute
+        # Iterate over each type of rating (imdb, rt, mc) and assign to its own attribute
+        # Ex: self.ratings['metacritic'] -> self.rating_mc
+        if hasattr(self, 'ratings'):
+            if len(self.ratings):
+                for rating in self.ratings:
+                    source = rating['source']
+                    if source.lower() not in ['internet movie database', 'rotten tomatoes', 'metacritic']:
+                        continue
+                    source = re.sub('internet movie database', 'rating_imdb', source, flags=re.IGNORECASE)
+                    source = re.sub('rotten tomatoes', 'rating_rt', source, flags=re.IGNORECASE)
+                    source = re.sub('metacritic', 'rating_mc', source, flags=re.IGNORECASE)
+                    source = source.replace(' ', '')
+                    value = rating['value']
+                    value = value.replace('/100', '')
+                    value = value.replace('/10', '')
+                    value = value.replace('%', '')
+                    value = value.replace('.', '')
+                    value = value.replace(',', '')
+                    setattr(self, source, value)
+        
+        # If one or more of the ratings were not present from OMDB response, set to `np.nan`
         self.rating_imdb = np.nan if not hasattr(self, 'rating_imdb') else self.rating_imdb
         self.rating_rt   = np.nan if not hasattr(self, 'rating_rt') else self.rating_rt
         self.rating_mc   = np.nan if not hasattr(self, 'rating_mc') else self.rating_mc
+        
+        # Delete original ratings attributes now that each individual rating attribute has
+        # been established
         if hasattr(self, 'ratings'):
             del self.ratings
         if hasattr(self, 'imdb_rating'):
@@ -557,10 +596,16 @@ class Movie(object):
         if hasattr(self, 'metascore'):
             del self.metascore
     
-    def manual_clean_values(self):
+    def clean_omdb_response(self):
+        """
+        Clean datatypes and standardize missing values from OMDB API response.
+        """
         import numpy as np
         
         def convert_to_int(value):
+            """
+            Attempt to convert a value to type int.
+            """
             import numpy as np
             if isinstance(value, int):
                 return value
@@ -570,6 +615,9 @@ class Movie(object):
                 return np.nan
         
         def convert_to_datetime(value):
+            """
+            Attempt to convert a value to type datetime.
+            """
             import numpy as np
             from datetime import datetime
             if not isinstance(value, str):
@@ -578,20 +626,51 @@ class Movie(object):
                 return datetime.strptime(value, '%d %b %Y').strftime('%Y-%m-%d')
             except:
                 return np.nan
+        def convert_to_bool(value):
+            """
+            Attempt to convert a value to type bool.
+            """
+            import numpy as np
+            if isinstance(value, str):
+                if value.lower() in ['t', 'true']:
+                    return True
+                elif value.lower() in ['f', 'false']:
+                    return False
+                else:
+                    return np.nan
+            else:
+                try:
+                    return bool(value)
+                except:
+                    return np.nan
+        
+        # Convert attributes to integers if not already
         for attr in ['rating_imdb', 'rating_mc', 'rating_rt', 'imdb_votes', 'runtime']:
             if hasattr(self, attr):
                 setattr(self, attr, convert_to_int(getattr(self, attr)))
-        self.released = convert_to_datetime(self.released)
-        self.dvd      = convert_to_datetime(self.dvd)
+        
+        # Convert attributes to datetime if not already
+        for attr in ['released', 'dvd']:
+            if hasattr(self, attr):
+                setattr(self, attr, convert_to_datetime(getattr(self, attr)))
+
+        # Convert attributes to bool if not already
+        for attr in ['response']:
+            if hasattr(self, attr):
+                setattr(self, attr, convert_to_bool(getattr(self, attr)))
+
+        # Replace all N/A string values with `np.nan`
         self.replace_value('N/A', np.nan)
-        if self.response == 'True':
-            self.response = True
-        elif self.response == 'False':
-            self.response = False
-        else:
-            self.response = np.nan
     
     def replace_value(self, value, replacement):
+        """
+        Scan all attributes for `value` and replace with `replacement` if found.ArithmeticError
+        Args
+            value       (<any>): value to search for
+            replacement (<any>): replace `value` with this variable value if found
+        Returns
+            nothing
+        """
         for key, val in self.__dict__.items():
             if val == value:
                 setattr(self, key, replacement)
