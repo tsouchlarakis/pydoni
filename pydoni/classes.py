@@ -1,4 +1,8 @@
 class Attribute(object):
+    """
+    General attribute to be used either as a standalone class in and of itself, or as an
+    attribute to any external class.
+    """
     def __init__(self):
         pass
 
@@ -20,16 +24,12 @@ class Attribute(object):
             lst_of_lst = [v for k, v in dct.items()]
             return [item for sublist in lst_of_lst for item in sublist]
 
-class GlobalVar(object):
-    """
-    Hold all program variables in a single Python object
-    """
-    def __init__(self):
-        pass
-
 class ProgramEnv(object):
     """
     Handle a temporary program environment for a Python program
+    Args
+        path      (str) : path to desired program environment directory
+        overwrite (bool): if True, remove `path` directory if already exists
     """
     def __init__(self, path, overwrite=False):
         import os, shutil, click
@@ -51,7 +51,9 @@ class ProgramEnv(object):
                 shutil.rmtree(self.path)
             else:
                 if not click.confirm("Specified path {} already exists and 'overwrite' set to False. Continue with this path anyway?".format(self.path)):
-                    echo('Quitting program', abort=True)
+                    echo('Must answer affirmatively!', abort=True)
+        
+        # Create program environment
         if not os.path.isdir(self.path):
             os.mkdir(self.path)
     
@@ -73,9 +75,7 @@ class ProgramEnv(object):
     def listfiles(self, path='.', pattern=None, full_names=False, recursive=False, ignore_case=True, include_hidden_files=False):
         """
         List files at given path.
-        Args
-            path (str): path to search for files in
-            pattern ()
+        SEE pydoni.os.listfiles FOR DETAILED DOCUMENTATION OF ARGUMENTS AND THEIR DATATYPES.
         """
         from pydoni.os import listfiles
         files = listfiles(path=path, pattern=pattern, full_names=full_names,
@@ -83,27 +83,43 @@ class ProgramEnv(object):
             include_hidden_files=include_hidden_files)
         return files
     
-    def listdirs(self, path='.', full_names=False):
-        """List directories at given path"""
+    def listdirs(self, path='.', pattern=None, full_names=False, recursive=False):
+        """
+        List directories at given path.
+        SEE pydoni.os.listdirs FOR DETAILED DOCUMENTATION OF ARGUMENTS AND THEIR DATATYPES.
+        """
         from pydoni.os import listdirs
-        return listdirs(path=path, full_names=full_names)
+        return listdirs(path=path, pattern=pattern, full_names=full_names, recursive=recursive)
     
     def downloadfile(self, url, destfile):
-        """Download a file to environment"""
-        import requests, shutil
-        r = requests.get(url, stream=True)
-        with open(destfile, 'wb') as f:
-            r.raw.decode_content = True
-            shutil.copyfileobj(r.raw, f)
+        """
+        Download file from the web to a local file in Environment.
+        Args
+            url (str): target URL to retrieve file from
+            destfile (str): 
+        Returns
+            str
+        """
+        from pydoni.web import downloadfile
+        downloadfile(url=url, destfile=destfile)
     
-    def unarchive(fpath):
-        """Extract a .zip archive to the same directory"""
-        import zipfile, os
-        dest_dir = os.path.dirname(fpath)
-        with zipfile.ZipFile(fpath, 'r') as zip_ref:
-            zip_ref.extractall(dest_dir)
-    
+
+    def unarchive(self, fpath, dest_dir):
+        """
+        Unpack a .zip archive.
+        Args
+            fpath    (str): path to zip archive file
+            dest_dir (str): path to destination extract directory
+        Returns
+            nothing
+        """
+        from pydoni.os import unarchive
+        unarchive(fpath=fpath, dest_dir=dest_dir)
+
     def delete_env(self):
+        """
+        Remove environment from filesystem.
+        """
         import shutil
         from os import chdir
         from os.path import dirname
@@ -111,53 +127,109 @@ class ProgramEnv(object):
         shutil.rmtree(self.path)
 
 class Audio(object):
-    """Operate on an audio file"""
+    """
+    Operate on an audio file.
+    Args
+        fname (str): path to audio file
+    """
     def __init__(self, fname):
         import os
         self.fname = fname
         self.fmt = os.path.splitext(self.fname)[1].replace('.', '').lower()
-    def convert(self, dest_fmt, verbose=False):
-        """Convert an audio file to destination format and write with identical filename"""
+    
+    def convert(self, dest_fmt, update_self=True, verbose=False):
+        """
+        Convert an audio file to destination format and write with identical filename with `pydub`.
+        Args
+            dest_fmt    (str) : desired output format, one of ['mp3', 'wav']
+            update_self(bool) : if True, set `self.fname` and `self.fmt` to converted file and file format after conversion
+            verbose     (bool): if True, messages are printed to STDOUT
+        Returns
+            nothing
+        """
         import os
         from pydub import AudioSegment
         from pydoni.vb import echo
-        echo("Converting input file to format '{}'".format(dest_fmt)) if verbose else None
+        assert dest_fmt in ['mp3', 'wav']
+        assert self.fmt != dest_fmt
+
+        if verbose:
+            echo("Converting input file to format '{}'".format(dest_fmt))
+        
+        # Convert audio segment
         if self.fmt == 'mp3' and dest_fmt == 'wav':
             sound = AudioSegment.from_mp3(self.fname)
         elif self.fmt == 'wav' and dest_fmt == 'mp3':
             sound = AudioSegment.from_wav(self.fname)
-        else:
-            from pydoni.vb import echo
-            echo('Must convert to/from either mp3 or wav', abort=True)
+        
+        # Export output file
+        if verbose:
+            echo('Exporting audio file')
         outfile = os.path.splitext(self.fname)[0] + '.' + dest_fmt
         sound.export(outfile, format=dest_fmt)
-        self.fname = outfile
-        self.fmt = dest_fmt
-        return None
+
+        # Overwrite `self` attributes to converted file
+        if update_self:
+            self.fname = outfile
+            self.fmt = dest_fmt
+        
+        if verbose:
+            echo('Conversion complete')
+    
     def split(self, segment_time=55, verbose=False):
-        """Split audio file into segments of given length using ffmpeg"""
+        """
+        Split audio file into segments of given length using ffmpeg.
+        Args
+            segment_time (int) : length of split audio clips in seconds to split audio file into if length is too long
+            verbose      (bool): if True, messages are printed to STDOUT
+        Returns
+            nothing
+        """
         import os, re
         from pydoni.sh import syscmd
         from pydoni.os import listfiles
         from pydoni.vb import echo
-        echo("Duration longer than 55 seconds, splitting audio file with ffmpeg") if verbose else None
-        # dirname = os.path.dirname(self.fname)
+        assert isinstance(segment_time, int)
+        assert isinstance(verbose, bool)
+
+        if verbose:
+            echo('Splitting audio file into clips of length {} seconds'.format(str(segment_time)))
+
+        # Split audio file with ffmpeg
         cmd = 'ffmpeg -i "{}" -f segment -segment_time {} -c copy "{}-ffmpeg-%03d{}"'.format(
             self.fname, segment_time,
             os.path.splitext(self.fname)[0],
             os.path.splitext(self.fname)[1])
         res = syscmd(cmd)
+
+        # List resulting files under `fnames_split` attribute
         self.fnames_split = listfiles(pattern=r'ffmpeg-\d{3}\.%s' % self.fmt)
-        return None
-    def join(self, audiofiles, silence_between=1000):
-        """Join multiple audio files into a single file and return the output filename
-        audiofiles: list of filenames to concatenate
-        silence_between: amount of silence to insert between clips in miliseconds"""
+        
+        if verbose:
+            echo('Splitting of audio file complete')
+    
+    def join(self, audiofiles, silence_between=1000, update_self=True, verbose=False):
+        """
+        Join multiple audio files into a single file and return the output filename
+        Args
+            audiofiles      (list): list of external filenames to concatenate
+            silence_between (int) : milliseconds of silence to insert between clips
+            update_self     (bool) : if True, set `self.fname` and `self.fmt` to converted file and file format after conversion
+            verbose         (bool): if True, messages are printed to STDOUT
+        Returns
+            nothing
+        """
         import os, re
         from pydub import AudioSegment
         from pydoni.pyobj import systime
         from pydoni.vb import echo
+        assert isinstance(audiofiles, list)
+        assert isinstance(silence_between, int)
+
+        # Create sound object
         sound = AudioSegment.silent(duration=1)
+        
+        # Iterate over list of audio files
         audiofiles = [self.fname] + audiofiles
         for fname in audiofiles:
             ext = os.path.splitext(fname)[1].lower().replace('.', '')
@@ -171,32 +243,60 @@ class Audio(object):
             sound = sound + fnamesound
             if silence_between > 0:
                 sound = sound + AudioSegment.silent(duration=silence_between)
+
+        # Write output file
         outfile = '{}-Audio-Concat-{}-Files{}'.format(
             systime(stripchars=True),
             str(len(audiofiles)),
             os.path.splitext(self.fname)[1])
         sound.export(outfile, format='mp3')
-        self.fname = outfile
-        return None
+
+        # Update focus if specified
+        if update_self:
+            self.fname = outfile
+    
     def set_google_credentials(self, google_application_credentials_json):
-        """Set environment variable as path to Google credentials JSON file"""
+        """
+        Set environment variable as path to Google credentials JSON file.
+        Args
+            google_application_credentials_json (str): path to google application credentials file
+        Returns
+            nothing
+        """
         import os
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_application_credentials_json
-    def transcribe(self, verbose=False):
-        """Transcribe the given audio file using Google Cloud Speech Recognition"""
+    
+    def transcribe(self, split_threshold=55, apply_correction=True, verbose=False):
+        """
+        Transcribe the given audio file using Google Cloud Speech Recognition.
+        Args
+            split_threshold (int): maximum audio clip size in seconds, if clip exceeds this length it will be split using bound method `split()`
+            apply_correction (bool): if True, call `self.apply_transcription_corrections()` after transcript created
+            verbose (bool): if True, messages are printed to STDOUT
+        Returns
+            str
+        """
         import re, os, tqdm
         from google.cloud import speech_v1p1beta1 as speech
         from pydoni.vb import echo
+
         # Convert audio file to wav if mp3
         if self.fmt == 'mp3':
             self.convert('wav', verbose=verbose)
-        # Split audio file into segments if longer than 60 seconds
+
+        # Split audio file into segments if longer than 55 seconds
         if self.get_duration() > 55:
             self.split(55, verbose=verbose)
-        echo('Transcribing audio file') if verbose else None
+        
+        if verbose:
+            echo('Transcribing audio file')
+
+        # Set up transcription
         fnames_transcribe = self.fnames_split if hasattr(self, 'fnames_split') else [self.fname]
-        client = speech.SpeechClient()
         transcript = []
+        client = speech.SpeechClient()
+
+        # Loop over files to transcribe and apply Google Cloud transcription
         for fname in tqdm.tqdm(fnames_transcribe):
             with open(fname, 'rb') as audio_file:
                 content = audio_file.read()
@@ -208,28 +308,52 @@ class Audio(object):
                 audio_channel_count=2,
                 enable_separate_recognition_per_channel=False)
             response = client.recognize(config, audio)
+            
             # Each result is for a consecutive portion of the audio. Iterate through
             # them to get the transcripts for the entire audio file.
             for result in response.results:
                 # The first alternative is the most likely one for this portion.
                 transcript.append(result.alternatives[0].transcript)
+
         # De-capitalize first letter of each transcript. This happens as a long audio segment is
         # broken into smaller clips, the first word in each of those clips becomes capitalized.
         transcript = [x[0].lower() + x[1:] for x in transcript]
         transcript = re.sub(r' +', ' ', ' '.join(transcript)).strip()
         self.transcript = transcript
+
+        # Apply transcription corrections if specified
+        if apply_correction:
+            transcript = self.apply_transcription_corrections()
+            self.transcript = transcript
+
         return transcript
+    
     def apply_transcription_corrections(self, transcript=None):
-        """Apply any and all corrections to output of self.transcribe()"""
-        if not transcript:
-            if not hasattr(self, 'transcript'):
-                from pydoni.vb import echo
-                echo('Must create transcript before calling Audio.apply_smart_dictation_corrections.smart_dictation()! Try running Audio.transcribe() first', error=True)
-                return None
-            else:
+        """
+        Apply any and all corrections to output of `self.transcribe()`.
+        Args
+            transcript
+        Returns
+            str
+        """
+        from pydoni.vb import echo
+        
+        # Determine transcript to apply corrections to
+        if transcript is None:
+            if hasattr(self, 'transcript'):
                 transcript = self.transcript
+            else:
+                echo(
+                    'Must create transcript before applying corrections! Run `Audio.transcribe()` first.', abort=True)
+        
         def smart_dictation(transcript):
-            """Apply corrections to spoken keywords like 'comma', 'period' or 'quote'/'unquote'"""
+            """
+            Apply corrections to spoken keywords like 'comma', 'period' or 'quote'/'unquote'.
+            Args
+                transcript (str): transcript string
+            Returns
+                str
+            """
             import re
             dictation_map = {
                 r'(\b|\s)(comma)(\s|\b)'            : r',\3',
@@ -253,43 +377,75 @@ class Audio(object):
                 r'(\b|\s)(emphasis)\n'              : r'\1<em>\n',
                 r'(\b|\s)(tag emphasized)\n'        : r'\1<em>\n',
                 r'(\b|\s)(emphasized)\n'            : r'\1<em>\n'}
+
             for string, replacement in dictation_map.items():
                 transcript = re.sub(string, replacement, transcript, flags=re.IGNORECASE)
+
             return transcript
+        
         def smart_capitalize(transcript):
-            """Capitalize transcript intelligently"""
+            """
+            Capitalize transcript intelligently according to the following methods:
+                1. Capitalize first letter of each sentence, split by newline character.
+                2. Capitalize word following keyphrase 'make capital'.
+                3. Capitalize word and concatenate letters following keyphrase 'make letter'.
+                4. Capitalie letter following '?'.
+            Args
+                transcript (str): transcript string
+            Returns
+                str
+            """
             import re
-            from pydoni.pyobj import capNthChar, replaceNthChar, insertNthChar
+            from pydoni.pyobj import cap_nth_char, replace_nth_char, insert_nth_char
+            
             # Capitalize first letter of each sentence, split by newline character
             val = transcript
-            val = '\n'.join([capNthChar(x, 0) for x in val.split('\n')])
+            val = '\n'.join([cap_nth_char(x, 0) for x in val.split('\n')])
+            
             # Capitalize word following keyphrase 'make capital'
             cap_idx = [m.start()+len('make capital')+1 for m in re.finditer('make capital', val)]
             if len(cap_idx):
                 for idx in cap_idx:
-                    val = capNthChar(val, idx)
+                    val = cap_nth_char(val, idx)
                 val = val.replace('make capital ', '')
+            
             # Capitalize and concatenate letters following keyphrase 'make letter'. Ex: 'make letter a' -> 'A'
             letter_idx = [m.start()+len('make letter')+1 for m in re.finditer('make letter', val)]
             if len(letter_idx):
                 for idx in letter_idx:
-                    val = capNthChar(val, idx)
-                    val = replaceNthChar(val, idx+1, '.')
+                    val = cap_nth_char(val, idx)
+                    val = replace_nth_char(val, idx+1, '.')
                     if idx == letter_idx[len(letter_idx)-1]:
-                        val = insertNthChar(val, idx+2, ' ')
+                        val = insert_nth_char(val, idx+2, ' ')
                 val = val.replace('make letter ', '')
+            
             # Capitalize letter following '?'
             if '? ' in val:
                 q_idx = [m.start()+len('? ') for m in re.finditer(r'\? ', val)]
                 for idx in q_idx:
-                    val = capNthChar(val, idx)
+                    val = cap_nth_char(val, idx)
             return val
+        
         def excess_spaces(transcript):
+            """
+            Replace extra spaces with a single space.
+            Args
+                transcript (str): transcript string
+            Returns
+                str
+            """
             import re
             return re.sub(r' +', ' ', transcript)
+        
         def manual_corrections(transcript):
-            """Apply manual corrections to transcription"""
-                # Regex word replacements
+            """
+            Apply manual corrections to transcription.
+            Args
+                transcript (str): transcript string
+            Returns
+                str
+            """
+            # Regex word replacements
             import re
             dictation_map = {
                 r'(\b)(bye bye)(\b)'    : 'Baba',
@@ -309,15 +465,24 @@ class Audio(object):
                 'The west'              : 'The West',
                 'on certain'            : 'uncertain',
                 'advent'                : 'advent'}
+
             for string, replacement in dictation_map.items():
                 transcript = re.sub(string, replacement, transcript, flags=re.IGNORECASE)
+
             return transcript
+
+        # Apply all correction methods    
         self.transcript = smart_dictation(self.transcript)
         self.transcript = smart_capitalize(self.transcript)
         self.transcript = excess_spaces(self.transcript)
         self.transcript = manual_corrections(self.transcript)
+
+        return transcript
+    
     def get_duration(self):
-        """Get the duration of audio file"""
+        """
+        Get the duration of audio file.
+        """
         import wave
         import contextlib
         with contextlib.closing(wave.open(self.fname, 'r')) as f:
@@ -328,12 +493,18 @@ class Audio(object):
         return duration
 
 class Movie(object):
+    """
+    Operate on a movie file.
+    Args
+        fname (str): path to audio file
+    """
     def __init__(self, fname):
         import re
         from pydoni.os import getFinderComment
         self.fname = fname
         (self.title, self.year, self.ext) = self.parse_movie_year_ext()
         self.omdb_populated = False  # Will be set to True if self.query_omdb() is successful
+    
     def parse_movie_year_ext(self):
         import re, os
         ext       = os.path.splitext(self.fname)[1]
@@ -342,6 +513,7 @@ class Movie(object):
         title     = re.sub(rgx_movie, r'\1', movie).strip()
         year      = re.sub(rgx_movie, r'\2', movie)
         return (title, year, ext)
+    
     def query_omdb(self):
         import omdb
         try:
@@ -356,6 +528,7 @@ class Movie(object):
                 del self.title, self.year, self.ext
         except:
             self.omdb_populated = False  # Query unsuccessful
+    
     def parse_ratings(self):
         import re, numpy as np
         if len(self.ratings):
@@ -383,7 +556,10 @@ class Movie(object):
             del self.imdb_rating
         if hasattr(self, 'metascore'):
             del self.metascore
+    
     def manual_clean_values(self):
+        import numpy as np
+        
         def convert_to_int(value):
             import numpy as np
             if isinstance(value, int):
@@ -392,6 +568,7 @@ class Movie(object):
                 return int(value.replace(',', '').replace('.', '').replace('min', '').replace(' ', '').strip())
             except:
                 return np.nan
+        
         def convert_to_datetime(value):
             import numpy as np
             from datetime import datetime
@@ -413,6 +590,7 @@ class Movie(object):
             self.response = False
         else:
             self.response = np.nan
+    
     def replace_value(self, value, replacement):
         for key, val in self.__dict__.items():
             if val == value:
@@ -432,17 +610,20 @@ class DoniDt(object):
         rgx.dt_ms = r'%s\.(?P<miliseconds>\d+)$' % (rgx.dt)
         self.rgx = rgx
         self.dtype, self.match = self.detect_dtype()
+    
     def is_exact(self):
         """Test if input string is exactly a date or datetime value, returns bool"""
         import re
         m = [bool(re.search(pattern, self.val)) for pattern in \
             ['^' + x + '$' for x in  self.rgx.__flatten__()]]
         return any(m)
+    
     def contains(self):
         """Test if input string contains a date or datetime value, returns bool"""
         import re
         m = [bool(re.search(pattern, self.val)) for pattern in self.rgx.__flatten__()]
         return any(m)
+    
     def extract_first(self, apply_tz=True):
         """Given a string with a date or datetime value, extract the FIRST datetime
         value as string"""
@@ -486,6 +667,7 @@ class DoniDt(object):
                 return dt
         else:
             return val
+    
     def detect_dtype(self):
         """Get datatype as one of 'd', 'dt', 'dt_tz', and return regex match object"""
         import re
@@ -502,16 +684,19 @@ class EXIF(object):
     """Extract and handle EXIF metadata from file"""
     def __init__(self, fname):
         self.fname = fname
+    
     def run(self):
         from pydoni.sh import exiftool
         self.exif = exiftool(self.fname)
         return self.exif
+    
     def rename_keys(self, key_dict):
         """Rename exif dictionary keys. Ex: key_dict={'file_name': 'fname'} will result in the
         original key 'file_name' being renamed to 'fname'"""
         for k, v in key_dict.items():
             if k in self.exif.keys():
                 self.exif[v] = self.exif.pop(k)
+    
     def coerce(self, key, val, fmt=['int', 'date', 'float'], onerror=['raise', 'null', 'revert']):
         """Attempt to coerce a dictionary value to specified type or format
         Parameters:
@@ -566,14 +751,21 @@ class EXIF(object):
         return val
 
 class Git(object):
-    """House git command line function python wrappers"""
-    
+    """
+    House git command line function python wrappers.
+    """
     def __init__(self):
         pass
 
     def status(self):
-        """Return boolean based on output of 'git status' command. Return True if working tree is
-        up to date and does not require commit, False if commit is required."""
+        """
+        Return boolean based on output of 'git status' command. Return True if working tree is
+        up to date and does not require commit, False if commit is required.
+        Args
+            nothing
+        Returns
+            bool
+        """
         from pydoni.sh import syscmd
         out = syscmd('git status').decode()
         working_tree_clean = "On branch masterYour branch is up to date with 'origin/master'.nothing to commit, working tree clean"
@@ -585,10 +777,12 @@ class Git(object):
         else:
             return False
 
-    def add(self, all=True):
-        import subprocess
-        if all == True:
-            out = subprocess.call('git add .;', shell=True)
+    def add(self, fpath=None, all=False):
+        from pydoni.sh import syscmd
+        if all == True and fpath is None:
+            out = syscmd('git add .;', encoding='utf-8')
+        elif isinstance(fpath, str):
+            out = syscmd('git add "%s";' % fpath, encoding='utf-8')
 
     def commit(self, msg):
         import subprocess
