@@ -290,7 +290,7 @@ def program_complete(
 
     # Add emoji if specified
     if emoji_string is not None:
-        msg = '{} {}'.format(click.style(msg, fg='green'), emoji.emojize(emoji_string))
+        msg = '{} {}'.format(click.style(msg, fg='green'), emoji.emojize(emoji_string, use_aliases=True))
     else:
         msg = click.style(msg, fg='green')
 
