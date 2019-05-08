@@ -83,11 +83,13 @@ def assert_len(varlist, varnames):
 
 def user_select_from_list(lst, indent=0, msg='Please make a selection (hyphen-separated range ok): ', allow_range=True):
     """
-    Prompt user to make a selection from a list.
+    Prompt user to make a selection from a list. Supports comma- and hyphen-separated selection.
+    For example, a user may select elements from a list as:
+        1-3, 5, 10-15, 29  ->  [1,2,3,5,10,11,12,13,14,15,29]
     Args
-        lst (list): list of selections
-        indent (int): indentation level of all items of `lst`
-        msg (str): [optional] custom message to print instead of default
+        lst         (list): list of selections
+        indent      (int) : indentation level of all items of `lst`
+        msg         (str) : [optional] custom message to print instead of default
         allow_range (bool): if True, allow user to make multiple selections
     Returns
         slice of list
@@ -105,33 +107,41 @@ def user_select_from_list(lst, indent=0, msg='Please make a selection (hyphen-se
     invalid = True
     while invalid:
         # Get user input
-        uin = input(msg + ': ' if not msg.rstrip().endswith(':') else msg)
-        
-        # Check if user input is valid
-        if re.search(r'^(\d+-\d+)$', uin):
-            # User input is range (valid)
-            if allow_range:
-                # Parse range input
-                uin = uin.split('-')
-                uin = list(range(int(uin[0]), int(uin[1])+1))
+        uin_raw = input(msg + ': ' if not msg.rstrip().endswith(':') else msg)
 
-                # Test if range is truly within the length of `lst`
-                if uin[len(uin)-1] > len(lst) or uin[0] < 1:
-                    # Range is outside of true length of `lst`
-                    echo('Entry must be between {} and {}'.format('1', str(len(lst))), error=True)
-                    invalid = True
-                    continue
-                
+        # Test if user input is valid. User input must consist only of numbers, commas and/or hyphens
+        if not uin_raw.replace('-', '').replace(',', '').replace(' ', '').strip().isdigit():
+            echo('User input must consist only of numbers, commas and/or hyphens', error=True)
+            invalid = True
+            continue
+
+        # User input is range (valid)
+        if allow_range:
+            # Parse user input to individual numerical selections
+            uin = uin_raw.split(',')
+            selection = []
+            for x in uin:
+                x = x.strip()
+                if '-' in x:
+                    selection.append(
+                        list(range(int(x.split('-')[0]), int(x.split('-')[1])+1)))
                 else:
-                    # Range is valid, slice list at selection
-                    val = [lst[i-1] for i in uin]
-                    break
-            else:
-                # Range is entered, but allow_range is false (invalid)
-                echo("Range entered but parameter 'allow_range' is False", error=True, abort=False)
+                    selection.append([int(x)])
+            selection = list(set([item for sublist in selection for item in sublist]))
+            assert all([isinstance(x, int) for x in selection])
+
+            # Test if range is truly within the length of `lst`
+            if selection[len(selection)-1] > len(lst) or selection[0] < 1:
+                # Range is outside of true length of `lst`
+                echo('Entry must be between {} and {}'.format('1', str(len(lst))), error=True)
                 invalid = True
                 continue
-        
+            
+            else:
+                # Range is valid, slice list at selection
+                val = [lst[i-1] for i in selection]
+                break
+
         elif re.search(r'^(\d+)$', uin):
             # User input is single selection (valid)
             uin = int(uin)
