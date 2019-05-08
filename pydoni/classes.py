@@ -768,20 +768,30 @@ class EXIF(object):
     def __init__(self, fname):
         self.fname = fname
     
-    def run(self):
+    def run(self, wrapper=['doni', 'pyexiftool']):
         """
-        Run Exiftool using PyExifTool package on either a single file or a batch of files.
+        Run Exiftool using either Doni algorithm or PyExifTool package on either a single file
+        or a batch of files.
+        Args
+            wrapper (str): wrapper name of exiftool program to run, one of ['doni', 'pyexiftool']
+        Returns
+            dict
         """
-        # from pydoni.sh import exiftool
-        # self.exif = exiftool(self.fname)
-        # return self.exif
-        import exiftool
-        with exiftool.ExifTool() as et:
-            if isinstance(self.fname, list):
-                self.exif = et.get_metadata_batch(self.fname)
-            else:
-                self.exif = et.get_metadata(self.fname)
-        return self.exif
+        if wrapper == 'doni':
+            from pydoni.sh import exiftool
+            # ATTENTION HERE
+            # NEED TO DEFINE A NEW METHOD TO RUN DONI EXIF ALGORITHM
+            self.exif = exiftool(self.fname)
+            return self.exif
+
+        elif wrapper == 'pyexiftool':
+            import exiftool
+            with exiftool.ExifTool() as et:
+                if isinstance(self.fname, list):
+                    self.exif = et.get_metadata_batch(self.fname)
+                else:
+                    self.exif = et.get_metadata(self.fname)
+            return self.exif
     
     def rename_keys(self, key_dict):
         """
