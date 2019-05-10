@@ -287,3 +287,17 @@ def human_filesize(nbytes: int) -> str:
         base *= 1024
     value = "{}{}".format(round(n), unit)
     return value
+
+
+def split_at(lst, idx):
+    """
+    Split a list at a given index or list of indices.
+    Args
+        lst (list): list to split
+        idx (int or list): indexes to split the list at
+    Returns
+        list of lists
+    """
+    return [lst[i:j] for i, j in zip([0] + idx, idx + [None])]
+
+
