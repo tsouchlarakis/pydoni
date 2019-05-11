@@ -301,3 +301,30 @@ def split_at(lst, idx):
     return [lst[i:j] for i, j in zip([0] + idx, idx + [None])]
 
 
+def duplicated(lst):
+    """
+    Return list of boolean values indicating whether each item in a list
+    is a duplicate of a previous item.
+    Args
+        lst (list): a list to test for duplicates
+    Returns
+        list
+    """
+    dup_ind = []
+    for i, item in enumerate(lst):
+        tmplist = lst.copy()
+        del tmplist[i]
+        if item in tmplist:
+            # Test if this is the first occurrence of this item in the
+            # list. If so, do not count as duplicate, as the first item
+            # in a set of identical items should not be counted as
+            # a duplicate
+            first_idx = min(
+                [i for i, x in enumerate(tmplist) if x == item])
+            if i != first_idx:
+                dup_ind.append(True)
+            else:
+                dup_ind.append(False)
+        else:
+            dup_ind.append(False)
+    return dup_ind
