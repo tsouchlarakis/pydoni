@@ -92,7 +92,8 @@ def stat(fname):
         except Exception as e:
             from pydoni.vb import echo, clickfmt
             echo("Unable to parse date string {} for {} (original date string returned)". \
-                    format(clickfmt(datestring, 'date'), clickfmt(fname, 'filename')), warn=True)
+                format(clickfmt(datestring, 'date'), clickfmt(fname, 'filename')),
+                warn=True, error_msg=str(e))
             return datestring
     
     # Check that filepath exists
