@@ -458,7 +458,7 @@ class EXIF(object):
                         echo("Set attribute '%s' to value '%s'" % (tags[i], str(values[i])),
                             timestamp=True, fn_name='EXIF.set_exif', indent=1)
 
-    def remove_exif(self, tags):
+    def remove_exif(self, tags, verbose=False):
         """
         Remove EXIF attributes from a file or list of files.
         Args
