@@ -340,7 +340,13 @@ class EXIF(object):
                                             '_' + str(suffix)
                         exifd[fname] = dict(zip(keys, vals))
 
-            return exifd
+            # If only run on one file, do not format dictionary with key as filename,
+            # since there is only a single file. Simply return the exif metadata portion
+            # of the resulting dictionary
+            if len(exifd) == 1:
+                return exifd[list(exifd.keys())[0]]
+            else:
+                return exifd
 
         # Check if `exiftool` is installed
         ep = syscmd('which exiftool').decode().strip()
@@ -400,23 +406,106 @@ class EXIF(object):
 
         return exifmaster
 
-    def remove_exif_tag(self, rmtags):
+    def set_exif(self, tags, values, verbose=False):
         """
-        Remove EXIF attributes from a file.
+        Overwrite EXIF attributes on a file or list of files.
         Args
-            rmtags (str or list): name(s) of tags to remove with `exiftool`
+            tags   (str or list): names of tags to overwrite
+            values (str or list): values to set to `tags`
         Returns
             nothing
         """
         from pydoni.vb import echo
         from pydoni.sh import syscmd
 
-        # If rmtags is specified, then call to `exiftool` was initiated in order to remove tags
-        if isinstance(rmtags, str) or isinstance(rmtags, list):
-            rmtags = [rmtags] if isinstance(rmtags, str) else rmtags
-            for tag in rmtags:
-                res = syscmd(
-                    'exiftool -overwrite_original -{}= "{}"'.format(tag, self.fname))
+        # Get list of files and ensure tags and values are identical length
+        target_files = [self.fname] if isinstance(self.fname, str) else self.fname
+        tags = [tags] if isinstance(tags, str) else tags
+        values = [values] if isinstance(values, str) or isinstance(values, int) else values
+        assert len(tags) == len(values)
+        
+        # Check format of tags. Must be TagName, not tag_name
+        if any(['-' in str(x) for x in tags]):
+            echo("Invalid tag format. Proper tag format is 'TagName', not 'tag_name'",
+                abort=True, fn_name='EXIF.set_exif')
+
+        if verbose:
+            if len(target_files) == 1:
+                echo('Preparing to overwrite %s EXIF attributes for 1 file' % str(len(tags)), timestamp=True, fn_name='EXIF.set_exif')
+            else:
+                echo('Preparing to overwrite %s EXIF attributes for %s files' % \
+                    (str(len(tags)), len(target_files)),
+                    timestamp=True, fn_name='EXIF.set_exif')
+
+        # Iterate over each file, and for each file iterate over each tag and
+        # assign value to EXIF attribute
+        for target_file in target_files:
+            if verbose:
+                echo("Altering EXIF for '%s'" % target_file,
+                    timestamp=True, fn_name='EXIF.set_exif')
+            for i in range(len(tags)):
+                cmd = 'exiftool -overwrite_original -{}="{}" "{}"'.format(
+                    tags[i], values[i], target_file)
+                res = syscmd(cmd, encoding='utf-8')
+                if 'nothing to do' in res.lower():
+                    if verbose:
+                        echo("Tag %s is invalid!" % tags[i], timestamp=True,
+                            fn_name='EXIF.set_exif', indent=1, error=True)
+                    else:
+                        echo("Tag %s is invalid for file '{}'!" % (tags[i], target_file), error=True)
+                else:
+                    if verbose:
+                        echo("Set attribute '%s' to value '%s'" % (tags[i], str(values[i])),
+                            timestamp=True, fn_name='EXIF.set_exif', indent=1)
+
+    def remove_exif(self, tags):
+        """
+        Remove EXIF attributes from a file or list of files.
+        Args
+            tags (str or list): name(s) of tags to remove with `exiftool`
+        Returns
+            nothing
+        """
+        from pydoni.vb import echo
+        from pydoni.sh import syscmd
+
+        # Get list of files and ensure tags and values are identical length
+        target_files = [self.fname] if isinstance(self.fname, str) else self.fname
+        tags = [tags] if isinstance(tags, str) else tags
+        
+        # Check format of tags. Must be TagName, not tag_name
+        if any(['-' in str(x) for x in tags]):
+            echo("Invalid tag format. Proper tag format is 'TagName', not 'tag_name'",
+                abort=True, fn_name='EXIF.set_exif')
+
+        if verbose:
+            if len(target_files) == 1:
+                echo('Preparing to overwrite %s EXIF attributes for 1 file' % str(len(tags)), timestamp=True, fn_name='EXIF.set_exif')
+            else:
+                echo('Preparing to overwrite %s EXIF attributes for %s files' % \
+                    (str(len(tags)), len(target_files)),
+                    timestamp=True, fn_name='EXIF.set_exif')
+
+        # Iterate over each file, and for each file iterate over each tag and
+        # assign remove EXIF attribute
+        for target_file in target_files:
+            if verbose:
+                echo("Altering EXIF for '%s'" % target_file,
+                    timestamp=True, fn_name='EXIF.set_exif')
+            for i in range(len(tags)):
+                cmd = 'exiftool -overwrite_original -{}= "{}"'.format(
+                    tags[i], target_file)
+                res = syscmd(cmd, encoding='utf-8')
+                if 'nothing to do' in res.lower():
+                    if verbose:
+                        echo("Tag %s is invalid!" % tags[i], timestamp=True,
+                            fn_name='EXIF.set_exif', indent=1, error=True)
+                    else:
+                        echo("Tag %s is invalid for file '{}'!" % (tags[i], target_file), error=True)
+                else:
+                    if verbose:
+                        echo("Removed attribute '%s'" % tags[i],
+                            timestamp=True, fn_name='EXIF.set_exif', indent=1)
 
     def rename_keys(self, key_dict):
         """
