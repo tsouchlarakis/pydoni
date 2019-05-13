@@ -452,7 +452,7 @@ class EXIF(object):
                         echo("Tag %s is invalid!" % tags[i], timestamp=True,
                             fn_name='EXIF.set_exif', indent=1, error=True)
                     else:
-                        echo("Tag %s is invalid for file '{}'!" % (tags[i], target_file), error=True)
+                        echo("Tag %s is invalid for file '%s'!" % (tags[i], target_file), error=True)
                 else:
                     if verbose:
                         echo("Set attribute '%s' to value '%s'" % (tags[i], str(values[i])),
