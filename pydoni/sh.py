@@ -146,6 +146,7 @@ def mid3v2(fpath, attr_name, attr_value, quiet=True):
     try:
         if quiet:
             out = syscmd(cmd)
+            del out
         else:
             syscmd(cmd)
         return True
