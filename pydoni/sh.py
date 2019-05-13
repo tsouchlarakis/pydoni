@@ -149,7 +149,7 @@ def mid3v2(fpath, attr_name, attr_value, quiet=True):
             syscmd(cmd)
         return True
     except Exception as e:
-        echo('failed', error=True, erro_msg=str(e), fn_name='mid3v2')
+        echo('failed', error=True, error_msg=str(e), fn_name='mid3v2')
         return False
     
 
