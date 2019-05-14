@@ -3,6 +3,7 @@ class Attribute(object):
     General attribute to be used either as a standalone class in and of itself, or as an
     attribute to any external class.
     """
+
     def __init__(self):
         pass
 
@@ -31,6 +32,7 @@ class ProgramEnv(object):
         path      (str) : path to desired program environment directory
         overwrite (bool): if True, remove `path` directory if already exists
     """
+
     def __init__(self, path, overwrite=False):
         import os, shutil, click
         from pydoni.vb import echo
@@ -132,6 +134,7 @@ class Audio(object):
     Args
         fname (str): path to audio file
     """
+    
     def __init__(self, fname):
         import os
         self.fname = fname
@@ -498,6 +501,7 @@ class Movie(object):
     Args
         fname (str): path to audio file
     """
+    
     def __init__(self, fname):
         self.fname          = fname
         self.title          = extract_from_fname(attr='title')
@@ -678,6 +682,7 @@ class Movie(object):
 class DoniDt(object):
     """Custom date/datetime handling. By default:
         * Miliseconds will be deleted"""
+
     def __init__(self, val, apply_tz=True):
         from pydoni.classes import Attribute
         self.val = str(val)
@@ -763,6 +768,7 @@ class Git(object):
     """
     House git command line function python wrappers.
     """
+
     def __init__(self):
         pass
 
