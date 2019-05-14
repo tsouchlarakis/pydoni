@@ -27,7 +27,7 @@ class Attribute(object):
 
 class ProgramEnv(object):
     """
-    Handle a temporary program environment for a Python program
+    Create, maintain, and erase a temporary program directory for a Python program.
     Args
         path      (str) : path to desired program environment directory
         overwrite (bool): if True, remove `path` directory if already exists
@@ -680,80 +680,124 @@ class Movie(object):
                 setattr(self, key, replacement)
 
 class DoniDt(object):
-    """Custom date/datetime handling. By default:
-        * Miliseconds will be deleted"""
+    """
+    Custom date/datetime handling. Delete miliseconds by default.
+    Args
+        val      (<any>): value to consider for date/datetime handling, cast initially as string.
+        apply_tz (bool) : if True, apply timezone value if present
+            Ex: '2019-05-13 10:29:53-7:00' -> '2019-05-13 03:29:53'
+    """
 
     def __init__(self, val, apply_tz=True):
         from pydoni.classes import Attribute
+        
         self.val = str(val)
         sep = r'\.|\/|-|_|\:'
+        
+        # Assign regex expressions to match date, datetime, datetime w/ time zone, and
+        # datetime w/ milliseconds
         rgx = Attribute()
         rgx.d = r'(?P<year>\d{4})(%s)(?P<month>\d{2})(%s)(?P<day>\d{2})' % (sep, sep)
         rgx.dt = r'%s(\s+)(?P<hours>\d{2})(%s)(?P<minutes>\d{2})(%s)(?P<seconds>\d{2})' % (rgx.d, sep, sep)
         rgx.dt_tz = r'%s(?P<tz_sign>-|\+)(?P<tz_hours>\d{1,2})(:)(?P<tz_minutes>\d{1,2})' % (rgx.dt)
         rgx.dt_ms = r'%s\.(?P<miliseconds>\d+)$' % (rgx.dt)
         self.rgx = rgx
+        
+        # Parse type as one of above date types
         self.dtype, self.match = self.detect_dtype()
     
     def is_exact(self):
-        """Test if input string is exactly a date or datetime value, returns bool"""
+        """
+        Test if input string is exactly a date or datetime value.
+        Returns
+            bool
+        """
         import re
         m = [bool(re.search(pattern, self.val)) for pattern in \
             ['^' + x + '$' for x in  self.rgx.__flatten__()]]
         return any(m)
     
     def contains(self):
-        """Test if input string contains a date or datetime value, returns bool"""
+        """
+        Test if input string contains a date or datetime value.
+        Returns
+            bool
+        """
         import re
         m = [bool(re.search(pattern, self.val)) for pattern in self.rgx.__flatten__()]
         return any(m)
     
     def extract_first(self, apply_tz=True):
-        """Given a string with a date or datetime value, extract the FIRST datetime
-        value as string"""
+        """
+        Given a string with a date or datetime value, extract the FIRST datetime
+        value as string
+        Args
+            apply_tz (bool): if True, apply timezone value if present
+                Ex: '2019-05-13 10:29:53-7:00' -> '2019-05-13 03:29:53'
+        """
         import re, datetime
         from pydoni.vb import echo
-        val = self.val
-        val = str(val).strip() if not isinstance(val, str) else val.strip()
-        if self.match:
-            m = self.match
-            if self.dtype == 'dt_tz':
-                dt = '{}-{}-{} {}:{}:{}'.format(
-                    m.group('year'), m.group('month'), m.group('day'),
-                    m.group('hours'), m.group('minutes'), m.group('seconds'))
-                tz = '{}{}:{}'.format(m.group('tz_sign'),
-                    m.group('tz_hours'), m.group('tz_minutes'))
-                if apply_tz:
-                    tz = tz.split(':')[0]
-                    try:
-                        tz = int(tz)
-                    except:
-                        echo("Invalid timezone (no coercible to integer) '{}'".format(tz),
-                            error=True, fn_name='DoniDt.extract_first')
-                        self.dtype = 'dt'
-                        return dt
-                    dt = datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S')
-                    dt = dt + datetime.timedelta(hours=tz)
-                    self.dtype = 'dt_tz'
-                    return dt.strftime('%Y-%m-%d %H:%M:%S')
-                else:
+
+        # Strip whitespace from value
+        val = self.val.strip()
+
+        # Only extract first dt value if any date/datetime value has been matched in string
+        m = self.match
+        if not self.match:
+            return val
+
+        # Extract date/datetime value based on value type
+        if self.dtype == 'dt_tz':
+            # Datetime with timezone
+            
+            # Build dt string
+            dt = '{}-{}-{} {}:{}:{}'.format(
+                m.group('year'), m.group('month'), m.group('day'),
+                m.group('hours'), m.group('minutes'), m.group('seconds'))
+            
+            # Build timezone string
+            tz = '{}{}:{}'.format(m.group('tz_sign'), m.group('tz_hours'), m.group('tz_minutes'))
+            
+            if apply_tz:
+                tz = tz.split(':')[0]
+                
+                try:
+                    tz = int(tz)
+                except:
+                    echo("Invalid timezone (no coercible to integer) '{}'".format(tz),
+                        error=True, fn_name='DoniDt.extract_first')
                     self.dtype = 'dt'
                     return dt
-            elif self.dtype == 'dt':
-                dt = '{}-{}-{} {}:{}:{}'.format(
-                    m.group('year'), m.group('month'), m.group('day'),
-                    m.group('hours'), m.group('minutes'), m.group('seconds'))
+                
+                dt = datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S')
+                dt = dt + datetime.timedelta(hours=tz)
+                self.dtype = 'dt_tz'
+                return dt.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                # Change value type to datetime
                 self.dtype = 'dt'
                 return dt
-            elif self.dtype == 'd':
-                dt = '{}-{}-{}'.format(m.group('year'), m.group('month'), m.group('day'))
-                self.dtype = 'd'
-                return dt
-        else:
-            return val
+
+        elif self.dtype == 'dt':
+            # Datetime
+            dt = '{}-{}-{} {}:{}:{}'.format(
+                m.group('year'), m.group('month'), m.group('day'),
+                m.group('hours'), m.group('minutes'), m.group('seconds'))
+            self.dtype = 'dt'
+            return dt
+
+        elif self.dtype == 'd':
+            # Date
+            dt = '{}-{}-{}'.format(m.group('year'), m.group('month'), m.group('day'))
+            self.dtype = 'd'
+            return dt
     
     def detect_dtype(self):
-        """Get datatype as one of 'd', 'dt', 'dt_tz', and return regex match object"""
+        """
+        Get datatype as one of 'd', 'dt', 'dt_tz', and return regex match object.
+        Returns
+            str
+        """
         import re
         if re.search(self.rgx.dt_tz, self.val):
             return ('dt_tz', re.search(self.rgx.dt_tz, self.val))
@@ -793,16 +837,41 @@ class Git(object):
             return False
 
     def add(self, fpath=None, all=False):
+        """
+        Add files to commit.
+        Args
+            fpath (str or list): file(s) to add
+            all   (bool)       : if True, execute 'git add .'
+        Returns
+            nothing
+        """
         from pydoni.sh import syscmd
         if all == True and fpath is None:
-            out = syscmd('git add .;', encoding='utf-8')
+            syscmd('git add .;', encoding='utf-8')
         elif isinstance(fpath, str):
-            out = syscmd('git add "%s";' % fpath, encoding='utf-8')
+            syscmd('git add "%s";' % fpath, encoding='utf-8')
+        elif isinstance(fpath, list):
+            for f in fpath:
+                syscmd('git add "%s";' % f, encoding='utf-8')
 
     def commit(self, msg):
+        """
+        Execute 'git commit -m {}' where {} is commit message.
+        Args
+            msg (str): commit message
+        Returns
+            nothing
+        """
         import subprocess
-        out = subprocess.call("git commit -m '{}';".format(msg), shell=True)
+        subprocess.call("git commit -m '{}';".format(msg), shell=True)
 
     def push(self):
+        """
+        Execute 'git push'.
+        Args
+            nothing
+        Returns
+            nothing
+        """
         import subprocess
-        out = subprocess.call("git push;", shell=True)
+        subprocess.call("git push;", shell=True)
