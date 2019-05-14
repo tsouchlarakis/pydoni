@@ -153,7 +153,7 @@ def user_select_from_list(lst, indent=0, msg='Please make a selection (hyphen-se
         
         else:
             # User input is invalid (not a single selection or a range selection)
-            echo("Invalid entry. Must match either '\d+' or '\d+-\d+'", error=True)
+            echo("Invalid entry. Must match either '\\d+' or '\\d+-\\d+'", error=True)
             invalid = True
             continue
     
