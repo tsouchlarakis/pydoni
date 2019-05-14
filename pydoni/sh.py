@@ -41,7 +41,6 @@ def adobe_dng_converter(fpath, overwrite=False):
     from os.path import join, splitext, basename, isfile
     
     # Check if destination file already exists
-    
     # Build output file with .dng extension and check if it exists
     destfile = join(splitext(fpath)[0], '.dng')
     exists = True if isfile(destfile) else False
