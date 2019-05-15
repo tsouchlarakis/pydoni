@@ -875,3 +875,14 @@ class Git(object):
         """
         import subprocess
         subprocess.call("git push;", shell=True)
+
+    def pull(self):
+        """
+        Execute 'git pull'.
+        Args
+            nothing
+        Returns
+            nothing
+        """
+        import subprocess
+        subprocess.call("git pull;", shell=True)
