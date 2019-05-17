@@ -140,13 +140,14 @@ class Audio(object):
         self.fname = fname
         self.fmt = os.path.splitext(self.fname)[1].replace('.', '').lower()
     
-    def convert(self, dest_fmt, update_self=True, verbose=False):
+    def convert(self, dest_fmt, update_self=True, num_channels=None, verbose=False):
         """
         Convert an audio file to destination format and write with identical filename with `pydub`.
         Args
-            dest_fmt    (str) : desired output format, one of ['mp3', 'wav']
-            update_self(bool) : if True, set `self.fname` and `self.fmt` to converted file and file format after conversion
-            verbose     (bool): if True, messages are printed to STDOUT
+            dest_fmt     (str) : desired output format, one of ['mp3', 'wav']
+            update_self  (bool): if True, set `self.fname` and `self.fmt` to converted file and file format after conversion
+            num_channels (int) : number of channels to convert audio segment to using pydub.AudioSegment.set_channels()
+            verbose      (bool): if True, messages are printed to STDOUT
         Returns
             nothing
         """
@@ -165,6 +166,11 @@ class Audio(object):
         elif self.fmt == 'wav' and dest_fmt == 'mp3':
             sound = AudioSegment.from_wav(self.fname)
         
+        # Set number of channels if specified
+        if num_channels is not None:
+            if isinstance(num_channels, int):
+                sound = sound.set_channels(num_channels)
+
         # Export output file
         if verbose:
             echo('Exporting audio file')
@@ -203,7 +209,7 @@ class Audio(object):
             self.fname, segment_time,
             os.path.splitext(self.fname)[0],
             os.path.splitext(self.fname)[1])
-        res = syscmd(cmd)
+        syscmd(cmd)
 
         # List resulting files under `fnames_split` attribute
         self.fnames_split = listfiles(pattern=r'ffmpeg-\d{3}\.%s' % self.fmt)
@@ -217,7 +223,7 @@ class Audio(object):
         Args
             audiofiles      (list): list of external filenames to concatenate
             silence_between (int) : milliseconds of silence to insert between clips
-            update_self     (bool) : if True, set `self.fname` and `self.fmt` to converted file and file format after conversion
+            update_self     (bool): if True, set `self.fname` and `self.fmt` to converted file and file format after conversion
             verbose         (bool): if True, messages are printed to STDOUT
         Returns
             nothing
@@ -241,7 +247,6 @@ class Audio(object):
             elif ext == 'wav':
                 fnamesound = AudioSegment.from_wav(fname)
             else:
-                from pydoni.vb import echo
                 echo('Invalid audio file {}, must be either mp3 or wav'.format(fname), abort=True)
             sound = sound + fnamesound
             if silence_between > 0:
@@ -283,9 +288,9 @@ class Audio(object):
         from google.cloud import speech_v1p1beta1 as speech
         from pydoni.vb import echo
 
-        # Convert audio file to wav if mp3
+        # Convert audio file to wav if mp3 and convert to mono
         if self.fmt == 'mp3':
-            self.convert('wav', verbose=verbose)
+            self.convert('wav', num_channels=1, verbose=verbose)
 
         # Split audio file into segments if longer than 55 seconds
         if self.get_duration() > 55:
@@ -308,7 +313,7 @@ class Audio(object):
                 encoding=speech.enums.RecognitionConfig.AudioEncoding.LINEAR16,
                 # sample_rate_hertz=400,
                 language_code='en-US',
-                audio_channel_count=2,
+                audio_channel_count=1,
                 enable_separate_recognition_per_channel=False)
             response = client.recognize(config, audio)
             
