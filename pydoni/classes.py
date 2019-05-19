@@ -528,7 +528,7 @@ class Movie(object):
         assert attr in ['title', 'year', 'ext']
 
         # Get filename
-        fname = self.fname if hasattr(self, 'fname') else fname
+        fname = self.fname if hasattr(self, 'fname') else self.fname
         assert isinstance(fname, str)
         
         # Define movie regex
@@ -536,7 +536,7 @@ class Movie(object):
         assert re.match(rgx_movie, self.fname)
 
         # Extract attribute
-        movie = os.path.splitext(movie)[0]
+        movie = os.path.splitext(fname)[0]
         if attr == 'title':
             return re.sub(rgx_movie, r'\1', movie).strip()
         elif attr == 'year':
