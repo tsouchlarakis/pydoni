@@ -509,9 +509,9 @@ class Movie(object):
     
     def __init__(self, fname):
         self.fname          = fname
-        self.title          = extract_from_fname(attr='title')
-        self.year           = extract_from_fname(attr='year')
-        self.ext            = extract_from_fname(attr='ext')
+        self.title          = self.extract_from_fname(attr='title')
+        self.year           = self.extract_from_fname(attr='year')
+        self.ext            = self.extract_from_fname(attr='ext')
         self.omdb_populated = False  # Will be set to True if self.query_omdb() is successful
     
     def extract_from_fname(self, attr=['title', 'year', 'ext']):
