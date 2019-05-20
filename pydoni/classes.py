@@ -513,6 +513,15 @@ class Movie(object):
         self.year           = self.extract_from_fname(attr='year')
         self.ext            = self.extract_from_fname(attr='ext')
         self.omdb_populated = False  # Will be set to True if self.query_omdb() is successful
+
+        # Placeholder attributes that are filled in by class methods
+        self.ratings     = None
+        self.rating_imdb = None
+        self.rating_imdb = None
+        self.rating_mc   = None
+        self.rating_rt   = None
+        self.imdb_rating = None
+        self.metascore   = None
     
     def extract_from_fname(self, attr=['title', 'year', 'ext']):
         """
@@ -579,6 +588,7 @@ class Movie(object):
                     source = rating['source']
                     if source.lower() not in ['internet movie database', 'rotten tomatoes', 'metacritic']:
                         continue
+                    source = re.sub('internet movie database', 'rating_imdb', source, flags=re.IGNORECASE)
                     source = re.sub('internet movie database', 'rating_imdb', source, flags=re.IGNORECASE)
                     source = re.sub('rotten tomatoes', 'rating_rt', source, flags=re.IGNORECASE)
                     source = re.sub('metacritic', 'rating_mc', source, flags=re.IGNORECASE)
