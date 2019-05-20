@@ -303,9 +303,9 @@ class Audio(object):
         """
         Transcribe the given audio file using Google Cloud Speech Recognition.
         Args
-            split_threshold (int): maximum audio clip size in seconds, if clip exceeds this length it will be split using bound method `split()`
+            split_threshold  (int) : maximum audio clip size in seconds, if clip exceeds this length it will be split using bound method `split()`
             apply_correction (bool): if True, call `self.apply_transcription_corrections()` after transcript created
-            verbose (bool): if True, messages are printed to STDOUT
+            verbose          (bool): if True, messages are printed to STDOUT
         Returns
             str
         """
