@@ -272,10 +272,9 @@ class Audio(object):
         Returns
             nothing
         """
-        from os.path import splitext
         from pydub import AudioSegment
         bitrate = str(bitrate).replace('k', '')
-        audio = AudioSegment.from_file(self.fname, splitext(self.fname)[1].replace('.', ''))
+        audio = AudioSegment.from_file(self.fname, self.fmt)
         audio.export(outfile, format='mp3', bitrate=bitrate)
 
     def compress(self, outfile):
