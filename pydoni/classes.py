@@ -263,6 +263,31 @@ class Audio(object):
         if update_self:
             self.fname = outfile
     
+    def export_mp3(self, outfile, bitrate):
+        """
+        Export audio file at specified bitrate.
+        Args
+            outfile (str): path to output file to write
+            bitrate (int): number of kbps to export file at
+        Returns
+            nothing
+        """
+        from os.path import splitext
+        from pydub import AudioSegment
+        bitrate = str(bitrate).replace('k', '')
+        audio = AudioSegment.from_file(self.fname, splitext(self.fname)[1].replace('.', ''))
+        audio.export(outfile, format='mp3', bitrate=bitrate)
+
+    def compress(self, outfile):
+        """
+        Export audio file at low bitrate (92kbps)
+        Args
+            outfile (str): path to output file to write
+        Returns
+            nothing
+        """
+        self.export_mp3(outfile, bitrate=92)
+    
     def set_google_credentials(self, google_application_credentials_json):
         """
         Set environment variable as path to Google credentials JSON file.
