@@ -196,7 +196,9 @@ class FinderMacOS(object):
         from pydoni.sh import syscmd
         self.__assert_fpath__()
         cmd = 'mdls -r -nullMarker "" -n kMDItemUserTags "%s"' % self.fpath
-        tags = syscmd(cmd, encoding='utf-8')
+        tags = str(syscmd(cmd, encoding='utf-8'))
+        if tags == '0':
+            return []
         tags = [x.strip() for x in tags.split('\n') if '(' not in x and ')' not in x]
         tags = [x.replace(',', '') for x in tags]
         tags = [tags] if isinstance(tags, str) else tags
@@ -243,7 +245,7 @@ class FinderMacOS(object):
             tag = [tag]
         res = []
         for tg in tag:
-            z = syscmd('tag --remove "%s" "%s"' % (tg, fpath))
+            z = syscmd('tag --remove "%s" "%s"' % (tg, self.fpath))
             res.append(z)
         if len(list(set(res))) == 1:
             if list(set(res)) == [0]:
