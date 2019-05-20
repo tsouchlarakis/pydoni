@@ -515,6 +515,10 @@ class Audio(object):
     def get_duration(self):
         """
         Get the duration of audio file.
+        Args
+            none
+        Returns
+            float
         """
         import wave
         import contextlib
