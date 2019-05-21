@@ -202,7 +202,7 @@ def verbose_header(string, time_in_sec=None, round_digits=2):
     title = click.style(string, fg='white', bold=True)
 
     # If time in seconds is given, augment title to incorporate estimated time
-    if isinstance(time_in_sec, int):
+    if isinstance(time_in_sec, int) or isinstance(time_in_sec, float):
         # Get estimated time as dictionary
         esttime = fmt_seconds(time_in_sec=time_in_sec, units='auto', round_digits=round_digits)
         title = '{} {} Est. time {}'.format(
