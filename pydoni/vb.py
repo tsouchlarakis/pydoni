@@ -308,7 +308,8 @@ def program_complete(
         )
 
         # Add to msg_raw to include in notification
-        msg_raw = msg_raw + ' Elapsed time: {} {}'.format(diff['value'], diff['units'])
+        if notify:
+            msg_raw = msg_raw + ' Elapsed time: {} {}'.format(diff['value'], diff['units'])
 
     # Print message and notify if specified
     if notify:
