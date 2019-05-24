@@ -165,6 +165,8 @@ class Audio(object):
             sound = AudioSegment.from_mp3(self.fname)
         elif self.fmt == 'wav' and dest_fmt == 'mp3':
             sound = AudioSegment.from_wav(self.fname)
+        else:
+            sound = AudioSegment.from_file(self.fname)
         
         # Set number of channels if specified
         if num_channels is not None:
@@ -313,7 +315,7 @@ class Audio(object):
         from pydoni.vb import echo
 
         # Convert audio file to wav if mp3 and convert to mono
-        if self.fmt == 'mp3':
+        if self.fmt != 'wav':
             self.convert('wav', num_channels=1, verbose=verbose)
 
         # Split audio file into segments if longer than 55 seconds
