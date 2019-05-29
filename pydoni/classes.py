@@ -136,10 +136,21 @@ class Audio(object):
     """
     
     def __init__(self, fname):
-        import os
+        from os.path import splitext
+        from pydub import AudioSegment
+
+        # Set filename and extension
         self.fname = fname
-        self.fmt = os.path.splitext(self.fname)[1].replace('.', '').lower()
-    
+        self.fmt = splitext(fname)[1]
+
+        # Read audio file as AudioSegement
+        if self.fmt == '.mp3':
+            self.sound = AudioSegment.from_mp3(self.fname)
+        elif self.fmt == '.wav':
+            self.sound = AudioSegment.from_wav(self.fname)
+        else:
+            self.sound = AudioSegment.from_file(self.fname)
+            
     def convert(self, dest_fmt, update_self=True, num_channels=None, verbose=False):
         """
         Convert an audio file to destination format and write with identical filename with `pydub`.
@@ -154,30 +165,24 @@ class Audio(object):
         import os
         from pydub import AudioSegment
         from pydoni.vb import echo
+
+        dest_fmt = dest_fmt.replace('.', '')
         assert dest_fmt in ['mp3', 'wav']
         assert self.fmt != dest_fmt
 
         if verbose:
             echo("Converting input file to format '{}'".format(dest_fmt))
         
-        # Convert audio segment
-        if self.fmt == 'mp3' and dest_fmt == 'wav':
-            sound = AudioSegment.from_mp3(self.fname)
-        elif self.fmt == 'wav' and dest_fmt == 'mp3':
-            sound = AudioSegment.from_wav(self.fname)
-        else:
-            sound = AudioSegment.from_file(self.fname)
-        
         # Set number of channels if specified
         if num_channels is not None:
             if isinstance(num_channels, int):
-                sound = sound.set_channels(num_channels)
+                self.sound = self.sound.set_channels(num_channels)
 
         # Export output file
         if verbose:
             echo('Exporting audio file')
         outfile = os.path.splitext(self.fname)[0] + '.' + dest_fmt
-        sound.export(outfile, format=dest_fmt)
+        self.sound.export(outfile, format=dest_fmt)
 
         # Overwrite `self` attributes to converted file
         if update_self:
@@ -194,7 +199,7 @@ class Audio(object):
             segment_time (int) : length of split audio clips in seconds to split audio file into if length is too long
             verbose      (bool): if True, messages are printed to STDOUT
         Returns
-            nothing
+            list of split filenames
         """
         import os, re
         from pydoni.sh import syscmd
@@ -213,12 +218,12 @@ class Audio(object):
             os.path.splitext(self.fname)[1])
         syscmd(cmd)
 
-        # List resulting files under `fnames_split` attribute
-        self.fnames_split = listfiles(pattern=r'ffmpeg-\d{3}\.%s' % self.fmt)
-        
         if verbose:
             echo('Splitting of audio file complete')
     
+        # Return resulting files under `fnames_split` attribute
+        return listfiles(pattern=r'ffmpeg-\d{3}\.%s' % self.fmt)
+        
     def join(self, audiofiles, silence_between=1000, update_self=True, verbose=False):
         """
         Join multiple audio files into a single file and return the output filename
@@ -315,18 +320,19 @@ class Audio(object):
         from pydoni.vb import echo
 
         # Convert audio file to wav if mp3 and convert to mono
-        if self.fmt != 'wav':
-            self.convert('wav', num_channels=1, verbose=verbose)
+        if self.fmt != '.wav':
+            self.convert('wav', num_channels=1, update_self=True, verbose=verbose)
 
         # Split audio file into segments if longer than 55 seconds
         if self.get_duration() > 55:
-            self.split(55, verbose=verbose)
+            fnames_transcribe = self.split(55, verbose=verbose)
+        else:
+            fnames_transcribe = [self.fname]
         
         if verbose:
             echo('Transcribing audio file')
 
         # Set up transcription
-        fnames_transcribe = self.fnames_split if hasattr(self, 'fnames_split') else [self.fname]
         transcript = []
         client = speech.SpeechClient()
 
@@ -334,14 +340,14 @@ class Audio(object):
         for fname in tqdm.tqdm(fnames_transcribe):
             with open(fname, 'rb') as audio_file:
                 content = audio_file.read()
-            audio = speech.types.RecognitionAudio(content=content)
+            aud = speech.types.RecognitionAudio(content=content)
             config = speech.types.RecognitionConfig(
                 encoding=speech.enums.RecognitionConfig.AudioEncoding.LINEAR16,
                 # sample_rate_hertz=400,
                 language_code='en-US',
                 audio_channel_count=1,
                 enable_separate_recognition_per_channel=False)
-            response = client.recognize(config, audio)
+            response = client.recognize(config, aud)
             
             # Each result is for a consecutive portion of the audio. Iterate through
             # them to get the transcripts for the entire audio file.

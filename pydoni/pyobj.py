@@ -328,3 +328,116 @@ def duplicated(lst):
         else:
             dup_ind.append(False)
     return dup_ind
+
+def ddml_to_md(fname):
+    """
+    Convert a text file formatted in DDML (Dapper Doni Markup Language) to Markdown.
+    Args
+        fname (str): path to textfile formatted in DDML
+    Returns
+        nothing
+    """
+    import re
+    import os
+
+    with open(fname, 'r') as f:
+        text = f.read().split('\n')
+
+    # Attempt to parse the type of each line
+    line_type = []
+    for x in text:
+        if re.match(r'^\d{4}$', x) and x.startswith('20'):
+            line_type.append('year')
+        elif re.match(r'^ {2}\d{2}$', x) and \
+            x.strip() in [str(x).rjust(2).replace(' ', '0') for x in range(1, 13)]:
+            line_type.append('month')
+        elif re.match(r'^ {4}\d{2}$', x) and \
+            x.strip() in [str(x).rjust(2).replace(' ', '0') for x in range(1, 32)]:
+            line_type.append('day')
+        else:
+            line_type.append('normal')
+
+    # Check top two lines for a DDML heading in format "HEADING_TEXT\n============"
+    if re.match('^=+$', text[1]):
+        line_type[0] = 'doc_title'
+        del text[1]
+        del line_type[1]
+
+    # Get any DDML tags (<em>, <li>, <h>, <title>)
+    tag = []
+    ddml_tags = ['em', 'li', 'h', 'title']
+    for x in text:
+        present_tag = 'none'
+        for ddml_tag in ddml_tags:
+            if '<' + ddml_tag + '>' in x:
+                present_tag = ddml_tag
+        tag.append(present_tag)
+
+    # Get indent level for each 
+    indent_level = []
+    for x in text:
+        spaces = re.search('^ +', x)
+        if spaces:
+            spaces = spaces.group(0)
+            idt = int(len(spaces)/2)
+            if idt > 0:
+                idt = idt - 1
+            indent_level.append(idt)
+        else:
+            indent_level.append(0)
+
+
+    # Convert DDML to MD
+
+    md = []
+    for indent, x in list(zip(indent_level, text)):
+        ws = '    ' * indent
+        md.append(ws + x.strip())
+
+    year_loc = [i for i, x in enumerate(line_type) if x == 'year']
+    if len(year_loc):
+        for i in year_loc:
+            md[i] = '\n### ' + md[i]
+
+    month_loc = [i for i, x in enumerate(line_type) if x == 'month']
+    if len(month_loc):
+        for i in month_loc:
+            md[i] = '* ' + re.sub(r'^ +\*', '', md[i].strip())
+
+    day_loc = [i for i, x in enumerate(line_type) if x == 'day']
+    if len(day_loc):
+        for i in day_loc:
+            md[i] = ' '*4 + '* ' + re.sub(r'^ +\*', '', md[i].strip())
+
+    doc_title_loc = [i for i, x in enumerate(line_type) if x == 'doc_title']
+    if len(doc_title_loc):
+        for i in doc_title_loc:
+            md[i] = '# ' + md[i].replace('*', '').strip()
+
+    # Line by line replacements
+    md_final = []
+    for line in md:
+        line = line.replace('->', '&rarr;')
+        line = line.replace('_', '\_')
+        bullet = re.match(r'^ +\* ', line)
+        if bullet is not None:
+            bullet = bullet.group(0)
+            text = line.replace(bullet, '')
+            line = bullet + text.replace('*', '\*')
+        md_final.append(line)
+
+    # DDML tags
+    for i, tg in enumerate(tag):
+        if tg in 'em':
+            md_final[i] = re.sub(r'^( +\* )(.*)( <em>)$', r'\1**\2**', md_final[i])  # Markdown: bold
+            md_final[i] = md_final[i].replace('\*', '*')
+        elif tg == 'li':
+            md_final[i] = md_final[i].replace(' <li>', '')
+        elif tg in ['h', 'title']:
+            md_final[i] = re.sub(r'^( +\*? )(.*)( <(h|title)>)$', r'\1*\2*', md_final[i])  # Markdown: italic
+            md_final[i] = md_final[i] .replace('\*', '*')
+
+    outfile = os.path.splitext(fname)[0] + '.md'
+    with open(outfile, 'w') as f:
+        for line in md_final:
+            f.write(line + '\n')

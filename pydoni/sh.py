@@ -356,7 +356,7 @@ class EXIF(object):
 
         if verbose:
             echo('Number of files detected           : %s' %
-                 self.num_files, timestamp=True, fn_name='exiftool')
+                self.num_files, timestamp=True, fn_name='exiftool')
             est_time = fmt_seconds(0.06079523*len(self.fname), round_digits=0)
             echo('Expected program time              : %s %s' % (
                 est_time['value'], est_time['units']), timestamp=True, fn_name='exiftool')
@@ -364,7 +364,7 @@ class EXIF(object):
         char_limit = int(syscmd("getconf ARG_MAX")) - 25000
         if verbose:
             echo('Using command-line character limit : %s' % str(char_limit),
-                 timestamp=True, fn_name="EXIF.run(..., wrapper='doni')")
+                timestamp=True, fn_name="EXIF.run(..., wrapper='doni')")
 
         # Cast filenames as list if not already
         if not isinstance(self.fname, list):
@@ -376,9 +376,9 @@ class EXIF(object):
 
         if verbose:
             echo('Number of batches to run           : %s' % str(len(fname_batches)),
-                 timestamp=True, fn_name="EXIF.run(..., wrapper='doni')")
+                timestamp=True, fn_name="EXIF.run(..., wrapper='doni')")
             echo('Running exiftool...', timestamp=True,
-                 fn_name="EXIF.run(..., wrapper='doni')")
+                fn_name="EXIF.run(..., wrapper='doni')")
 
         exifmaster = {}
         for batch_name, batch_files in fname_batches.items():
