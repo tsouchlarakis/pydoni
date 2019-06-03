@@ -25,6 +25,7 @@ class Attribute(object):
             lst_of_lst = [v for k, v in dct.items()]
             return [item for sublist in lst_of_lst for item in sublist]
 
+
 class ProgramEnv(object):
     """
     Create, maintain, and erase a temporary program directory for a Python program.
@@ -127,6 +128,7 @@ class ProgramEnv(object):
         from os.path import dirname
         chdir(dirname(self.path))
         shutil.rmtree(self.path)
+
 
 class Audio(object):
     """
@@ -536,6 +538,7 @@ class Audio(object):
         self.duration = duration
         return duration
 
+
 class Movie(object):
     """
     Operate on a movie file.
@@ -730,6 +733,7 @@ class Movie(object):
             if val == value:
                 setattr(self, key, replacement)
 
+
 class DoniDt(object):
     """
     Custom date/datetime handling. Delete miliseconds by default.
@@ -859,6 +863,7 @@ class DoniDt(object):
         else:
             return (None, None)
 
+
 class Git(object):
     """
     House git command line function python wrappers.
@@ -937,3 +942,872 @@ class Git(object):
         """
         import subprocess
         subprocess.call("git pull;", shell=True)
+
+
+class Song(object):
+    """
+    Gather metadata attributes of an .mp3 file
+    Args
+        fname (str): path to .mp3 file
+    """
+    
+    def __init__(self, fname):
+        import re
+        from os.path import dirname, abspath
+        from pydoni.sh import EXIF
+
+        # File parameters
+        self.fname = fname
+        self.dname = dirname(abspath(self.fname))
+
+        # Regex strings used in parsing title, album and/or track index from filename
+        self.fname_rgx = r'^(\d+)\s*(.*?)\s*-\s*(.*?)(\.mp3)$'  # "01 Elvis Presley - Hound Dog.mp3"
+        self.fname_rgx2 = r'^(\d+)\s*-?\s*(.*?)(\.mp3)$' # "01 - Hound Dog.mp3" OR "01 Hound Dog.mp3"
+        
+        # Run `exiftool` on music file
+        self.exif = EXIF(fname).run(wrapper='doni')
+        
+        # Extract song-specific data
+        self.title     = self.__get_song_title__()
+        self.image     = self.__get_song_image__()
+        self.track_raw = self.__get_song_track_raw__()
+        self.track_idx = self.__get_song_track_idx__(self.track_raw)
+        self.disc_raw  = self.__get_song_disc_raw__()
+        self.disc_idx  = self.__get_song_disc_idx__(self.disc_raw)
+        self.has_image = True if self.image is not None else False
+        
+        # Extract album-wide data
+        self.artist = self.__get_song_artist__()
+        self.album  = self.__get_song_album__()
+        self.genre  = self.__get_song_genre__()
+        self.year   = self.__get_song_year__()
+        
+        # Variables to access in this instance
+        self.exitcodemap =  {
+            0: 'Metadata successfully written',
+            1: 'Ideal value does not exist, no change written',
+            2: 'Ideal and current values are the same, no change written'
+        }
+
+    def __get_song_image__(self):
+        """
+        Get the image EXIF metadata.
+        Returns
+            str
+        """
+        if 'picture' in self.exif.keys():
+            return self.exif['picture']
+        else:
+            return None
+
+    def __get_song_disc_raw__(self):
+        """
+        Get the raw disc EXIF metadata if it exists. Most likely it will not exist.
+        Returns
+            str
+        """
+        if 'part_of_set' in self.exif.keys():
+            return self.exif['part_of_set']
+        else:
+            return None
+
+    def __get_song_disc_idx__(self, disc_raw):
+        """
+        Return the disc that a song appears in an album. Will generally be 1, but double and
+        triple albums should be parsed as 2 and 3, respectively. Try to parse this from the
+        filename, if the filename is in the format '2-01 Song Title Here.mp3'. In this case,
+        the disc would be parsed as '2'. If not present, attempt to parse from directory
+        name, as sometimes directory names contain 'CD 1' or 'Disc 2'. If not in either of
+        those places, return nothing.
+        Returns
+            int
+        """
+        import re
+
+        if disc_raw is None:
+            return 1
+
+        # Check for disc index in exif
+        if '/' in disc_raw:
+            return disc_raw.split('/')[0]
+        
+        # Look for disc index in filename
+        disc_rgx = r'(.*)(CD|Disc|Disk)(\b|\_|\s)(\d+)(.*)'
+        if re.match(r'^\d-\d+ ', self.fname):
+            return int(self.fname.split('-')[0])
+        elif re.match(disc_rgx, self.dname):
+            return int(re.sub(disc_rgx, r'\4', self.dname, flags=re.IGNORECASE))
+
+        # Assign to default value of 1 if not found in exif of filename
+        return 1
+
+    def __get_song_track_raw__(self):
+        """
+        Get the raw track information in the EXIF metadata. If unavailable, attempt
+        to parse from song filename.
+        Returns
+            str
+        """
+        import re
+        if 'track' in self.exif.keys():
+            return self.exif['track']
+        else:
+            if re.match(self.fname_rgx, self.fname) or re.match(self.fname_rgx2, self.fname):
+                track_raw = re.sub(self.fname_rgx, r'\1', self.fname).strip()
+                try:
+                    return int(track_raw)
+                except:
+                    return None
+            else:
+                return None
+
+    def __get_song_track_idx__(self, track_raw):
+        """
+        Return the track index given the raw track metadata. Format will generally be a 
+        single digit, or two digits, separated by a forward slash. Ex: '5', '9', '2/12'.
+        Extract the 5, 9 and 2 respectively and convert to int.
+        Returns
+            int or None
+        """
+        import re
+
+        # No 'track' EXIF attribute, attempt to parse from filename
+        if re.match(r'^\d+-\d+ ', self.fname):
+            track_raw = re.sub(r'^(\d+)(-)(\d+) ', r'\3', self.fname)
+        elif re.match(r'^\d{2} ', self.fname):
+            track_raw = self.fname.split(' ')[0]
+        else:
+            return None
+
+        # Convert to int. If can't convert to int, then invalid, so return None
+        if track_raw.isdigit():
+            return int(track_raw)
+        elif re.match(r'^\d+\/\d+$', track_raw):
+            return int(track_raw.split('/')[0])
+        else:
+            return None
+
+    def __get_song_year__(self):
+        """
+        Parse the year from the directory (album) name.
+        Returns
+            int or None
+        """
+        import re
+        if re.match(r'(.*?)\((\d{4})\)', self.dname):
+            year = re.sub(r'(.*?)(\(\[)(\d{4})(\)\])(.*)', r'\3', self.dname)
+            year = int(year) if year.isdigit() else None
+            return year
+        
+        elif re.match(r'^\d{4}', self.dname):
+            year = re.sub(r'^(\d{4})(.*)', r'\1', self.dname)
+            year = int(year) if year.isdigit() else None
+            return year
+        
+        else:
+            return None
+
+    def __get_song_title__(self):
+        """
+        Attempt to parse song title from raw filename.
+        Returns
+            str or None
+        """
+        import re
+        from titlecase import titlecase
+
+        # First check regex, then filename
+        if 'title' in self.exif.keys():
+            val = self.exif['title']
+        elif re.match(self.fname_rgx, self.fname):
+            val = re.sub(self.fname_rgx, r'\3', self.fname).strip()
+        elif re.match(self.fname_rgx2, self.fname):
+            val = re.sub(self.fname_rgx, r'\2', self.fname).strip()
+        else:
+            val = None
+
+        # Clean title
+        if val is not None:
+            val = self.__generic_clean__(val)
+            val = re.sub(r'(\w)(\/)(\w)', r'\1 \2 \3', val)
+            return titlecase(val)
+        else:
+            return val
+
+    def __get_song_artist__(self):
+        """
+        Attempt to parse song artist from raw filename.
+        Returns
+            str or None
+        """
+        import re
+        from titlecase import titlecase
+
+        # First check EXIF metadata
+        if 'artist' in self.exif.keys():
+            val = self.exif['artist']
+        elif re.match(self.fname_rgx, self.fname):
+            val = re.sub(self.fname_rgx, r'\2', self.fname).strip()
+        else:
+            val = None
+        
+        if val is not None:
+            if isinstance(val, str):
+                if val > '':
+                    val = self.__generic_clean__(val)
+                    val = re.sub(r'(\w)( ?\/)(\w)', r'\1, \3', val)  # Replace slash with comma
+                    return titlecase(val)
+                else:
+                    val = None
+        
+        return val
+
+    def __get_song_album__(self):
+        """
+        Get EXIF album value and apply any corrections.
+        Returns
+            str
+        """
+        import re
+        from os.path import dirname
+
+        if 'album' in self.exif.keys():
+            val = self.exif['album']
+            val = self.__generic_clean__(val)
+            val = re.sub(r'(\w)(\/)(\w)', r'\1 \2 \3', val)
+            val = val.replace('the', 'The')
+            val = re.sub(r'^( *)(\[?)(\d{4})(\]?)( *)(-?|\.?)(.*)$', r'\7', val).strip()
+            return val
+        
+        else:
+            # No album attribute somehow, just assume directory name
+            return dirname(self.dname)
+
+    def __get_song_genre__(self):
+        """
+        Get song genre from EXIF metadata
+        Returns
+            str
+        """
+        if 'genre' in self.exif.keys():
+            val = self.exif['genre']
+            val = self.__generic_clean__(val)
+            val = val.replace('/', ', ')
+            return val
+        else:
+            return None
+
+    def __generic_clean__(self, val):
+        """
+        Apply general cleaning methods to any of the EXIF metadata attributes: artist,
+        title, album, genre.
+        Args
+            val (str): value to clean
+        Returns
+            str
+        """
+        import re
+        from titlecase import titlecase
+
+        # Keep words that are all uppercase, generally acronyms. Titlecase will
+        # convert all letters besides the first to lowercase
+        keep_capital = [i for i, item in enumerate(val.split(' ')) if
+                        item == item.upper() and re.match('[A-Z]+', item)]
+        x = titlecase(val).split()  # Apply titlecase, then...
+        if len(keep_capital):  # Keep words that are all capital that will be mutated by titlecase
+            for idx in keep_capital:
+                x[idx] = val.split(' ')[idx]
+
+        # Make substitutions that have to do with common tags on the filenames of songs
+        # These include "Bonus Track", "Remastered", "Alt Version", etc.
+        # Replace so that these tags are enclosed in square brackets [] instead of
+        # parenthesis () as they generally are.
+        x = ' '.join(item for item in x)
+        x = re.sub(r'\((Alternative|Alternate|Bonus) (Take|Track|Song)\)',
+                   '[#]', x, flags=re.IGNORECASE)
+        x = re.sub(r'\((Alternative|Alt|Version|ft|feat|featuring|with|Soundtrack|Remastered|Remaster|Remasterd|Remix|Unreleased)(.*)\)',
+                   r'[\1\2]', x, flags=re.IGNORECASE)
+        x = re.sub(r'\((.*?)(Alternative|Alt|Version|Unreleased)\)',
+                   r'[\1\2]', x, flags=re.IGNORECASE)
+        x = re.sub(r'\((\d{4}) (Remaster|Remastered|Remastrd|Remix)\)',
+                   r'[\1 \2]', x, flags=re.IGNORECASE)
+        x = re.sub(
+            r'\((Remaster|Remastered|Remix) (\d{4})\)', r'\[\2 \1\]', x, flags=re.IGNORECASE)
+        x = re.sub(r'\(Live\)', '[Live]', x, flags=re.IGNORECASE)
+        x = re.sub(r'\] \[', '][', x)
+
+        # General string cleaning primarily for song titles
+        x = re.sub(r' +', ' ', x)
+        x = x.replace('(#)', '[#]')
+        x = x.replace('(*)', '[#]')
+        x = x.replace('[*]', '[#]')
+        x = x.replace("O'Er", "O'er")
+        x = x.replace("'N'", "'n'")
+        x = x.replace('[Ft', '[ft.')
+        x = x.replace('[Ft.', '[ft.')
+        x = x.replace('[Feat', '[ft.')
+        x = x.replace('[Feat.', '[ft.')
+        x = x.replace('[Featuring', '[ft.')
+        x = x.replace('[Featuring.', '[ft.')
+        x = x.replace('W / ', 'w/')
+
+        return x
+
+    def set_exif(self, attr_name, attr_value):
+        """
+        Set song metadata if the current value is different from the correct value. For example,
+        if the 'year' is 1956 but all other songs on the album have 1957 as the 'year', set the
+        'year' metadata to 1957. Exitcodes mapped in __init__().
+        
+        Arguments:
+            attr_name {[type]} -- [description]
+            attr_value {[type]} -- [description]
+        
+        Returns:
+            bool or str -- True if successful, error message as string if unsuccessful
+        """
+        from pydoni.sh import mid3v2
+        
+        try:
+            mid3v2(self.fname, attr_name=attr_name, attr_value=attr_value)
+            return True
+        except Exception as e:
+            return  str(e)
+
+
+class Album(object):
+    """
+    An Album datatype that will retrieve the relevant metadata attributes of an album by
+    considering the metadata of all songs within the album.
+    
+    Arguments:
+        dname (str): path to directory containing album of music files
+    """
+
+    def __init__(self, dname):
+        from os import chdir, getcwd
+        from os.path import basename, isdir
+        from pydoni.os import listfiles
+        from pydoni.vb import echo
+        from pydoni.pyobj import listmode
+        from pydoni.classes import Song
+
+        # Navigate to target directory
+        if basename(getcwd()) != dname:
+            if isdir(dname):
+                chdir(dname)
+            else:
+                echo("Cannot instantiate Album class because directory '{}' does not exist!".format(
+                    dname), abort=True, fn_name='Album.__init__')
+
+        # Get song files in directory
+        self.dname = dname
+        self.fnames = listfiles(ext=['mp3', 'flac'])
+        if not len(self.fnames):
+            echo("Cannot instantiate Album class because there are no mp3 or flac files found in directory '{}'!".format(
+                self.dname), warn=True, fn_name='Album.__init__')
+
+        # Loop over each song file and get album attributes:
+        # album artist, album title, album year, album genre, number of tracks on disc
+        if len(self.fnames):
+            albuminfo = dict(
+                artist    = [],
+                title     = [],
+                year      = [],
+                genre     = [],
+                songs     = [],
+                has_image = []
+            )
+            songinfo = dict(
+                title                = [],
+                song_disc_idxs       = [],
+                song_class_instances = []
+            )
+            track_raw_vals = []
+            for fname in self.fnames:
+                song = Song(fname)
+                albuminfo['artist'].append(song.artist)
+                albuminfo['title'].append(song.album)
+                albuminfo['year'].append(song.year)
+                albuminfo['genre'].append(song.genre)
+                albuminfo['has_image'].append(song.has_image)
+                songinfo['title'].append(song.title)
+                songinfo['song_disc_idxs'].append(song.disc_idx)
+                songinfo['song_class_instances'].append(song)
+                track_raw_vals.append(song.track_raw)
+
+            # Get number of discs in album
+            self.disc_count = self.__get_discs_in_album__(
+                songinfo['song_disc_idxs'])
+
+            # Get number of tracks on disc
+            self.track_total = self.__get_tracks_on_disc__(track_raw_vals)
+
+            # Now condense all album attributes!
+
+            # If multiple artists found in album, assume compilation album, and do
+            # not alter artist
+            if len(list(set(albuminfo['artist']))) == 1:
+                self.artist = listmode(albuminfo['artist'])
+            else:
+                self.artist = albuminfo['artist']
+
+            # Get most frequently-occurring year, genre and album title
+            self.year  = listmode(albuminfo['year'])
+            self.genre = listmode(albuminfo['genre'])
+            self.title = listmode(albuminfo['title'])
+
+            # If any songs have an image, set image indicator to True
+            self.has_image = True if any(albuminfo['has_image']) else False
+
+            # Set song-level information
+            self.songs = songinfo['title']
+            self.song_class_instances = songinfo['song_class_instances']
+
+            # If any album attributes are None, attempt to correct using any means necessary
+            if self.year is None:
+                self.year = self.__get_year_from_dname__()
+
+    def __get_discs_in_album__(self, song_disc_idxs):
+        """
+        Get the number of discs in album.
+        Returns
+            int
+        """
+        import re
+
+        # Get first from song disc indices
+        discs = list(filter(None, list(set(song_disc_idxs))))
+        discs = [x for x in discs if isinstance(x, int)]
+        if len(discs) > 0:
+            # There is disc information
+            return max(discs)
+        else:
+            # No disc information from song disc indices, attempt to parse from filenames
+            # of all files in album, then from directory name
+            discs = []
+            disc_dname_rgx = r'(.*)(CD|Disc|Disk)(\b|\_|\s)(\d+)(.*)'
+            for fname in self.fnames:
+                if re.match(r'^\d-\d+ ', fname):
+                    # Filename matches for example '1-05 Test Song Name.mp3'. In this
+                    # case, we want to extract the '1'.
+                    return int(fname.split('-')[0])
+                elif re.match(disc_dname_rgx, self.dname):
+                    return int(re.sub(disc_dname_rgx, r'\4', self.dname, flags=re.IGNORECASE))
+                else:
+                    return 1
+
+    def __get_tracks_on_disc__(self, track_raw_vals):
+        """
+        Return the total number of tracks in album. First check song raw track index
+        metadata for total number of tracks. If not present, assume the total number
+        of tracks on disc is equal to the total number of music files in directory.
+        Args
+            trackraw_vals (list): list of trackraw values 
+        Returns
+            int
+        """
+        if all([x is None for x in track_raw_vals]):
+            return None
+
+        track_denoms = []
+        for x in track_raw_vals:
+            if isinstance(x, str):
+                if '/' in x:
+                    track_denoms.append(x.split('/')[1])
+        track_denoms = list(set(track_denoms))
+
+        if len(track_denoms) == 1:
+            track_total = track_denoms[0]
+            if track_total.isdigit():
+                return int(track_total)
+            else:
+                return len(self.fnames)
+
+        elif len(track_denoms) > 1:
+            # Multiple track denominators -> album has multiple tracks. Get the total
+            # number of song files in directory
+            return len(self.fnames)
+
+        else:
+            # 0 for denominator. Default to total number of song files in directory
+            return len(self.fnames)
+
+    def __get_year_from_dname__(self):
+        """
+        Attempt to extract album year from directory name.
+
+        Returns:
+            int or None
+        """
+        import re
+        import datetime
+        from os.path import basename
+
+        # Establish valid year ranges to check extracted year string against, from year
+        # 1800 to current year plus one year
+        valid_years = range(1800, int(datetime.datetime.now().strftime('%Y')) + 1)
+
+        # First check first four characters of directory name for year. Often times
+        # directory names will be in the format "YYYY ALBUM_TITLE"
+        val = basename(self.dname)
+        x = val[0:4]
+        if x.isdigit():
+            x = int(x)
+            if x in valid_years:
+                return x
+        
+        # Then check for year in parentheses or square brackets
+        years = re.findall(r'\(\d{4}\)', val) + re.findall(r'\[\d{4}\]', val)
+        if len(years):
+            for x in years:
+                x = re.sub(r'\(|\)|\[|\]', '', x)
+                if x.isdigit():
+                    x = int(x)
+                    if x in valid_years:
+                        return x
+
+        # Then check in the entire directory name for four digits matching a valid year
+        years = re.findall(r'\d{4}', val)
+        if len(years):
+            for x in years:
+                if x.isdigit():
+                    x = int(x)
+                    if x in valid_years:
+                        return x
+        
+        # If year still cannot be found, return None
+        return None
+
+
+    def scrape_wikipedia_genre(self, get_genre=True, get_image=True, image_outfile=None):
+        """
+        Find Wikipedia song link from Google to scrape for genre. If song page cannot
+        be found or does not exist on Wikipedia, use the album's Wikipedia page. If that
+        doesn't exist and genre is still unable to be found, return original genre. Also
+        scrape image from same Wikipedia page.
+        
+        Keyword Arguments:
+            get_genre {bool} -- if True, attempt to retrieve Wikipedia album genre (default: {True})
+            get_image {bool} -- if True, attempt to retrieve Wikipedia album image (default: {True})
+            image_outfile {str} -- path to desired image outfile from Wikipedia
+        
+        Returns:
+            str -- genre string scraped from Wikipedia, may be comma-separated for multiple genres
+        """
+        import requests
+        from os.path import isfile
+        from send2trash import send2trash
+
+        def search_google_for_album_wikipage(artist, year, album):
+            """
+            Search Wikipedia for album URL.
+            
+            Arguments:
+                artist {str} -- album artist
+                year {str} -- album year
+                album {str} -- album title
+            
+            Returns:
+                str -- URL to Wikipedia page
+            """
+            import re
+            import bs4
+            import googlesearch
+            clean_album = re.sub(
+                r'(\[|\()(.*?)(\]|\))|CD\s*\d+|Disc\s*\d+', '', album, flags=re.IGNORECASE).strip()
+            query = '{} {} {} album site:wikipedia.org'.format(
+                artist, year, clean_album)
+            wikilink = list(googlesearch.search(
+                query, tld='com', num=1, stop=1, pause=2))
+            if len(wikilink):
+                return wikilink[0]
+            else:
+                return None
+
+        def extract_genre_from_wikipage(wikilink):
+            """
+            Parse Wikipedia page HTML for album genre.
+            
+            Arguments:
+                wikilink {str} -- link to Wikipedia page to scrape and
+            
+            Returns:
+                str -- genre(s) parsed from Wikipedia page
+            """
+
+            from titlecase import titlecase
+            from pydoni.web import get_element_by_selector
+
+            # Scrape page for CSS selector
+            genre = get_element_by_selector(wikilink, '.category a')
+            if not len(genre) or not isinstance(genre, str):
+                return None
+
+            # Parse multiple genres if present
+            genre = [genre] if isinstance(genre, str) else genre
+            genre = [x for x in genre if not re.search(r'\[\d+\]', x)]
+            if not len(genre):
+                return None
+
+            # Capitalize text for each genre returned
+            genre = titlecase(', '.join(x for x in genre))
+            return genre
+
+        def extract_image_from_wikipage(wikilink, image_outfile, overwrite=True):
+            """
+            Parse Wikipedia page HTML for album image.
+            
+            Arguments:
+                wikilink {str} -- link to Wikipedia page to scrape
+                outfile {str} -- path to image outfile to save image to, if image is found
+            
+            Keyword Arguments:
+                overwrite {bool} -- if True, overwrite `outfile` if it exists (default: {True})
+            
+            Returns:
+                nothing
+            """
+            import re
+            from os.path import splitext, isfile
+            from pydoni.web import get_element_by_xpath, downloadfile
+
+            # Get image xpath
+            img_xpath = get_element_by_xpath(
+                wikilink, xpath='//*[contains(concat( " ", @class, " " ), concat( " ", "image", " " ))]//img/@src')
+            if img_xpath is None or not len(img_xpath):
+                return None
+            else:
+                img_xpath = img_xpath[0]
+
+            # Extract image link from image xpath
+            img_xpath = re.sub(r'thumb\/', '', img_xpath)
+            img_xpath = re.sub(r'(.*?)(\.(jpg|jpeg|png)).*', r'\1\2', img_xpath)
+            img_url = re.sub(r'^\/\/', 'https://', img_xpath)
+
+            # Download image file to `outfile`
+            outfile = splitext(image_outfile)[0] + splitext(img_url)[len(splitext(img_url))-1]
+            if not isfile(outfile) or overwrite:
+                downloadfile(img_url, outfile)
+
+            return outfile
+
+        def verify_downloaded_image(album_artwork_file):
+                """
+                Check if downloaded file is >1kb. Sometimes an image will be downloaded that is not
+                a real image file.
+                
+                Arguments:
+                    album_artwork_file {str} -- downloaded image file
+                
+                Returns:
+                    bool
+                """
+                from pydoni.sh import stat
+                return int(stat(album_artwork_file)['Size']) > 1000
+
+        # Execute steps used for getting both Genre and Image
+        # Get wikipedia link
+        wikilink = search_google_for_album_wikipage(
+            self.artist, self.year, self.title)
+
+        # Get Wikipedia link if possible and overwrite `self.genre` if scraping successful
+        if get_genre:
+            if requests.get(wikilink).status_code == 200:  # Webpage exists
+                try:
+                    parsed_genre = extract_genre_from_wikipage(wikilink)
+                    if parsed_genre is not None:
+                        # Overwrite genre
+                        self.genre = parsed_genre
+                        self.is_genre_from_wikipedia = True
+                    else:
+                        self.is_genre_from_wikipedia = False
+                except:
+                    # Scraping fails, do not overwrite genre
+                    self.is_genre_from_wikipedia = False
+
+        if get_image:
+            # Get image by scraping Wikipedia page
+            downloaded_file = extract_image_from_wikipage(wikilink, image_outfile)
+            if isinstance(downloaded_file, str):
+                if isfile(downloaded_file):
+                    # Check that image is valid
+                    if not verify_downloaded_image(downloaded_file):
+                        if isfile(downloaded_file):
+                            send2trash(downloaded_file)
+                        else:
+                            self.is_image_downloaded_from_wikipedia = False
+                    else:
+                        self.is_image_downloaded_from_wikipedia = True
+                else:
+                    self.is_image_downloaded_from_wikipedia = False
+            else:
+                self.is_image_downloaded_from_wikipedia = False
+
+
+class Album_old(object):
+    """
+    An Album datatype that will retrieve the relevant metadata attributes of an album by
+    considering the metadata of all songs within the album.
+    Args
+        dname (str): path to directory containing album of music files
+    """
+
+    def __init__(self, dname):
+        self.dname = dname
+        self.album = []
+        self.artist = []
+        self.songs = []
+        self.year = []
+        self.genre = []
+        self.disccount = []
+        self.tracktotal = []
+        self.has_image = []
+        self.artwork_dir = ''
+        self.artwork_file = ''
+
+    def aggregate(self, iTunesDF):
+        """
+        For each album attribute, select the one that represents the list generated from
+        querying EXIF metadata for each file. Normally this will involve taking the mode, but
+        for certain attributes there is a more involved process.
+        """
+        from pydoni.pyobj import listmode
+        def matchArtistWithiTunes(artist, iTunesDF):
+            if not artist:
+                return artist
+            loc = [i for i, x in enumerate(
+                iTunesDF.ArtistLower) if artist.lower() == x]
+            slices = iTunesDF.iloc[loc, :]
+            slices.reset_index(inplace=True)
+            if slices.shape[0] == 0:
+                # No match, return original artist
+                return artist
+            elif slices.shape[0] == 1:
+                # Normal case, artist maps to one artist in iTunesDF
+                artist = slices['Artist'][0]
+            else:
+                # Artist maps to multiple exact matches in iTunesDF, take the highest frequency match
+                slices = slices.sort_values(by='Freq', ascending=False)
+                artist = slices['Artist'][0]
+            return artist
+        self.album = listmode(self.album)
+        if len(self.artist) >= 3:
+            if len(set(self.artist)) / len(self.artist) > .3:
+                # There is too much variation in self.artist. Over 30% of the values are
+                # different from the mode, so do not take any action
+                self.artist = None
+            else:
+                self.artist = listmode(self.artist)
+        else:
+            self.artist = listmode(self.artist)
+        self.artist = matchArtistWithiTunes(self.artist, iTunesDF)
+        self.year = listmode(self.year)
+        self.genre = listmode(self.genre)
+        disccount_list = list(filter(None, self.disccount))
+        self.disccount = max(disccount_list) if len(disccount_list) else None
+        if self.disccount:
+            if self.disccount > 1:
+                tracktotal = list(set(self.tracktotal))
+                if len(list(set(self.tracktotal))) != self.disccount:
+                    self.tracktotal = listmode(self.tracktotal)
+                else:
+                    self.tracktotal = list(set(self.tracktotal))
+            else:
+                self.tracktotal = listmode(self.tracktotal)
+        else:
+            self.tracktotal = listmode(self.tracktotal)
+        if not self.tracktotal or self.tracktotal == 0:
+            self.tracktotal = len(self.songs)
+        self.query_image = True if not any(
+            self.has_image) else False  # Only query if all False
+        return self
+
+    def scrapeWikipedia(self):
+        """
+        Find Wikipedia song link from Google to scrape for Genre. If song page cannot be found or
+        does not exist on Wikipedia, use the album's Wikipedia page. If that doesn't exist and genre
+        is still unable to be found, return original genre. Also scrape image from same Wikipedia
+        page.
+        """
+        import re
+        import os
+        import bs4
+        import requests
+        import googlesearch
+        import titlecase
+        from pydoni.web import get_element_by_selector, get_element_by_xpath, downloadfile
+
+        def getWikilink():
+            query = '{} {} {} album site:wikipedia.org'.format(
+                self.artist, self.year,
+                re.sub(r'(\[|\()(.*?)(\]|\))|CD\s*\d+|Disc\s*\d+', '', self.album, flags=re.IGNORECASE).strip())
+            wikilink = list(googlesearch.search(
+                query, tld='com', num=1, stop=1, pause=2))
+            if len(wikilink):
+                return wikilink[0]
+            else:
+                return None
+
+        def wikiGenre(wikilink):
+            genre = get_element_by_selector(wikilink, '.category a')
+            if not len(genre):
+                return self.genre
+            genre = [genre] if isinstance(genre, str) else genre
+            genre = [x for x in genre if not re.search(r'\[\d+\]', x)]
+            genre = titlecase.titlecase(', '.join(x for x in genre))
+            if genre == '' or genre == self.genre or genre is None:
+                return self.genre
+            else:
+                return genre
+
+        def wikiImage(wikilink, outfile, overwrite=False):
+            img_xpath = get_element_by_xpath(
+                wikilink, xpath='//*[contains(concat( " ", @class, " " ), concat( " ", "image", " " ))]//img/@src')[0]
+            img_xpath = re.sub(r'thumb\/', '', img_xpath)
+            img_xpath = re.sub(r'(.*?)(\.(jpg|jpeg|png)).*',
+                               r'\1\2', img_xpath)
+            img_url = re.sub(r'^\/\/', 'https://', img_xpath)
+            outfile = outfile + \
+                os.path.splitext(img_url)[len(os.path.splitext(img_url))-1]
+            if not os.path.isfile(outfile) or overwrite:
+                downloadfile(img_url, outfile)
+            return outfile
+
+        def verifyDownloadedImage(album_artwork_file):
+            """Check if file is >1kb"""
+            from pydoni.sh import stat
+            return int(stat(album_artwork_file)['Size']) > 1000
+        outfile = '{}/{} - {} ({})'.format(self.artwork_dir,
+                                           self.artist, self.album, self.year)
+        # Account for the case that artwork already downloaded
+        if os.path.isfile(outfile + '.jpg'):
+            self.artwork_file = outfile + '.jpg'
+            os.remove(self.artwork_file) if not verifyDownloadedImage(
+                self.artwork_file) else None
+        elif os.path.isfile(outfile + '.jpeg'):
+            self.artwork_file = outfile + '.jpeg'
+            os.remove(self.artwork_file) if not verifyDownloadedImage(
+                self.artwork_file) else None
+        elif os.path.isfile(outfile + '.png'):
+            self.artwork_file = outfile + '.png'
+            os.remove(self.artwork_file) if not verifyDownloadedImage(
+                self.artwork_file) else None
+        wikilink = getWikilink()
+        if requests.get(wikilink).status_code == 200:  # Webpage exists
+            # if not re.search(re.sub(r'\[.*?\]', '', self.album).strip().replace(' ', '_'), wikilink, re.IGNORECASE):
+            #     # Unable to find page on wikipedia, may not exist
+            #     self.genre = self.genre
+            try:
+                self.genre = wikiGenre(wikilink)
+            except:
+                self.genre = self.genre
+            if self.query_image:
+                if not os.path.isdir(self.artwork_dir):
+                    os.makedirs(self.artwork_dir)
+                outfile = wikiImage(wikilink, outfile)
+                if verifyDownloadedImage(outfile):
+                    self.artwork_file = outfile
+                else:
+                    os.remove(outfile)
+                    self.artwork_file = ''

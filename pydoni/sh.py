@@ -123,13 +123,17 @@ def stat(fname):
 def mid3v2(fpath, attr_name, attr_value, quiet=True):
     """
     Use mid3v2 to add or overwrite a metadata attribute to a file.
-    Args
-        fpath      (str)       : path to file
-        attr_name  (str)       : name of attribute to assign value to using mid3v2
-        attr_value (str or int): value to assign to attribute `attr_name`
-        quiet      (bool)      : if True, do not print any output to STDOUT
-    Returns
-        bool
+    
+    Arguments:
+        fpath {str} -- path to file
+        attr_name {str} -- name of attribute to assign value to using mid3v2
+        attr_value {str or int} -- value to assign to attribute `attr_name`
+    
+    Keyword Arguments:
+        quiet {bool} -- if True, do not print any output to STDOUT (default: {True})
+    
+    Returns:
+        [type] -- [description]
     """
     from pydoni.sh import syscmd
     from pydoni.vb import echo
