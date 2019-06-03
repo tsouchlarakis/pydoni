@@ -1255,13 +1255,11 @@ class Song(object):
 
     def set_exif(self, attr_name, attr_value):
         """
-        Set song metadata if the current value is different from the correct value. For example,
-        if the 'year' is 1956 but all other songs on the album have 1957 as the 'year', set the
-        'year' metadata to 1957. Exitcodes mapped in __init__().
+        Set song metadata field using mid3v2.
         
         Arguments:
-            attr_name {[type]} -- [description]
-            attr_value {[type]} -- [description]
+            attr_name {[str]} -- name of attribute to set, must be one of ['artist', 'album', 'song', 'comment', 'picture', 'genre', 'year', 'date', 'track']
+            attr_value {[value]} -- value of attribute to set
         
         Returns:
             bool or str -- True if successful, error message as string if unsuccessful
