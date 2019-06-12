@@ -283,12 +283,12 @@ class Audio(object):
         if update_self:
             self.fname = outfile
     
-    def export_mp3(self, outfile, bitrate):
+    def export_mp3(self, bitrate, outfile=None):
         """
         Export audio file at specified bitrate.
         
         Arguments:
-            outfile {str} -- path to output file to write
+            outfile {str} -- path to output file to write. If None, build output filename as same absolute filename as input file but with the "-compressed" appended
             bitrate {int} -- number of kbps to export file at
         
         Returns:
@@ -297,19 +297,26 @@ class Audio(object):
         from pydub import AudioSegment
         bitrate = str(bitrate).replace('k', '')
         audio = AudioSegment.from_file(self.fname, self.ext)
+
+        if outfile is None:
+            from os.path import splitext, isfile
+            outfile = splitext(self.fname)[0] + '-compressed.mp3'
+            assert not isfile(outfile)
+
         audio.export(outfile, format='mp3', bitrate=bitrate)
 
-    def compress(self, outfile):
+    def compress(self, outfile=None):
+        
         """
         Export audio file at low bitrate (92kbps) as an mp3.
         
-        Arguments:
-            outfile {str} -- path to output file to write
+        Keyword Arguments:
+            outfile {str} -- path to output file to write (default: {None})
 
         Returns:
             nothing
         """
-        self.export_mp3(outfile, bitrate=92)
+        self.export_mp3(outfile=outfile, bitrate=92)
     
     def set_google_credentials(self, google_application_credentials_json):
         """
