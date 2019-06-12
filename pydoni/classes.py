@@ -133,8 +133,9 @@ class ProgramEnv(object):
 class Audio(object):
     """
     Operate on an audio file.
-    Args
-        fname (str): path to audio file
+
+    Arguments:
+        fname {str} -- path to audio file
     """
     
     def __init__(self, fname):
@@ -143,25 +144,29 @@ class Audio(object):
 
         # Set filename and extension
         self.fname = fname
-        self.fmt = splitext(fname)[1]
+        self.ext = splitext(fname)[1]
 
         # Read audio file as AudioSegement
-        if self.fmt == '.mp3':
+        if self.ext.lower() == '.mp3':
             self.sound = AudioSegment.from_mp3(self.fname)
-        elif self.fmt == '.wav':
+        elif self.ext.lower() == '.wav':
             self.sound = AudioSegment.from_wav(self.fname)
         else:
             self.sound = AudioSegment.from_file(self.fname)
-            
+
     def convert(self, dest_fmt, update_self=True, num_channels=None, verbose=False):
         """
         Convert an audio file to destination format and write with identical filename with `pydub`.
-        Args
-            dest_fmt     (str) : desired output format, one of ['mp3', 'wav']
-            update_self  (bool): if True, set `self.fname` and `self.fmt` to converted file and file format after conversion
-            num_channels (int) : number of channels to convert audio segment to using pydub.AudioSegment.set_channels()
-            verbose      (bool): if True, messages are printed to STDOUT
-        Returns
+        
+        Arguments:
+            dest_fmt {[type]} -- desired output format, one of ['mp3', 'wav']
+        
+        Keyword Arguments:
+            update_self {bool} -- if True, set `self.fname` and `self.ext` to converted file and file format after conversion (default: {True})
+            num_channels {[type]} -- number of channels to convert audio segment to using pydub.AudioSegment.set_channels() (default: {None})
+            verbose {bool} -- if True, messages are printed to STDOUT (default: {False})
+        
+        Returns:
             nothing
         """
         import os
@@ -170,7 +175,7 @@ class Audio(object):
 
         dest_fmt = dest_fmt.replace('.', '')
         assert dest_fmt in ['mp3', 'wav']
-        assert self.fmt != dest_fmt
+        assert self.ext != dest_fmt
 
         if verbose:
             echo("Converting input file to format '{}'".format(dest_fmt))
@@ -189,7 +194,7 @@ class Audio(object):
         # Overwrite `self` attributes to converted file
         if update_self:
             self.fname = outfile
-            self.fmt = dest_fmt
+            self.ext = dest_fmt
         
         if verbose:
             echo('Conversion complete')
@@ -197,11 +202,13 @@ class Audio(object):
     def split(self, segment_time=55, verbose=False):
         """
         Split audio file into segments of given length using ffmpeg.
-        Args
-            segment_time (int) : length of split audio clips in seconds to split audio file into if length is too long
-            verbose      (bool): if True, messages are printed to STDOUT
-        Returns
-            list of split filenames
+        
+        Keyword Arguments:
+            segment_time {int} -- length of split audio clips in seconds to split audio file into if length is too long (default: {55})
+            verbose {bool} -- if True, messages are printed to STDOUT (default: {False})
+        
+        Returns:
+            list -- list of split filenames
         """
         import os, re
         from pydoni.sh import syscmd
@@ -224,17 +231,21 @@ class Audio(object):
             echo('Splitting of audio file complete')
     
         # Return resulting files under `fnames_split` attribute
-        return listfiles(pattern=r'ffmpeg-\d{3}\.%s' % self.fmt)
+        return listfiles(pattern=r'ffmpeg-\d{3}\.%s' % self.ext)
         
     def join(self, audiofiles, silence_between=1000, update_self=True, verbose=False):
         """
         Join multiple audio files into a single file and return the output filename
-        Args
-            audiofiles      (list): list of external filenames to concatenate
-            silence_between (int) : milliseconds of silence to insert between clips
-            update_self     (bool): if True, set `self.fname` and `self.fmt` to converted file and file format after conversion
-            verbose         (bool): if True, messages are printed to STDOUT
-        Returns
+        
+        Arguments:
+            audiofiles {list} -- list of external filenames to concatenate
+        
+        Keyword Arguments:
+            silence_between {int} -- milliseconds of silence to insert between clips (default: {1000})
+            update_self {bool} -- if True, set `self.fname` and `self.ext` to converted file and file format after conversion (default: {True})
+            verbose {bool} -- [if True, messages are printed to STDOUT] (default: {False})
+        
+        Returns:
             nothing
         """
         import os, re
@@ -275,23 +286,27 @@ class Audio(object):
     def export_mp3(self, outfile, bitrate):
         """
         Export audio file at specified bitrate.
-        Args
-            outfile (str): path to output file to write
-            bitrate (int): number of kbps to export file at
-        Returns
+        
+        Arguments:
+            outfile {str} -- path to output file to write
+            bitrate {int} -- number of kbps to export file at
+        
+        Returns:
             nothing
         """
         from pydub import AudioSegment
         bitrate = str(bitrate).replace('k', '')
-        audio = AudioSegment.from_file(self.fname, self.fmt)
+        audio = AudioSegment.from_file(self.fname, self.ext)
         audio.export(outfile, format='mp3', bitrate=bitrate)
 
     def compress(self, outfile):
         """
-        Export audio file at low bitrate (92kbps)
-        Args
-            outfile (str): path to output file to write
-        Returns
+        Export audio file at low bitrate (92kbps) as an mp3.
+        
+        Arguments:
+            outfile {str} -- path to output file to write
+
+        Returns:
             nothing
         """
         self.export_mp3(outfile, bitrate=92)
@@ -299,9 +314,11 @@ class Audio(object):
     def set_google_credentials(self, google_application_credentials_json):
         """
         Set environment variable as path to Google credentials JSON file.
-        Args
-            google_application_credentials_json (str): path to google application credentials file
-        Returns
+        
+        Arguments:
+            google_application_credentials_json {str} -- path to google application credentials file
+
+        Returns:
             nothing
         """
         import os
@@ -310,19 +327,21 @@ class Audio(object):
     def transcribe(self, split_threshold=55, apply_correction=True, verbose=False):
         """
         Transcribe the given audio file using Google Cloud Speech Recognition.
-        Args
-            split_threshold  (int) : maximum audio clip size in seconds, if clip exceeds this length it will be split using bound method `split()`
-            apply_correction (bool): if True, call `self.apply_transcription_corrections()` after transcript created
-            verbose          (bool): if True, messages are printed to STDOUT
-        Returns
-            str
+        
+        Keyword Arguments:
+            split_threshold {int} -- maximum audio clip size in seconds, if clip exceeds this length it will be split using bound method `split()` (default: {55})
+            apply_correction {bool} -- if True, call `self.apply_transcription_corrections()` after transcript created (default: {True})
+            verbose {bool} -- if True, messages are printed to STDOUT (default: {False})
+        
+        Returns:
+            str -- transcription string
         """
         import re, os, tqdm
         from google.cloud import speech_v1p1beta1 as speech
         from pydoni.vb import echo
 
         # Convert audio file to wav if mp3 and convert to mono
-        if self.fmt != '.wav':
+        if self.ext != '.wav':
             self.convert('wav', num_channels=1, update_self=True, verbose=verbose)
 
         # Split audio file into segments if longer than 55 seconds
@@ -373,10 +392,12 @@ class Audio(object):
     def apply_transcription_corrections(self, transcript=None):
         """
         Apply any and all corrections to output of `self.transcribe()`.
-        Args
-            transcript
-        Returns
-            str
+
+        Arguments:
+            transcript {str} -- transcript string to apply corrections to. If None, use `self.transcript`
+        
+        Returns:
+            str -- transcript string with corrections
         """
         from pydoni.vb import echo
         
@@ -385,16 +406,17 @@ class Audio(object):
             if hasattr(self, 'transcript'):
                 transcript = self.transcript
             else:
-                echo(
-                    'Must create transcript before applying corrections! Run `Audio.transcribe()` first.', abort=True)
+                echo('Must create transcript before applying corrections! Run `Audio.transcribe()` first.', abort=True)
         
         def smart_dictation(transcript):
             """
             Apply corrections to spoken keywords like 'comma', 'period' or 'quote'/'unquote'.
-            Args
-                transcript (str): transcript string
-            Returns
-                str
+            
+            Arguments:
+                transcript {str} -- transcript string
+            
+            Returns:
+                str -- transcript string
             """
             import re
             dictation_map = {
@@ -432,10 +454,12 @@ class Audio(object):
                 2. Capitalize word following keyphrase 'make capital'.
                 3. Capitalize word and concatenate letters following keyphrase 'make letter'.
                 4. Capitalie letter following '?'.
-            Args
-                transcript (str): transcript string
-            Returns
-                str
+            
+            Arguments:
+                transcript {str} -- transcript string
+            
+            Returns:
+                str -- transcript string
             """
             import re
             from pydoni.pyobj import cap_nth_char, replace_nth_char, insert_nth_char
@@ -471,10 +495,12 @@ class Audio(object):
         def excess_spaces(transcript):
             """
             Replace extra spaces with a single space.
-            Args
-                transcript (str): transcript string
-            Returns
-                str
+            
+            Arguments:
+                transcript {str} -- transcript string
+            
+            Returns:
+                str -- transcript string
             """
             import re
             return re.sub(r' +', ' ', transcript)
@@ -482,11 +508,14 @@ class Audio(object):
         def manual_corrections(transcript):
             """
             Apply manual corrections to transcription.
-            Args
-                transcript (str): transcript string
-            Returns
-                str
+            
+            Arguments:
+                transcript {str} -- transcript string
+            
+            Returns:
+                str -- transcript string
             """
+
             # Regex word replacements
             import re
             dictation_map = {
@@ -524,9 +553,11 @@ class Audio(object):
     def get_duration(self):
         """
         Get the duration of audio file.
-        Args
+        
+        Arguments:
             none
-        Returns
+
+        Returns:
             float
         """
         import wave
