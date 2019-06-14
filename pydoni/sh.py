@@ -3,11 +3,13 @@ def syscmd(cmd, encoding=''):
     Runs a command on the system, waits for the command to finish, and then
     returns the text output of the command. If the command produces no text
     output, the command's return code will be returned instead.
-    Args
-        cmd      (str): command string to execute
-        encoding (str): [optional] name of decoding to decode output bytestring with
-    Returns
-        interned system output (str) or returncode (int)
+    
+    Arguments:
+        cmd      {str} -- command string to execute
+        encoding {str} -- [optional] name of decoding to decode output bytestring with
+    
+    Returns:
+        {str or int} -- interned system output {str}, or returncode {int}
     """
     import subprocess
     p = subprocess.Popen(
@@ -30,10 +32,12 @@ def syscmd(cmd, encoding=''):
 def adobe_dng_converter(fpath, overwrite=False):
     """
     Run Adobe DNG Converter on a file.
-    Args
-        fpath     (str) : path to file
-        overwrite (bool): if True, if output file already exists, overwrite it. if False, skip
-    Returns
+    
+    Arguments:
+        fpath     {str}  -- path to file
+        overwrite {bool} -- if True, if output file already exists, overwrite it. if False, skip
+    
+    Returns:
         nothing
     """
     from pydoni.vb import echo
@@ -63,10 +67,12 @@ def adobe_dng_converter(fpath, overwrite=False):
 def stat(fname):
     """
     Call 'stat' UNIX command and parse output into a Python dictionary.
-    Args
-        fname (str): path to file
-    Returns
-        dict with items:
+    
+    Arguments:
+        fname {str} -- path to file
+    
+    Returns:
+        {dict} -- with items:
             File
             Size
             FileType 
@@ -125,15 +131,15 @@ def mid3v2(fpath, attr_name, attr_value, quiet=True):
     Use mid3v2 to add or overwrite a metadata attribute to a file.
     
     Arguments:
-        fpath {str} -- path to file
-        attr_name {str} -- name of attribute to assign value to using mid3v2
+        fpath      {str}        -- path to file
+        attr_name  {str}        -- name of attribute to assign value to using mid3v2
         attr_value {str or int} -- value to assign to attribute `attr_name`
     
     Keyword Arguments:
         quiet {bool} -- if True, do not print any output to STDOUT (default: {True})
     
     Returns:
-        [type] -- [description]
+        {bool} -- if True, successfully run. If False, failed
     """
     from pydoni.sh import syscmd
     from pydoni.vb import echo
@@ -161,8 +167,9 @@ def mid3v2(fpath, attr_name, attr_value, quiet=True):
 class EXIF(object):
     """
     Extract and handle EXIF metadata from file.
-    Args
-        fname (str or list): filename or list of filenames to initiate EXIF class on
+    
+    Arguments:
+        fname {str or list} -- filename or list of filenames to initiate EXIF class on
     """
 
     def __init__(self, fname):
@@ -184,10 +191,12 @@ class EXIF(object):
         """
         Run Exiftool using either Doni algorithm or PyExifTool package on either a single file
         or a batch of files.
-        Args
-            wrapper (str) : wrapper name of exiftool program to run, one of ['doni', 'pyexiftool']
-            verbose (bool): if True, messages are printed to STDOUT
-        Returns
+        
+        Arguments:
+            wrapper {str}  -- wrapper name of exiftool program to run, one of ['doni', 'pyexiftool']
+            verbose {bool} -- if True, messages are printed to STDOUT
+        
+        Returns:
             dict
         """
         if wrapper == 'doni':
@@ -207,11 +216,13 @@ class EXIF(object):
     def exiftool(self, attr_name=None, dedup=True, verbose=False):
         """
         Run `exiftool` on a file and fetch output.
-        Args
-            rmtags    (str or list): name(s) of tags to remove with `exiftool`
-            dedup     (bool)       : if True, names of EXIF attributes will be checked for duplicate names. If any are found, a suffix is appended. Suffixes may be "_2", "_3", ...
-            attr_name (str or list): filter output exif dictionary by attribute name(s)
-        Returns
+        
+        Arguments:
+            rmtags    {str or list} -- name(s) of tags to remove with `exiftool`
+            dedup     {bool}        -- if True, names of EXIF attributes will be checked for duplicate names. If any are found, a suffix is appended. Suffixes may be "_2", "_3", ...
+            attr_name {str or list} -- filter output exif dictionary by attribute name(s)
+        
+        Returns:
             dict
         """
         import re
@@ -235,10 +246,12 @@ class EXIF(object):
             exiftool filename_1 filename_2 filename_3 ... filename_n
             With too many files, the raw length of the call to `exiftool` might be over the
             character limit.
-            Args
-                fnames     (str or list): path to file(s)
-                char_limit (int)        : character limit of operating system's command-line character limit
-            Returns
+            
+            Arguments:
+                fnames     {str or list} -- path to file(s)
+                char_limit {int}         -- character limit of operating system's command-line character limit
+            
+            Returns:
                 dictionary of lists
             """
             from collections import OrderedDict
@@ -274,9 +287,11 @@ class EXIF(object):
         def parse_raw_exiftool_output(res, fnames, attr_name, dedup):
             """
             Parse raw exiftool output string, coerce to a dictionary.
-            Args
-                res (str): raw exiftool output string
-            Returns
+            
+            Arguments:
+                res {str} -- raw exiftool output string
+            
+            Returns:
                 dict
             """
             import numpy as np
@@ -414,10 +429,12 @@ class EXIF(object):
     def set_exif(self, tags, values, verbose=False):
         """
         Overwrite EXIF attributes on a file or list of files.
-        Args
-            tags   (str or list): names of tags to overwrite
-            values (str or list): values to set to `tags`
-        Returns
+        
+        Arguments:
+            tags   {str or list} -- names of tags to overwrite
+            values {str or list} -- values to set to `tags`
+        
+        Returns:
             nothing
         """
         from pydoni.vb import echo
@@ -466,9 +483,11 @@ class EXIF(object):
     def remove_exif(self, tags, verbose=False):
         """
         Remove EXIF attributes from a file or list of files.
-        Args
-            tags (str or list): name(s) of tags to remove with `exiftool`
-        Returns
+        
+        Arguments:
+            tags {str or list} -- name(s) of tags to remove with `exiftool`
+        
+        Returns:
             nothing
         """
         from pydoni.vb import echo
@@ -481,22 +500,22 @@ class EXIF(object):
         # Check format of tags. Must be TagName, not tag_name
         if any(['-' in str(x) for x in tags]):
             echo("Invalid tag format. Proper tag format is 'TagName', not 'tag_name'",
-                abort=True, fn_name='EXIF.set_exif')
+                abort=True, fn_name='EXIF.remove_exif')
 
         if verbose:
             if len(target_files) == 1:
-                echo('Preparing to overwrite %s EXIF attributes for 1 file' % str(len(tags)), timestamp=True, fn_name='EXIF.set_exif')
+                echo('Preparing to overwrite %s EXIF attributes for 1 file' % str(len(tags)), timestamp=True, fn_name='EXIF.remove_exif')
             else:
                 echo('Preparing to overwrite %s EXIF attributes for %s files' % \
                     (str(len(tags)), len(target_files)),
-                    timestamp=True, fn_name='EXIF.set_exif')
+                    timestamp=True, fn_name='EXIF.remove_exif')
 
         # Iterate over each file, and for each file iterate over each tag and
         # assign remove EXIF attribute
         for target_file in target_files:
             if verbose:
                 echo("Altering EXIF for '%s'" % target_file,
-                    timestamp=True, fn_name='EXIF.set_exif')
+                    timestamp=True, fn_name='EXIF.remove_exif')
             for i in range(len(tags)):
                 cmd = 'exiftool -overwrite_original -{}= "{}"'.format(
                     tags[i], target_file)
@@ -504,20 +523,21 @@ class EXIF(object):
                 if 'nothing to do' in res.lower():
                     if verbose:
                         echo("Tag %s is invalid!" % tags[i], timestamp=True,
-                            fn_name='EXIF.set_exif', indent=1, error=True)
+                            fn_name='EXIF.remove_exif', indent=1, error=True)
                     else:
                         echo("Tag %s is invalid for file '%s'!" % (tags[i], target_file), error=True)
                 else:
                     if verbose:
                         echo("Removed attribute '%s'" % tags[i],
-                            timestamp=True, fn_name='EXIF.set_exif', indent=1)
+                            timestamp=True, fn_name='EXIF.remove_exif', indent=1)
 
     def rename_keys(self, key_dict):
         """
         Rename exif dictionary keys.
         Ex: key_dict={'file_name': 'fname'} will result in the original key 'file_name'
         being renamed to 'fname'.
-        Args
+        
+        Arguments:
             key_dict (dict): dictionary of key: value pairs where 'key' is current exif key name, and 'value' is desired key name
         """
         for k, v in key_dict.items():
@@ -528,10 +548,11 @@ class EXIF(object):
     def coerce(self, key, val, fmt=['int', 'date', 'float'], onerror=['raise', 'null', 'revert']):
         """
         Attempt to coerce a dictionary value to specified type or format.
-        Args
-            key (str): name of EXIF key
-            fmt (str): format to coerce to, one of ['int', 'date', 'float']
-            onerror (str): determine behavior if a value cannot be coerced
+        
+        Arguments:
+            key {str} -- name of EXIF key
+            fmt {str} -- format to coerce to, one of ['int', 'date', 'float']
+            onerror {str} -- determine behavior if a value cannot be coerced
                 - raise: raise an error (stop the program)
                 - null: return None
                 - revert: return original value
