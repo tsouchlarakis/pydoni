@@ -142,9 +142,9 @@ def user_select_from_list(lst, indent=0, msg='Please make a selection (hyphen-se
                 val = [lst[i-1] for i in selection]
                 break
 
-        elif re.search(r'^(\d+)$', uin):
+        elif re.search(r'^(\d+)$', uin_raw):
             # User input is single selection (valid)
-            uin = int(uin)
+            uin = int(uin_raw)
             if uin < 1 or uin > len(lst):
                 echo('Entry must be between {} and {}'.format('1', str(len(lst))), error=True)
                 invalid = True

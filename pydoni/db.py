@@ -78,7 +78,7 @@ class Postgres(object):
         return create_engine('postgresql://{}@localhost:5432/{}'.format(
             self.dbuser, self.dbname))
 
-    def execute(self, sql, logfile=None, progress=False):
+    def execute(self, sql, logfile=None, log_timestamp=False, progress=False):
         """
         Execute list of SQL statements or a single statement, in a transaction.
         
@@ -87,11 +87,13 @@ class Postgres(object):
         
         Keyword Arguments:
             logfile {str} -- [optional] path to log file to save executed SQL to (default: {None})
+            log_timestamp {bool} if True, append timestamp to each SQL log entry
             progress {bool} -- if True, execute with `tqdm` progress bar (default: {False})
         
         Returns:
             {bool} -- always return True
         """
+        import datetime
         from sqlalchemy import text
         assert isinstance(sql, str) or isinstance(sql, list)
         if logfile is not None:
@@ -99,6 +101,8 @@ class Postgres(object):
             assert isinstance(logfile, str)
             assert isfile(logfile)
             write_log = True
+        else:
+            write_log = False
         
         sql = [sql] if isinstance(sql, str) else sql
         with self.dbcon.begin() as con:
@@ -108,14 +112,20 @@ class Postgres(object):
                     con.execute(text(stmt))
                     if write_log:
                         with open(logfile, 'a') as f:
-                            f.write(stmt + '\n')
+                            entry = stmt + '\n'
+                            if log_timestamp:
+                                entry = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' ' + entry
+                            f.write(entry)
                     
             else:
                 for stmt in sql:
                     con.execute(text(stmt))
                     if write_log:
                         with open(logfile, 'a') as f:
-                            f.write(stmt + '\n')
+                            entry = stmt + '\n'
+                            if log_timestamp:
+                                entry = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' ' + entry
+                            f.write(entry)
 
         return True
 
