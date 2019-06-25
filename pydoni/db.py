@@ -1,4 +1,17 @@
 def connect_odbc(driver, server, db, user, pw):
+    """
+    Establish ODBC database connection.
+    
+    Arguments:
+        driver {str} -- driver name
+        server {str} -- server name
+        db {str} -- database name
+        user {str} -- username
+        pw {str} -- password
+    
+    Returns:
+        [type] -- [description]
+    """
     import pyodbc
     con_string = 'Driver={%s};Server=%s;Database=%s;uid=%s;pwd=%s' % \
         (driver, server, db, user, pw)
@@ -9,10 +22,11 @@ def connect_odbc(driver, server, db, user, pw):
 class MySQL(object):
     """
     Interact with a MySQL database through Python.
-    Args
-        user   (str): username for database
-        pw     (str): password for database
-        dbname (str): target database name
+    
+    Arguments:
+        user   {str} -- username for database
+        pw     {str} -- password for database
+        dbname {str} -- target database name
     """
 
     def __init__(self, user, pw, dbname):
@@ -24,24 +38,28 @@ class MySQL(object):
     def connect(self):
         """
         Connect to MySQL database.
+        
+        Returns:
+            [pmysql] -- MySQL database connection object
         """
         import pymysql
         dbhandle = pymysql.connect(
-            host='localhost',
-            user=user,
-            password=pw,
-            db=dbname,
-            charset='utf8mb4',
-            cursorclass=pymysql.cursors.DictCursor)
+            host        = 'localhost',
+            user        = self.user,
+            password    = self.pw,
+            db          = self.dbname,
+            charset     = 'utf8mb4',
+            cursorclass = pymysql.cursors.DictCursor)
         return dbhandle
 
 
 class Postgres(object):
     """
     Interact with PostgreSQL database through Python.
-    Args
-        pg_user   (str): username for database to connect to
-        pg_dbname (str): database name to connect to
+    
+    Arguments:
+        pg_user {str} -- username for database to connect
+        pg_dbname {str} -- name of database to connect to
     """
 
     def __init__(self, pg_user, pg_dbname):
@@ -52,6 +70,9 @@ class Postgres(object):
     def connect(self):
         """
         Connect to Postgres database.
+        
+        Returns:
+            [sqlalchemy] -- database connection
         """
         from sqlalchemy import create_engine
         return create_engine('postgresql://{}@localhost:5432/{}'.format(
@@ -60,17 +81,20 @@ class Postgres(object):
     def execute(self, sql, progress=False):
         """
         Execute list of SQL statements or a single statement, in a transaction.
-        Args
-            sql      (str or list): string or list of strings of SQL to execute
-            progress (bool)       : if True, execute with `tqdm` progress bar
-        Returns
-            nothing
+        
+        Arguments:
+            sql {str} -- string or list of strings of SQL to execute
+        
+        Keyword Arguments:
+            progress {bool} -- if True, execute with `tqdm` progress bar (default: {False})
+        
+        Returns:
+            {bool} -- always return True
         """
         from sqlalchemy import text
-        if not isinstance(sql, str) and not isinstance(sql, list):
-            from pydoni.vb import echo
-            echo("Parameter `sql'`must be either str or list", abort=True)
-        sql = [sql] if not isinstance(sql, list) else sql
+        assert isinstance(sql, str) or isinstance(sql, list)
+        
+        sql = [sql] if isinstance(sql, str) else sql
         with self.dbcon.begin() as con:
             if progress:
                 from tqdm import tqdm
@@ -80,13 +104,17 @@ class Postgres(object):
                 for stmt in sql:
                     con.execute(text(stmt))
 
+        return True
+
     def read_sql(self, sql):
         """
         Execute SQL and read results using Pandas.
-        Args
-            sql (string): SQL string to execute and read results from
-        Returns:
-            pd.DataFrame or pd.Series
+        
+        Arguments:
+            sql {str} -- SQL string to execute and read results from
+        
+        Returns::
+            {pd.DataFrame} or {pd.Series}
         """
         import pandas as pd
         return pd.read_sql(sql, con=self.dbcon)
@@ -95,43 +123,47 @@ class Postgres(object):
         """
         Query database for datatype of value and validate that the Python value to
         insert to that column is compatible with the SQL datatype.
-        Args
-            schema (str)  : table schema (schema of `table` parameter)
-            table  (str)  : table name
-            col    (str)  : column name
-            val    (<any>): value to check against the datatype of column `col`
+        
+        Arguments:
+            schema {str} -- table schema (schema of `table` parameter)
+            table  {str} -- table name
+            col    {str} -- column name
+            val    {<any>} -- value to check against the datatype of column `col`
+
+        Returns:
+            {bool}
         """
         from pydoni.vb import echo
 
         # Check that input value datatype matches queried table column datatype
         dtype = self.coldtypes(schema, table)[col]
         dtype_map = {
-            'bigint': 'int',
-            'int8': 'int',
-            'bigserial': 'int',
-            'serial8': 'int',
-            'integer': 'int',
-            'int': 'int',
-            'int4': 'int',
-            'smallint': 'int',
-            'int2': 'int',
-            'double precision': 'float',
-            'float': 'float',
-            'float4': 'float',
-            'float8': 'float',
-            'numeric': 'float',
-            'decimal': 'float',
-            'character': 'str',
-            'char': 'str',
-            'character varying': 'str',
-            'varchar': 'str',
-            'text': 'str',
-            'date': 'str',
-            'timestamp': 'str',
-            'timestamp with time zone': 'str',
+            'bigint'                     : 'int',
+            'int8'                       : 'int',
+            'bigserial'                  : 'int',
+            'serial8'                    : 'int',
+            'integer'                    : 'int',
+            'int'                        : 'int',
+            'int4'                       : 'int',
+            'smallint'                   : 'int',
+            'int2'                       : 'int',
+            'double precision'           : 'float',
+            'float'                      : 'float',
+            'float4'                     : 'float',
+            'float8'                     : 'float',
+            'numeric'                    : 'float',
+            'decimal'                    : 'float',
+            'character'                  : 'str',
+            'char'                       : 'str',
+            'character varying'          : 'str',
+            'varchar'                    : 'str',
+            'text'                       : 'str',
+            'date'                       : 'str',
+            'timestamp'                  : 'str',
+            'timestamp with time zone'   : 'str',
             'timestamp without time zone': 'str',
-            'boolean': 'bool',
-            'bool': 'bool'}
+            'boolean'                    : 'bool',
+            'bool'                       : 'bool'}
 
         # Get python equivalent of SQL column datatype according to dtype_map above
         python_dtype = [v for k, v in dtype_map.items() if dtype in k]
@@ -202,21 +234,23 @@ class Postgres(object):
         """
         Construct SQL UPDATE statement.
         By default, this method will:
-            * Attempt to coerce a date value to proper format if the input value is detect_dtype
-              as a date but possibly in the improper format. Ex: '2019:02:08' -> '2019-02-08'
-            * Quote all values passed in as strings. This will include string values that are
-              coercible to numerics. Ex: '5', '7.5'.
-            * Do not quote all values passed in as integer or boolean values.
-            * Primary key value is quoted if passed in as a string. Otherwise, not quoted.
-        Args
-            schema     (str)  : schema name
-            table      (str)  : table name
-            pkey_name  (str)  : name of primary key in table
-            pkey_value (<any>): value of primary key for value to update
-            columns    (list) : columns to consider in UPDATE statement
-            values     (list) : values to consider in UPDATE statement
-            validate   (bool) : Optional. If True, query column type from DB, validate that datatypes of existing column and value to insert are the same
-        Returns
+        - Attempt to coerce a date value to proper format if the input value is detect_dtype as a date but possibly in the improper format. Ex: '2019:02:08' -> '2019-02-08'
+        - Quote all values passed in as strings. This will include string values that are coercible to numerics. Ex: '5', '7.5'.
+        - Do not quote all values passed in as integer or boolean values.
+        - Primary key value is quoted if passed in as a string. Otherwise, not quoted.
+        
+        Arguments:
+            schema     {str} -- schema name
+            table      {str} -- table name
+            pkey_name  {str} -- name of primary key in table
+            pkey_value {<any>} -- value of primary key for value to update
+            columns    {list} -- columns to consider in UPDATE statement
+            values     {list} -- values to consider in UPDATE statement
+            
+        Keyword Arguments:
+            validate {bool} -- if True, query column type from DB, validate that datatypes of existing column and value to insert are the same
+        
+        Returns:
             str
         """
         import re
@@ -257,21 +291,25 @@ class Postgres(object):
         """
         Construct SQL INSERT statement.
         By default, this method will:
-            * Attempt to coerce a date value to proper format if the input value is detect_dtype
-              as a date but possibly in the improper format. Ex: '2019:02:08' -> '2019-02-08'
-            * Quote all values passed in as strings. This will include string values that are
-              coercible to numerics. Ex: '5', '7.5'.
-            * Do not quote all values passed in as integer or boolean values.
-            * Primary key value is quoted if passed in as a string. Otherwise, not quoted.
-        Args
-            schema     (str)  : schema name
-            table      (str)  : table name
-            pkey_name  (str)  : name of primary key in table
-            pkey_value (<any>): value of primary key for value to update
-            columns    (list) : columns to consider in UPDATE statement
-            values     (list) : values to consider in UPDATE statement
-            validate   (bool) : Optional. If True, query column type from DB, validate that datatypes of existing column and value to insert are the same
-        Returns
+        - Attempt to coerce a date value to proper format if the input value is detect_dtype
+            as a date but possibly in the improper format. Ex: '2019:02:08' -> '2019-02-08'
+        - Quote all values passed in as strings. This will include string values that are
+            coercible to numerics. Ex: '5', '7.5'.
+        - Do not quote all values passed in as integer or boolean values.
+        - Primary key value is quoted if passed in as a string. Otherwise, not quoted.
+        
+        Arguments:
+            schema     {str} -- schema name
+            table      {str} -- table name
+            pkey_name  {str} -- name of primary key in table
+            pkey_value {<any>} -- value of primary key for value to update
+            columns    {list} -- columns to consider in UPDATE statement
+            values     {list} -- values to consider in UPDATE statement
+            
+        Keyword Arguments:
+            validate {bool} -- if True, query column type from DB, validate that datatypes of existing column and value to insert are the same (default: {False})
+        
+        Returns:
             str
         """
         import re
@@ -310,12 +348,14 @@ class Postgres(object):
     def build_delete(self, schema, table, pkey_name, pkey_value):
         """
         Construct SQL DELETE FROM statement.
-        Args
-            schema     (str)  : schema name
-            table      (str)  : table name
-            pkey_name  (str)  : name of primary key in table
-            pkey_value (<any>): value of primary key for value to update
-        Returns
+        
+        Arguments:
+            schema     {str} -- schema name
+            table      {str} -- table name
+            pkey_name  {str} -- name of primary key in table
+            pkey_value {<any>} -- value of primary key for value to update
+        
+        Returns:
             str
         """
         pkey_value = self.__handle_single_quote__(pkey_value)
@@ -324,10 +364,12 @@ class Postgres(object):
     def colnames(self, schema, table):
         """
         Get column names of table as a list.
-        Args
-            schema (str): schema name
-            table  (str): table name
-        Returns
+        
+        Arguments:
+            schema {str} -- schema name
+            table  {str} -- table name
+        
+        Returns:
             list
         """
         column_sql = "SELECT column_name FROM information_schema.columns WHERE table_schema = '{}' AND table_name = '{}'"
@@ -336,11 +378,13 @@ class Postgres(object):
     def coldtypes(self, schema, table):
         """
         Get column datatypes of table as a dictionary.
-        Args
-            schema (str): schema name
-            table  (str): table name
-        Returns
-            dict
+        
+        Arguments:
+            schema {str} -- schema name
+            table  {str} -- table name
+        
+        Returns:
+            {dict} -- dictionary of key:value pairs of column_name:column_datatype
         """
         import pandas as pd
         dtype = self.read_sql("""
@@ -352,13 +396,24 @@ class Postgres(object):
         return dtype.set_index('column_name')['data_type'].to_dict()
 
     def read_table(self, schema, table):
+        """
+        Read entire SQL table.
+        
+        Arguments:
+            schema {str} -- schema name to query from
+            table {str} -- table name to query from
+        
+        Returns:
+            {pd.DataFrame} or {pd.Series} -- will only return a Series if table has one column, else a DataFrame
+        """
         return self.read_sql("SELECT * FROM {}.{}".format(schema, table))
 
     def dump(self, backup_dir_abspath):
         """
         Execute pg_dump command on connected database. Create .sql backup file.
-        Args
-            backup_dir_abspath (str): absolute path to directory to dump Postgres database to
+        
+        Arguments:
+            backup_dir_abspath {str} -- absolute path to directory to dump Postgres database to
         """
         import subprocess
         import os
@@ -371,11 +426,11 @@ class Postgres(object):
         """
         Dump each table in database to a textfile with specified separator.
         https://stackoverflow.com/questions/17463299/export-database-into-csv-file?answertab=oldest#tab-top
-
-        Args
-            backup_dir_abspath (str) : absolute path to directory to dump Postgres database to
-            sep                (str) : output datafile separator, defaults to comma
-            coerce_csv         (bool): if True, read in each file outputted, then write as a quoted CSV
+        
+        Arguments:
+            backup_dir_abspath {str} -- absolute path to directory to dump Postgres database to
+            sep                {str} -- output datafile separator, defaults to comma
+            coerce_csv         {bool} -- if True, read in each file outputted, then write as a quoted CSV
         """
         
         db_to_csv = """
@@ -438,10 +493,12 @@ class Postgres(object):
     def __handle_single_quote__(self, val):
         """
         Escape single quotes and put single quotes around value if string value.
-        Args
-            val (<any>): if `type(val)` is `str`, surround with single quotes, used in building SQL
-        Returns
-            `type(val)`
+        
+        Arguments:
+            val {<any>} -- if `type(val)` is `str`, surround with single quotes, used in building SQL
+        
+        Returns:
+            {`type(val)`}
         """
         if isinstance(val, str):
             val = val.replace("'", "''")
