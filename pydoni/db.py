@@ -78,7 +78,7 @@ class Postgres(object):
         return create_engine('postgresql://{}@localhost:5432/{}'.format(
             self.dbuser, self.dbname))
 
-    def execute(self, sql, progress=False):
+    def execute(self, sql, logfile=None, progress=False):
         """
         Execute list of SQL statements or a single statement, in a transaction.
         
@@ -86,6 +86,7 @@ class Postgres(object):
             sql {str} -- string or list of strings of SQL to execute
         
         Keyword Arguments:
+            logfile {str} -- [optional] path to log file to save executed SQL to (default: {None})
             progress {bool} -- if True, execute with `tqdm` progress bar (default: {False})
         
         Returns:
@@ -93,6 +94,11 @@ class Postgres(object):
         """
         from sqlalchemy import text
         assert isinstance(sql, str) or isinstance(sql, list)
+        if logfile is not None:
+            from os.path import isfile
+            assert isinstance(logfile, str)
+            assert isfile(logfile)
+            write_log = True
         
         sql = [sql] if isinstance(sql, str) else sql
         with self.dbcon.begin() as con:
@@ -100,9 +106,16 @@ class Postgres(object):
                 from tqdm import tqdm
                 for stmt in tqdm(sql):
                     con.execute(text(stmt))
+                    if write_log:
+                        with open(logfile, 'a') as f:
+                            f.write(stmt + '\n')
+                    
             else:
                 for stmt in sql:
                     con.execute(text(stmt))
+                    if write_log:
+                        with open(logfile, 'a') as f:
+                            f.write(stmt + '\n')
 
         return True
 
@@ -134,6 +147,11 @@ class Postgres(object):
             {bool}
         """
         from pydoni.vb import echo
+
+        # If value is 'NULL', return True automatically, as NULL may exist in a column of
+        # any datatype
+        if val == 'NULL':
+            return True
 
         # Check that input value datatype matches queried table column datatype
         dtype = self.coldtypes(schema, table)[col]
@@ -187,11 +205,11 @@ class Postgres(object):
                         return True
                     else:
                         echo(msg, abort=True,
-                             fn_name='Postgres.build_update.validate_dtype')
+                             fn_name='Postgres.validate_dtype')
                         return False
                 else:
                     echo(msg, abort=True,
-                         fn_name='Postgres.build_update.validate_dtype')
+                         fn_name='Postgres.validate_dtype')
                     return False
         elif python_dtype == 'int':
             if isinstance(val, int):
@@ -270,7 +288,7 @@ class Postgres(object):
             col = columns[i]
             val = values[i]
             if validate:
-                is_validated = self.validate_dtype(schema, table, col, val)
+                self.validate_dtype(schema, table, col, val)
             if DoniDt(val).is_exact():
                 val = DoniDt(val).extract_first(apply_tz=True)
             if str(val).lower() in ['nan', 'n/a', 'null', '']:
@@ -283,18 +301,21 @@ class Postgres(object):
                     pass
                 else:  # Assume string, handle quotes
                     val = self.__handle_single_quote__(val)
-            lst.append('{}={}'.format(col, val))
+            lst.append('"{}"={}'.format(col, val))
         sql = "UPDATE {}.{} SET {} WHERE {} = {};"
-        return sql.format(schema, table, ', '.join(str(x) for x in lst), pkey_name, pkey_value)
+        return sql.format(
+            schema,
+            table,
+            ', '.join(lst),
+            '"' + pkey_name + '"',
+            pkey_value)
 
     def build_insert(self, schema, table, columns, values, validate=False):
         """
         Construct SQL INSERT statement.
         By default, this method will:
-        - Attempt to coerce a date value to proper format if the input value is detect_dtype
-            as a date but possibly in the improper format. Ex: '2019:02:08' -> '2019-02-08'
-        - Quote all values passed in as strings. This will include string values that are
-            coercible to numerics. Ex: '5', '7.5'.
+        - Attempt to coerce a date value to proper format if the input value is detect_dtype as a date but possibly in the improper format. Ex: '2019:02:08' -> '2019-02-08'
+        - Quote all values passed in as strings. This will include string values that are coercible to numerics. Ex: '5', '7.5'.
         - Do not quote all values passed in as integer or boolean values.
         - Primary key value is quoted if passed in as a string. Otherwise, not quoted.
         
@@ -327,7 +348,7 @@ class Postgres(object):
             val = values[i]
             col = columns[i]
             if validate:
-                is_validated = self.validate_dtype(schema, table, col, val)
+                self.validate_dtype(schema, table, col, val)
             if DoniDt(val).is_exact():
                 val = DoniDt(val).extract_first(apply_tz=True)
             if str(val) in ['nan', 'N/A', 'null', '']:
@@ -341,7 +362,8 @@ class Postgres(object):
             lst.append(val)
 
         values_final = ', '.join(str(x) for x in lst)
-        columns = ', '.join(columns)
+        values_final = values_final.replace("'NULL'", 'NULL')
+        columns = ', '.join(['"' + x + '"' for x in columns])
         sql = "INSERT INTO {}.{} ({}) VALUES ({});"
         return sql.format(schema, table, columns, values_final)
 
