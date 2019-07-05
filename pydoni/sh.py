@@ -59,7 +59,7 @@ def adobe_dng_converter(fpath, overwrite=False):
             syscmd(cmd)
         else:
             # File exists but `overwrite` not specified as True
-            echo('Destination file {} already exists'.format(destfile), warn=True)
+            pass
     else:
         syscmd(cmd)
 
@@ -163,6 +163,73 @@ def mid3v2(fpath, attr_name, attr_value, quiet=True):
         echo('failed', error=True, error_msg=str(e), fn_name='mid3v2')
         return False
     
+
+def convert_audible(fpath, fmt, activation_bytes):
+    """
+    Convert Audible .aax file to .mp4.
+    
+    Arguments:
+        fpath {str} -- path to .aax file
+        fmt {str} -- one of 'mp3' or 'mp4'
+        activation_bytes {str} -- activation bytes string. See https://github.com/inAudible-NG/audible-activator to get activation byte string
+    
+    Returns:
+        nothing
+    """
+    from os.path import splitext, isfile
+    from pydoni.sh import syscmd
+    assert isfile(fpath)
+    assert splitext(fpath)[1].lower() == '.aax'
+
+    # Get output format
+    fmt = fmt.lower().replace('.', '')
+    assert fmt in ['mp3', 'mp4']
+    
+    # Get outfile
+    outfile = splitext(fpath)[0] + '.mp4'
+    assert not isfile(outfile)
+    
+    # player_id = '2jmj7l5rSw0yVb/vlWAYkK/YBwk='
+    # activation_bytes = '8a87c903'
+    
+    # Convert to mp4 (regardless of `fmt` parameter)
+    cmd = 'ffmpeg -activation_bytes {} -i "{}" -vn -c:a copy "{}"'.format(
+        activation_bytes,
+        fpath,
+        outfile
+    )
+    syscmd(cmd)
+
+    # Convert to mp3 if specified
+    if fmt == 'mp3':
+        from pydoni.sh import mp4_to_mp3
+        mp4_to_mp3(outfile, bitrate=256)
+
+
+def mp4_to_mp3(fpath, bitrate):
+    """
+    Convert an .mp4 file to a .mp3 file.
+
+    Arguments:
+        fpath {str} -- path to .mp4 file
+        bitrate {int} -- bitrate to export as, may also be as string for example '192k'
+
+    Returns:
+        nothing
+    """
+    import re
+    from os.path import splitext
+    from pydoni.sh import syscmd
+    assert splitext(fpath)[1].lower() == '.mp4'
+    
+    # Get bitrate as string ###k where ### is any number
+    bitrate = str(bitrate).replace('k', '') + 'k'
+    assert re.match(r'\d+k', bitrate)
+    
+    # Execute command
+    cmd = 'f="{}";ffmpeg -i "$f" -acodec libmp3lame -ab {} "${{f%.mp4}}.mp3";'.format(fpath, bitrate)
+    syscmd(cmd)
+
 
 class EXIF(object):
     """
