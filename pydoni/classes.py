@@ -7,6 +7,30 @@ class Attribute(object):
     def __init__(self):
         pass
 
+    def assign_file(self, attr, val):
+        """
+        Add a file attribute to self.
+
+        Arguments:
+            attr {str} -- filename to add
+            val {str} -- value to add (normally a filepath)
+        """
+        from os.path import isfile
+        assert isfile(val)
+        setattr(self, attr, val)
+
+    def assign_dir(self, attr, val):
+        """
+        Add a directory attribute to self.
+
+        Arguments:
+            attr {str} -- directory name to add
+            val {str} -- value to add (normally a directory path)
+        """
+        from os.path import isdir
+        assert isdir(val)
+        setattr(self, attr, val)
+
     def __flatten__(self):
         """
         Combine all subattributes of an Attribute. If all lists, flatten to single
@@ -1679,171 +1703,3 @@ class Album(object):
                     self.is_image_downloaded_from_wikipedia = False
             else:
                 self.is_image_downloaded_from_wikipedia = False
-
-
-class Album_old(object):
-    """
-    An Album datatype that will retrieve the relevant metadata attributes of an album by
-    considering the metadata of all songs within the album.
-    Args
-        dname (str): path to directory containing album of music files
-    """
-
-    def __init__(self, dname):
-        self.dname = dname
-        self.album = []
-        self.artist = []
-        self.songs = []
-        self.year = []
-        self.genre = []
-        self.disccount = []
-        self.tracktotal = []
-        self.has_image = []
-        self.artwork_dir = ''
-        self.artwork_file = ''
-
-    def aggregate(self, iTunesDF):
-        """
-        For each album attribute, select the one that represents the list generated from
-        querying EXIF metadata for each file. Normally this will involve taking the mode, but
-        for certain attributes there is a more involved process.
-        """
-        from pydoni.pyobj import listmode
-        def matchArtistWithiTunes(artist, iTunesDF):
-            if not artist:
-                return artist
-            loc = [i for i, x in enumerate(
-                iTunesDF.ArtistLower) if artist.lower() == x]
-            slices = iTunesDF.iloc[loc, :]
-            slices.reset_index(inplace=True)
-            if slices.shape[0] == 0:
-                # No match, return original artist
-                return artist
-            elif slices.shape[0] == 1:
-                # Normal case, artist maps to one artist in iTunesDF
-                artist = slices['Artist'][0]
-            else:
-                # Artist maps to multiple exact matches in iTunesDF, take the highest frequency match
-                slices = slices.sort_values(by='Freq', ascending=False)
-                artist = slices['Artist'][0]
-            return artist
-        self.album = listmode(self.album)
-        if len(self.artist) >= 3:
-            if len(set(self.artist)) / len(self.artist) > .3:
-                # There is too much variation in self.artist. Over 30% of the values are
-                # different from the mode, so do not take any action
-                self.artist = None
-            else:
-                self.artist = listmode(self.artist)
-        else:
-            self.artist = listmode(self.artist)
-        self.artist = matchArtistWithiTunes(self.artist, iTunesDF)
-        self.year = listmode(self.year)
-        self.genre = listmode(self.genre)
-        disccount_list = list(filter(None, self.disccount))
-        self.disccount = max(disccount_list) if len(disccount_list) else None
-        if self.disccount:
-            if self.disccount > 1:
-                tracktotal = list(set(self.tracktotal))
-                if len(list(set(self.tracktotal))) != self.disccount:
-                    self.tracktotal = listmode(self.tracktotal)
-                else:
-                    self.tracktotal = list(set(self.tracktotal))
-            else:
-                self.tracktotal = listmode(self.tracktotal)
-        else:
-            self.tracktotal = listmode(self.tracktotal)
-        if not self.tracktotal or self.tracktotal == 0:
-            self.tracktotal = len(self.songs)
-        self.query_image = True if not any(
-            self.has_image) else False  # Only query if all False
-        return self
-
-    def scrapeWikipedia(self):
-        """
-        Find Wikipedia song link from Google to scrape for Genre. If song page cannot be found or
-        does not exist on Wikipedia, use the album's Wikipedia page. If that doesn't exist and genre
-        is still unable to be found, return original genre. Also scrape image from same Wikipedia
-        page.
-        """
-        import re
-        import os
-        import bs4
-        import requests
-        import googlesearch
-        import titlecase
-        from pydoni.web import get_element_by_selector, get_element_by_xpath, downloadfile
-
-        def getWikilink():
-            query = '{} {} {} album site:wikipedia.org'.format(
-                self.artist, self.year,
-                re.sub(r'(\[|\()(.*?)(\]|\))|CD\s*\d+|Disc\s*\d+', '', self.album, flags=re.IGNORECASE).strip())
-            wikilink = list(googlesearch.search(
-                query, tld='com', num=1, stop=1, pause=2))
-            if len(wikilink):
-                return wikilink[0]
-            else:
-                return None
-
-        def wikiGenre(wikilink):
-            genre = get_element_by_selector(wikilink, '.category a')
-            if not len(genre):
-                return self.genre
-            genre = [genre] if isinstance(genre, str) else genre
-            genre = [x for x in genre if not re.search(r'\[\d+\]', x)]
-            genre = titlecase.titlecase(', '.join(x for x in genre))
-            if genre == '' or genre == self.genre or genre is None:
-                return self.genre
-            else:
-                return genre
-
-        def wikiImage(wikilink, outfile, overwrite=False):
-            img_xpath = get_element_by_xpath(
-                wikilink, xpath='//*[contains(concat( " ", @class, " " ), concat( " ", "image", " " ))]//img/@src')[0]
-            img_xpath = re.sub(r'thumb\/', '', img_xpath)
-            img_xpath = re.sub(r'(.*?)(\.(jpg|jpeg|png)).*',
-                               r'\1\2', img_xpath)
-            img_url = re.sub(r'^\/\/', 'https://', img_xpath)
-            outfile = outfile + \
-                os.path.splitext(img_url)[len(os.path.splitext(img_url))-1]
-            if not os.path.isfile(outfile) or overwrite:
-                downloadfile(img_url, outfile)
-            return outfile
-
-        def verifyDownloadedImage(album_artwork_file):
-            """Check if file is >1kb"""
-            from pydoni.sh import stat
-            return int(stat(album_artwork_file)['Size']) > 1000
-        outfile = '{}/{} - {} ({})'.format(self.artwork_dir,
-                                           self.artist, self.album, self.year)
-        # Account for the case that artwork already downloaded
-        if os.path.isfile(outfile + '.jpg'):
-            self.artwork_file = outfile + '.jpg'
-            os.remove(self.artwork_file) if not verifyDownloadedImage(
-                self.artwork_file) else None
-        elif os.path.isfile(outfile + '.jpeg'):
-            self.artwork_file = outfile + '.jpeg'
-            os.remove(self.artwork_file) if not verifyDownloadedImage(
-                self.artwork_file) else None
-        elif os.path.isfile(outfile + '.png'):
-            self.artwork_file = outfile + '.png'
-            os.remove(self.artwork_file) if not verifyDownloadedImage(
-                self.artwork_file) else None
-        wikilink = getWikilink()
-        if requests.get(wikilink).status_code == 200:  # Webpage exists
-            # if not re.search(re.sub(r'\[.*?\]', '', self.album).strip().replace(' ', '_'), wikilink, re.IGNORECASE):
-            #     # Unable to find page on wikipedia, may not exist
-            #     self.genre = self.genre
-            try:
-                self.genre = wikiGenre(wikilink)
-            except:
-                self.genre = self.genre
-            if self.query_image:
-                if not os.path.isdir(self.artwork_dir):
-                    os.makedirs(self.artwork_dir)
-                outfile = wikiImage(wikilink, outfile)
-                if verifyDownloadedImage(outfile):
-                    self.artwork_file = outfile
-                else:
-                    os.remove(outfile)
-                    self.artwork_file = ''
