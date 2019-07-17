@@ -1264,7 +1264,7 @@ class Song(object):
         Apply general cleaning methods to any of the EXIF metadata attributes: artist,
         title, album, genre.
         Args
-            val (str): value to clean
+            val {str} -- value to clean
         Returns
             str
         """
@@ -1320,8 +1320,8 @@ class Song(object):
         Set song metadata field using mid3v2.
         
         Arguments:
-            attr_name {[str]} -- name of attribute to set, must be one of ['artist', 'album', 'song', 'comment', 'picture', 'genre', 'year', 'date', 'track']
-            attr_value {[value]} -- value of attribute to set
+            attr_name {str} -- name of attribute to set, must be one of ['artist', 'album', 'song', 'comment', 'picture', 'genre', 'year', 'date', 'track']
+            attr_value {value} -- value of attribute to set
         
         Returns:
             bool or str -- True if successful, error message as string if unsuccessful
