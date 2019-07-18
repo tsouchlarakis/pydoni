@@ -231,6 +231,34 @@ def mp4_to_mp3(fpath, bitrate):
     syscmd(cmd)
 
 
+def split_video_scenes(vfpath, outdname):
+    """
+    Split video using PySceneDetect.
+    
+    Arguments:
+        vfpath {str} -- path to video file to split
+        outdname {str} -- path to directory to output clips to
+    
+    Returns:
+        {bool} -- True if run successfully, False if run unsuccessfully
+    """
+    from os.path import isfile, isdir
+
+    assert isfile(vfpath)
+    assert isdir(outdname)
+
+    # Build command
+    cmd = 'scenedetect --input "{}" --output "{}" detect-content split-video'.format(
+        vfpath, outdname)
+    
+    # Execute command
+    try:
+        syscmd(cmd)
+        return True
+    except:
+        return False
+
+
 class EXIF(object):
     """
     Extract and handle EXIF metadata from file.
