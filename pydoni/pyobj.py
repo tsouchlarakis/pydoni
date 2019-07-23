@@ -1,11 +1,13 @@
 def dictSApply(func, d):
     """
     Apply function to each terminal element of a dictionary.
-    Args
-        func (function): name of function to apply.
-        d    (dict)    : dictionary to apply `func` to.
-    Returns
-        dict
+    
+    Arguments:
+        func {function} -- name of function to apply.
+        d    {dict} -- dictionary to apply `func` to.
+
+    Returns:
+        {dict}
     """
     if (isinstance(d, str)):
         return func(d)
@@ -17,8 +19,9 @@ def dictSApply(func, d):
 class DoniDict(dict):
     """
     Dictionary class with recursive 'get' method.
-    Args
-        mydict (dict): dictionary to convert to DoniDict
+    
+    Arguments:
+        mydict {dict} -- dictionary to convert to DoniDict
     """
     def __init__(self, mydict):
         import os
@@ -35,10 +38,13 @@ class DoniDict(dict):
 def systime(stripchars=False):
     """
     Print the current time formatted as a string.
-    Args
-        stripchars (bool): If True, strip dashes and colons from datetime string (YYYYMMDD_HHMMSS). If False, return as YYYY-MM-DD HH:MM:SS.
-    Returns
-        str
+    
+    Arguments:
+        stripchars {bool} -- if True, strip dashes and colons from datetime string and return
+                             YYYYMMDD_HHMMSS. If False, return as YYYY-MM-DD HH:MM:SS
+    
+    Returns:
+        {str}
     """
     import datetime
     if stripchars:
@@ -50,9 +56,12 @@ def systime(stripchars=False):
 def sysdate(stripchars=False):
     """
     Print the current date formatted as a string.
-    Args
-        stripchars (bool): If True, strip dashes and colons from date string (YYYYMMDD). If False, return as YYYY-MM-DD.
-    Returns
+    
+    Arguments:
+        stripchars {bool} -- If True, strip dashes and colons from date string as YYYYMMDD
+                             If False, return as YYYY-MM-DD.
+    
+    Returns:
         str
     """
     import datetime
@@ -65,10 +74,12 @@ def sysdate(stripchars=False):
 def assert_len(varlist, varnames):
     """
     Ensure lengths of variables are equal, otherwise throw an error
-    Args
-        varlist (list): list of lists to test the lengths of
-        varnames (list): list of names of variables (used for verbose output)
-    Returns
+    
+    Arguments:
+        varlist {list} -- list of lists to test the lengths of
+        varnames {list} -- list of names of variables (used for verbose output)
+
+    Returns:
         nothing
     """
     import click
@@ -86,13 +97,17 @@ def user_select_from_list(lst, indent=0, msg='Please make a selection (hyphen-se
     Prompt user to make a selection from a list. Supports comma- and hyphen-separated selection.
     For example, a user may select elements from a list as:
         1-3, 5, 10-15, 29  ->  [1,2,3,5,10,11,12,13,14,15,29]
-    Args
-        lst         (list): list of selections
-        indent      (int) : indentation level of all items of `lst`
-        msg         (str) : [optional] custom message to print instead of default
-        allow_range (bool): if True, allow user to make multiple selections
-    Returns
-        slice of list
+    
+    Arguments:
+        lst {list} -- list of selections
+        indent {int} -- indentation level of all items of `lst`
+        msg {str} -- [optional] custom message to print instead of default
+        allow_range {bool} -- if True, allow user to make multiple selections
+
+    Returns:
+        {list} -- slice of `lst`
+        or
+        {str} -- element of `lst`
     """
     import re
     from pydoni.vb import echo
@@ -163,14 +178,15 @@ def user_select_from_list(lst, indent=0, msg='Please make a selection (hyphen-se
 def fmt_seconds(time_in_sec, units='auto', round_digits=4):
     """
     Format time in seconds to a custom string.
-    Args
-        time_in_sec  (int): time in seconds to format
-        units        (str): target units to format seconds as, one of ['auto', 'seconds', 'minutes', 'hours', 'days']
-        round_digits (int): number of digits to round to
-    Return
-        dict(
-            units = <str>,
-            value = <int>
+    
+    Arguments:
+        time_in_sec  {int} -- time in seconds to format
+        units        {str} -- target units to format seconds as, one of ['auto', 'seconds', 'minutes', 'hours', 'days']
+        round_digits {int} -- number of digits to round to
+    Return:
+        {dict} -- dict(
+            units = {str},
+            value = {int}
         )
     """
     if units == 'auto':
@@ -208,10 +224,12 @@ def fmt_seconds(time_in_sec, units='auto', round_digits=4):
 def listmode(lst):
     """
     Get the most frequently-occurring value in a list.
-    Args
-        lst (list): list to get mode from
-    Returns
-        str or int
+    
+    Arguments:
+        lst {list} -- list to get mode from
+
+    Returns:
+        {str} or {int}
     """
     return max(set(lst), key=lst.count)
 
@@ -219,9 +237,10 @@ def listmode(lst):
 def dict_filter(d, keys):
     """
     Filter dictionary by list of keys.
-    Args
-        d    (dict): dictionary to filter
-        keys (list): key names to filter on
+    
+    Arguments:
+        d {dict} -- dictionary to filter
+        keys {list} -- key names to filter on
     """
     return {k.lower().replace(' ', '_'): v for k, v in d.items() if k.lower().replace(' ', '_') in keys}
 
@@ -229,11 +248,13 @@ def dict_filter(d, keys):
 def cap_nth_char(string, n):
     """
     Capitalize the Nth character of a string. If 'n' is out of range, return original string.
-    Args
-        string (str): string to consider
-        n      (int): position to capitalize letter in `string`
-    Return
-        str
+    
+    Arguments:
+        string {str} -- string to consider
+        n {int} -- position to capitalize letter in `string`
+    
+    Returns:
+        {str}
     """
     if n >= len(string):
         return string
@@ -243,12 +264,14 @@ def cap_nth_char(string, n):
 def replace_nth_char(string, n, replacement):
     """
     Capitalize the Nth character of a string. If 'n' is out of range, return original string.
-    Args
+    
+    Arguments:
         string      (str)       : string to consider
         n           (int)       : position to capitalize letter in `string`
         replacement (str or int): string or integer to replace nth char with
-    Return
-        str
+    
+    Returns:
+        {str}
     """
     if n >= len(string):
         return string
@@ -258,12 +281,14 @@ def replace_nth_char(string, n, replacement):
 def insert_nth_char(string, n, char):
     """
     Capitalize the Nth character of a string. If 'n' is out of range, return original string.
-    Args
+    
+    Arguments:
         string (str)       : string to consider
         n      (int)       : position to capitalize letter in `string`
         char   (str or int): string or integer to insert at nth position
-    Return
-        str
+    
+    Returns:
+        {str}
     """
     if n >= len(string):
         return string
@@ -271,8 +296,18 @@ def insert_nth_char(string, n, char):
 
 
 def human_filesize(nbytes: int) -> str:
-    """Convert number of bytes to human-readable filesize string"""
-    # https://stackoverflow.com/questions/5194057/better-way-to-convert-file-sizes-in-python
+    """
+    Convert number of bytes to human-readable filesize string.
+
+    Arguments:
+        nbytes {int} -- number of bytes to format as string
+
+    Returns:
+        {str}
+
+    Original Source:
+      https://stackoverflow.com/questions/5194057/better-way-to-convert-file-sizes-in-python
+    """
     base = 1
     for unit in ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']:
         n = nbytes / base
@@ -292,10 +327,12 @@ def human_filesize(nbytes: int) -> str:
 def split_at(lst, idx):
     """
     Split a list at a given index or list of indices.
-    Args
-        lst (list): list to split
+    
+    Arguments:
+        lst {list} -- list to split
         idx (int or list): indexes to split the list at
-    Returns
+
+    Returns:
         list of lists
     """
     return [lst[i:j] for i, j in zip([0] + idx, idx + [None])]
@@ -305,9 +342,11 @@ def duplicated(lst):
     """
     Return list of boolean values indicating whether each item in a list
     is a duplicate of a previous item.
-    Args
-        lst (list): a list to test for duplicates
-    Returns
+    
+    Arguments:
+        lst {list} -- a list to test for duplicates
+
+    Returns:
         list
     """
     dup_ind = []
@@ -332,9 +371,11 @@ def duplicated(lst):
 def ddml_to_md(fname):
     """
     Convert a text file formatted in DDML (Dapper Doni Markup Language) to Markdown.
-    Args
-        fname (str): path to textfile formatted in DDML
-    Returns
+    
+    Arguments:
+        fname {str} -- path to textfile formatted in DDML
+        
+    Returns:
         nothing
     """
     import re
