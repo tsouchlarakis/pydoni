@@ -461,8 +461,8 @@ class Postgres(object):
         
         Arguments:
             backup_dir_abspath {str} -- absolute path to directory to dump Postgres database to
-            sep                {str} -- output datafile separator, defaults to comma
-            coerce_csv         {bool} -- if True, read in each file outputted, then write as a quoted CSV
+            sep {str} -- output datafile separator, defaults to comma
+            coerce_csv {bool} -- if True, read in each file outputted, then write as a quoted CSV
         """
         
         db_to_csv = """
