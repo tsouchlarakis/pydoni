@@ -53,7 +53,8 @@ class Attribute(object):
 class ProgramEnv(object):
     """
     Create, maintain, and erase a temporary program directory for a Python program.
-    Args
+
+    Arguments:
         path      (str) : path to desired program environment directory
         overwrite (bool): if True, remove `path` directory if already exists
     """
@@ -87,10 +88,12 @@ class ProgramEnv(object):
     def copyfile(self, fname, set_focus=False):
         """
         Copy a file into the program environment.
-        Args
+    
+        Arguments:
             fname     (str) : filename to copy
             set_focus (bool): if True, set the focus to the newly-copied file
-        Returns
+        
+        Returns:
             nothing
         """
         import os, shutil
@@ -121,10 +124,12 @@ class ProgramEnv(object):
     def downloadfile(self, url, destfile):
         """
         Download file from the web to a local file in Environment.
-        Args
+    
+        Arguments:
             url (str): target URL to retrieve file from
             destfile (str): 
-        Returns
+        
+        Returns:
             str
         """
         from pydoni.web import downloadfile
@@ -134,10 +139,12 @@ class ProgramEnv(object):
     def unarchive(self, fpath, dest_dir):
         """
         Unpack a .zip archive.
-        Args
+    
+        Arguments:
             fpath    (str): path to zip archive file
             dest_dir (str): path to destination extract directory
-        Returns
+        
+        Returns:
             nothing
         """
         from pydoni.os import unarchive
@@ -604,7 +611,8 @@ class Audio(object):
 class Movie(object):
     """
     Operate on a movie file.
-    Args
+
+    Arguments:
         fname (str): path to audio file
     """
     
@@ -628,10 +636,12 @@ class Movie(object):
         """
         Extract movie title, year or extension from filename if filename is
         in format "${TITLE} (${YEAR}).${EXT}".
-        Args
+    
+        Arguments:
             fname (str): filename to extract from, may be left as None if `self.fname` is already defined
             attr (str): attribute to extract, one of ['title', 'year', 'ext']
-        Returns
+        
+        Returns:
             str
         """
         import os, re
@@ -785,10 +795,12 @@ class Movie(object):
     def replace_value(self, value, replacement):
         """
         Scan all attributes for `value` and replace with `replacement` if found.ArithmeticError
-        Args
+    
+        Arguments:
             value       (<any>): value to search for
             replacement (<any>): replace `value` with this variable value if found
-        Returns
+        
+        Returns:
             nothing
         """
         for key, val in self.__dict__.items():
@@ -799,7 +811,8 @@ class Movie(object):
 class DoniDt(object):
     """
     Custom date/datetime handling. Delete miliseconds by default.
-    Args
+
+    Arguments:
         val      (<any>): value to consider for date/datetime handling, cast initially as string.
         apply_tz (bool) : if True, apply timezone value if present
             Ex: '2019-05-13 10:29:53-7:00' -> '2019-05-13 03:29:53'
@@ -826,7 +839,8 @@ class DoniDt(object):
     def is_exact(self):
         """
         Test if input string is exactly a date or datetime value.
-        Returns
+        
+        Returns:
             bool
         """
         import re
@@ -837,7 +851,8 @@ class DoniDt(object):
     def contains(self):
         """
         Test if input string contains a date or datetime value.
-        Returns
+        
+        Returns:
             bool
         """
         import re
@@ -848,7 +863,8 @@ class DoniDt(object):
         """
         Given a string with a date or datetime value, extract the FIRST datetime
         value as string
-        Args
+    
+        Arguments:
             apply_tz (bool): if True, apply timezone value if present
                 Ex: '2019-05-13 10:29:53-7:00' -> '2019-05-13 03:29:53'
         """
@@ -912,7 +928,8 @@ class DoniDt(object):
     def detect_dtype(self):
         """
         Get datatype as one of 'd', 'dt', 'dt_tz', and return regex match object.
-        Returns
+        
+        Returns:
             str
         """
         import re
@@ -938,9 +955,11 @@ class Git(object):
         """
         Return boolean based on output of 'git status' command. Return True if working tree is
         up to date and does not require commit, False if commit is required.
-        Args
+    
+        Arguments:
             nothing
-        Returns
+        
+        Returns:
             bool
         """
         from pydoni.sh import syscmd
@@ -957,10 +976,12 @@ class Git(object):
     def add(self, fpath=None, all=False):
         """
         Add files to commit.
-        Args
+    
+        Arguments:
             fpath (str or list): file(s) to add
             all   (bool)       : if True, execute 'git add .'
-        Returns
+        
+        Returns:
             nothing
         """
         from pydoni.sh import syscmd
@@ -975,9 +996,11 @@ class Git(object):
     def commit(self, msg):
         """
         Execute 'git commit -m {}' where {} is commit message.
-        Args
+    
+        Arguments:
             msg (str): commit message
-        Returns
+        
+        Returns:
             nothing
         """
         import subprocess
@@ -986,9 +1009,11 @@ class Git(object):
     def push(self):
         """
         Execute 'git push'.
-        Args
+    
+        Arguments:
             nothing
-        Returns
+        
+        Returns:
             nothing
         """
         import subprocess
@@ -997,9 +1022,11 @@ class Git(object):
     def pull(self):
         """
         Execute 'git pull'.
-        Args
+    
+        Arguments:
             nothing
-        Returns
+        
+        Returns:
             nothing
         """
         import subprocess
@@ -1009,7 +1036,8 @@ class Git(object):
 class Song(object):
     """
     Gather metadata attributes of an .mp3 file
-    Args
+
+    Arguments:
         fname (str): path to .mp3 file
     """
     
@@ -1054,7 +1082,8 @@ class Song(object):
     def __get_song_image__(self):
         """
         Get the image EXIF metadata.
-        Returns
+        
+        Returns:
             str
         """
         if 'picture' in self.exif.keys():
@@ -1065,7 +1094,8 @@ class Song(object):
     def __get_song_disc_raw__(self):
         """
         Get the raw disc EXIF metadata if it exists. Most likely it will not exist.
-        Returns
+        
+        Returns:
             str
         """
         if 'part_of_set' in self.exif.keys():
@@ -1081,7 +1111,8 @@ class Song(object):
         the disc would be parsed as '2'. If not present, attempt to parse from directory
         name, as sometimes directory names contain 'CD 1' or 'Disc 2'. If not in either of
         those places, return nothing.
-        Returns
+        
+        Returns:
             int
         """
         import re
@@ -1107,7 +1138,8 @@ class Song(object):
         """
         Get the raw track information in the EXIF metadata. If unavailable, attempt
         to parse from song filename.
-        Returns
+        
+        Returns:
             str
         """
         import re
@@ -1128,7 +1160,8 @@ class Song(object):
         Return the track index given the raw track metadata. Format will generally be a 
         single digit, or two digits, separated by a forward slash. Ex: '5', '9', '2/12'.
         Extract the 5, 9 and 2 respectively and convert to int.
-        Returns
+        
+        Returns:
             int or None
         """
         import re
@@ -1152,7 +1185,8 @@ class Song(object):
     def __get_song_year__(self):
         """
         Parse the year from the directory (album) name.
-        Returns
+        
+        Returns:
             int or None
         """
         import re
@@ -1172,7 +1206,8 @@ class Song(object):
     def __get_song_title__(self):
         """
         Attempt to parse song title from raw filename.
-        Returns
+        
+        Returns:
             str or None
         """
         import re
@@ -1199,7 +1234,8 @@ class Song(object):
     def __get_song_artist__(self):
         """
         Attempt to parse song artist from raw filename.
-        Returns
+        
+        Returns:
             str or None
         """
         import re
@@ -1227,7 +1263,8 @@ class Song(object):
     def __get_song_album__(self):
         """
         Get EXIF album value and apply any corrections.
-        Returns
+        
+        Returns:
             str
         """
         import re
@@ -1248,7 +1285,8 @@ class Song(object):
     def __get_song_genre__(self):
         """
         Get song genre from EXIF metadata
-        Returns
+        
+        Returns:
             str
         """
         if 'genre' in self.exif.keys():
@@ -1263,9 +1301,11 @@ class Song(object):
         """
         Apply general cleaning methods to any of the EXIF metadata attributes: artist,
         title, album, genre.
-        Args
+    
+        Arguments:
             val {str} -- value to clean
-        Returns
+        
+        Returns:
             str
         """
         import re
@@ -1431,7 +1471,8 @@ class Album(object):
     def __get_discs_in_album__(self, song_disc_idxs):
         """
         Get the number of discs in album.
-        Returns
+        
+        Returns:
             int
         """
         import re
@@ -1462,9 +1503,11 @@ class Album(object):
         Return the total number of tracks in album. First check song raw track index
         metadata for total number of tracks. If not present, assume the total number
         of tracks on disc is equal to the total number of music files in directory.
-        Args
+    
+        Arguments:
             trackraw_vals (list): list of trackraw values 
-        Returns
+        
+        Returns:
             int
         """
         if all([x is None for x in track_raw_vals]):

@@ -482,3 +482,94 @@ def ddml_to_md(fname):
     with open(outfile, 'w') as f:
         for line in md_final:
             f.write(line + '\n')
+
+
+def make_md_list(string, li_type, tab_size=4):
+    """
+    Add markdown bullets to each element of markdown string, separated by \n.
+    
+    Arguments:
+        string {char} -- character string in markdown
+        li_type {char} -- type of list item, one of "1" (ordered list), or "-" or "*" (unordered list)
+    
+    Keyword Arguments:
+        tab_size {int} -- size of whitespace indentation (default: {4})
+
+    Returns:
+        {str}
+    """
+
+    import re
+
+    # Replace tabs with spaces
+    indent = ' ' * tab_size
+    string = string.replace('\\t', indent)
+    string = string.replace('\t', indent)
+
+    # Add bullets
+    lst = re.split(r'\n|\\n', string)
+    if li_type == '1':
+        bullets = [str(x) + '.' for x in list(range(1, len(lst)+1))]
+    else:
+        bullets = list(li_type * len(lst))
+    indentation = [re.sub(r'^( *).*', r'\1', x) for x in lst]
+    lst = [x.strip() for x in lst]
+    md_list = ['{}{} {}'.format(a, b, c) for a, b, c in zip(indentation, bullets, lst)]
+
+    return '\n'.join(md_list)
+
+
+def markdown_toc(md_fpath, li_type):
+    """
+    Generate Markdown table of contents as character string given a Markdown file.
+    
+    Arguments:
+        md_fpath {str} -- path to Markdown file
+        li_type {str} -- type of list item, one of "1" (ordered list), or "-" or "*" (unordered list)
+
+    Returns:
+        {str} -- Markdown TOC string
+    """
+
+    import re
+
+    with open(md_fpath, 'r') as f:
+        md = f.readlines()
+
+    # Get lines that correspond to headings
+    h = [x for x in md if re.match(r'^#+', x)]
+    
+    # Indent each item according to heading level (# = 0, ## = 1, ### = 2, ...)
+    indent = '\t'
+
+    # Add "Table of Contents" item as heading level 2
+    first_h2 = [i for i, x in enumerate(h) if x.startswith('## ')]
+    if len(first_h2):
+        # There is an H2, so put TOC item above that one
+        first_h2 = min(first_h2)
+        h = h[:first_h2] + ['## Table of Contents'] + h[first_h2:]
+    else:
+        # There is no H2, so put TOC item at the very top
+        h = ['## Table of Contents'] + h
+
+    # Add indent and paste into string
+    h = [x.replace('#', '', 1).strip() for x in h]
+    h = [x.replace('#', indent) for x in h]
+    h = [re.sub(r'^(\t+) ', r'\1', x) for x in h]  # Remove space between last \t and the text
+    h = '\n'.join(h)
+
+    # Add bullet to each item
+    h_bullets = make_md_list(h, li_type=li_type, tab_size=4).split('\n')
+
+    # Format each item as [TEXT](#text)
+    pat = r"^( *)(-|\*|\d+)( )(.*)$"
+    element_names = [re.sub(pat, r'\4', x) for x in h_bullets]
+    element_names = [x.replace('(', '').replace(')', '').replace('[', '') \
+        .replace(']', '').replace(' ', '-').lower() for x in element_names]
+    h_bullets = [re.sub(pat, r'\1\2\3[\4]', x) for x in h_bullets]
+    h_toc = ['{}(#{})'.format(a, b) for a, b in zip(h_bullets, element_names)]
+
+    # Add table of contents H2
+    h_toc = ['## Table of Contents', ''] + h_toc
+    
+    return '\n'.join(h_toc)
