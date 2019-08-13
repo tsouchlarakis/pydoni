@@ -132,7 +132,7 @@ def mid3v2(fpath, attr_name, attr_value, quiet=True):
     
     Arguments:
         fpath      {str}        -- path to file
-        attr_name  {str}        -- name of attribute to assign value to using mid3v2
+        attr_name  {str}        -- name of attribute to assign value to using mid3v2, one of ['artist', 'album', 'song', 'comment', 'picture', 'genre', 'year', 'date', 'track']
         attr_value {str or int} -- value to assign to attribute `attr_name`
     
     Keyword Arguments:

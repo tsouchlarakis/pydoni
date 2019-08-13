@@ -1352,6 +1352,8 @@ class Song(object):
         x = x.replace('[Featuring', '[ft.')
         x = x.replace('[Featuring.', '[ft.')
         x = x.replace('W / ', 'w/')
+        x = x.replace('.mp3', '')
+        x = x.replace('_', ' ')
 
         return x
 

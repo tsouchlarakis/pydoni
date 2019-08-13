@@ -565,7 +565,7 @@ def markdown_toc(md_fpath, li_type):
     pat = r"^( *)(-|\*|\d+)( )(.*)$"
     element_names = [re.sub(pat, r'\4', x) for x in h_bullets]
     element_names = [x.replace('(', '').replace(')', '').replace('[', '') \
-        .replace(']', '').replace(' ', '-').lower() for x in element_names]
+        .replace(']', '').replace(' ', '-').replace(':', '').lower() for x in element_names]
     h_bullets = [re.sub(pat, r'\1\2\3[\4]', x) for x in h_bullets]
     h_toc = ['{}(#{})'.format(a, b) for a, b in zip(h_bullets, element_names)]
 
