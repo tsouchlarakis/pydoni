@@ -313,6 +313,7 @@ class Postgres(object):
                     val = self.__handle_single_quote__(val)
             lst.append('"{}"={}'.format(col, val))
         sql = "UPDATE {}.{} SET {} WHERE {} = {};"
+        
         return sql.format(
             schema,
             table,
