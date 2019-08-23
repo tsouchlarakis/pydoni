@@ -1,3 +1,12 @@
+import click
+import time
+from emoji import emojize
+from os.path import expanduser
+from datetime import datetime
+from pydoni.os import macos_notify
+from pydoni.pyobj import fmt_seconds
+from pydoni.vb import echo
+
 def echo(
     msg,
     indent       = 0,
@@ -27,39 +36,50 @@ def echo(
         )
     ):
     """
-    Update stdout with custom message and many custom parameters including indentation, timestamp,
-    warning/error message, text styles, and more.
+    Update stdout with custom message and many custom parameters including indentation,
+    timestamp, warning/error message, text styles, and more!
 
-    Args
-        msg          (str) : [mandatory] Message to print to console.
-        indent       (int) : [optional] Indentation level of message printed to console.
-        sleep        (int) : [optional] Number of seconds to pause program after printing message.
-        timestamp    (bool): [optional] If True, print datetimestamp preceding message.
-        warn         (bool): [optional] If True, print 'WARNING: ' in yellow preceding message.
-        error        (bool): [optional] If True, print 'ERROR: ' in red preceding message.
-        error_msg    (str) : [optional] Python error message. Intended for use in try/except. Pass in `str(e)` here.
-        abort        (bool): [optional] If True, print 'ERROR (fatal): ' in red preceding message AND exit program.
-        fn_name      (str) : [optional] Name of function, if any, that echo() was called from. Will include function in printed message. Useful for debugging. Only applied if one or more of `warn`, `error` or `abort` are set to True
-        fg           (str) : [optional] Color string indicator color of text. One of [None, 'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
-        bg           (str) : [optional] Color string indicator color of background of text. One of [None, 'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
-        bold         (bool): [optional] If True, print message with bold effect.
-        dim          (bool): [optional] If True, print message with dim effect.
-        underline    (bool): [optional] If True, print message with underline effect.
-        blink        (bool): [optional] If True, print message with blink effect.
-        reverse      (bool): [optional] If True, print message with reverse effect (foreground/background reversed).
-        notify       (bool): [optional] If True, invoke `macos_notify()`. Notification customizations can be altered in `notification` parameter.
-        notification (dict): [optional] Customize macOS notification. Requires that `notify` set to True.
-            title         (str) : Title of notification.
-            subtitle      (str) : Subtitle of notification.
-            app_icon      (str) : Path to app icon image to display on left side of notification.
-            content_image (str) : Path to content image to display within notification.
-            command       (str) : BASH string to execute on notification click.
-            open_iterm    (bool): If True, sets `command` to "open /Applications/iTerm.app" to open iTerm application on notification click.
+    Arguments:
+        msg {str} -- message to print to console
     
-    Returns
-        Nothing
+    Keyword Arguments:
+        indent       {int}  -- indentation level of message printed to console
+        sleep        {int}  -- number of seconds to pause program after printing message
+        timestamp    {bool} -- if True, print datetimestamp preceding message
+        warn         {bool} -- if True, print 'WARNING: ' in yellow preceding message
+        error        {bool} -- if True, print 'ERROR: ' in red preceding message
+        error_msg    {str}  -- python error message. Intended for use in try/except. Pass
+                               in `str(e)` here.
+        abort        {bool} -- if True, print 'ERROR (fatal): ' in red preceding message
+                               AND exit program.
+        fn_name      {str}  -- name of function, if any, that echo() was called from. Will
+                               include function in printed message. Useful for debugging. Only
+                               applied if one or more of `warn`, `error` or `abort` are set to True
+        fg           {str}  -- color string indicator color of text. One of [None, 'black',
+                               'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
+        bg           {str}  -- color string indicator color of background of text. One of
+                               [None, 'black', 'red', 'green', 'yellow', 'blue', 'magenta',
+                               'cyan', 'white'],
+        bold         {bool} -- if True, print message with bold effect
+        dim          {bool} -- if True, print message with dim effect
+        underline    {bool} -- if True, print message with underline effect
+        blink        {bool} -- if True, print message with blink effect
+        reverse      {bool} -- if True, print message with reverse effect (foreground/background
+                               reversed).
+        notify       {bool} -- if True, invoke `macos_notify()`. Notification customizations can
+                               be altered in `notification` parameter.
+        notification {dict} -- customize macOS notification. Requires that `notify` set to True
+            title         {str}  -- title of notification
+            subtitle      {str}  -- subtitle of notification
+            app_icon      {str}  -- path to app icon image to display on left side of notification
+            content_image {str}  -- path to content image to display within notification
+            command       {str}  -- bASH string to execute on notification click
+            open_iterm    {bool} -- if True, sets `command` to "open /Applications/iTerm.app"
+                                    to open iTerm application on notification click.
+    
+    Returns:
+        nothing
     """
-    import os, click
 
     # Save original message before any editing is done if the message will be used in a 
     # macOS notification
@@ -86,7 +106,6 @@ def echo(
 
     # Add timestamp if specified
     if timestamp:
-        from datetime import datetime
         timestamp = click.style(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), fg='cyan', bold=False)
         if tab == '':
             msg = timestamp + ' ' + msg
@@ -102,7 +121,6 @@ def echo(
 
     # Throw macOS notification if specified
     if notify:
-        from pydoni.os import macos_notify
         # Assign default values if only partial notification elements supplied
         # Ex. If a user supplies notification=dict(title='test title'), then all other
         # notification elements (subtitle, app_icon, ...) will be not present in dictionary.
@@ -117,12 +135,12 @@ def echo(
             notification['app_icon'] = None
         if isinstance(notification['app_icon'], str):
             if '~' in notification['app_icon']:
-                notification['app_icon'] = os.path.expanduser(notification['app_icon'])
+                notification['app_icon'] = expanduser(notification['app_icon'])
         if 'content_image' not in notification.keys():
             notification['content_image'] = None
         if isinstance(notification['content_image'], str):
             if '~' in notification['content_image']:
-                notification['content_image'] = os.path.expanduser(notification['content_image'])
+                notification['content_image'] = expanduser(notification['content_image'])
         if 'command' not in notification.keys():
             notification['command'] = None
         if 'open_iterm' not in notification.keys():
@@ -139,7 +157,6 @@ def echo(
     
     # Pause script execution if specified
     if sleep > 0:
-        import time
         time.sleep(sleep)
     
     # Exit program if specified
@@ -150,14 +167,14 @@ def echo(
 def clickfmt(string, fmt):
     """
     Create frequently-used `click` formating styles.
-    Args
-        string (str): text string
-        fmt    (str): format type, one of ['numeric', 'filename', 'filepath', 'url', 'date', 'arrow', 'green', 'red', 'yellow', 'cyan']
-    Returns
-        str
+    
+    Arguments:
+        string {str} -- text string
+        fmt {str} -- format type, one of ['numeric', 'filename', 'filepath', 'url', 'date', 'arrow', 'green', 'red', 'yellow', 'cyan']
+    
+    Returns:
+        {str}
     """
-    import click
-    from pydoni.vb import echo
     if fmt == 'numeric':
         return click.style(string, fg='yellow', bold=True)
     elif fmt == 'filename':
@@ -187,16 +204,17 @@ def clickfmt(string, fmt):
 def verbose_header(string, time_in_sec=None, round_digits=2):
     """
     Print STDOUT verbose section header and optionally print estimated time.
-    Args
-        string       (str): header text
-        time_in_sec  (int): [optional] time in seconds that code section will take
-        round_digits (int): [optional] round estimated time to this many digits
-    Returns
+    
+    Arguments:
+        string {str} -- header text
+
+    Keyword Arguments:
+        time_in_sec  {int} -- time in seconds that code section will take (default: None)
+        round_digits {int} -- round estimated time to this many digits (default: 2)
+    
+    Returns:
         nothing
     """
-    import click
-    from pydoni.vb import echo
-    from pydoni.pyobj import fmt_seconds
 
     # Format string as title
     title = click.style(string, fg='white', bold=True)
@@ -217,26 +235,33 @@ def verbose_header(string, time_in_sec=None, round_digits=2):
 def print_columns(lst, ncol=2, delay=None):
     """
     Print a list as side-by-side columns.
-    Args
-        lst   (list)        : list to print to screen
-        ncol  (int)         : number of columns to print to screen
-        delay (int or float): [optional] if specified, delay this many seconds after each line is printed
-    Returns
+    
+    Arguments:
+        lst   {list} -- list to print to screen
+
+    Keyword Arguments:
+        ncol  {int} -- number of columns to print to screen (default: 2)
+        delay {int} or {float} -- if specified, delay this many seconds after each line
+                                  is printed (default: None)
+    
+    Returns:
         nothing
     """
-    import time
     
     def chunks(lst, chunk_size):
         """
         Split a list into a list of lists.
-        Args
-            lst        (list): list to split
-            chunk_size (int) : size of chunks
-        Returns
-            list
+        
+        Arguments:
+            lst {list} -- list to split
+            chunk_size {int} -- size of chunks
+        
+        Returns:
+            {list}
         """
         for i in range(0, len(lst), chunk_size):
             yield lst[i:i + chunk_size]
+
 
     lstlst = list(chunks(lst, ncol))
     col_width = max(len(word) for row in lstlst for word in row) + 2
@@ -268,17 +293,24 @@ def program_complete(
     time. Optionally send a macOS notification or a notification email indicating program
     completion.
     
-    Args
-        emoji_string (str)  : Name of emoji to display. Defaults to ':thumbs_up:'. Set to None if no emoji should be printed.
-        start_time   (float): Start time of program as output of time.time(). Used to calculate elapsed time. Leave blank if elapsed time should not be printed.
-        end_time     (float): End time of program as output of time.time(). Used to calculate elapsed time. Leave blank if elapsed time should not be printed.
-        notify       (bool) : If True, execute `macos_notify()` to create a macOS notification.
-    Returns
+    Keyword Arguments:
+        msg {str} -- custom message to print instead of default (default: {'Program complete!'})
+        emoji_string {str} -- name of emoji to print if any (default: {':thumbs_up:'})
+        start_time {float} -- start time of program, output of time.time() (default: {None})
+        end_time {float} -- end time of program, output of time.time() (default: {None})
+        notify {bool} -- if True, notify user with macos_notify() (default: {False})
+        notification {dict} -- customize macOS notification. Requires that `notify` set to True
+            title         {str}  -- title of notification
+            subtitle      {str}  -- subtitle of notification
+            app_icon      {str}  -- path to app icon image to display on left side of notification
+            content_image {str}  -- path to content image to display within notification
+            command       {str}  -- bASH string to execute on notification click
+            open_iterm    {bool} -- if True, sets `command` to "open /Applications/iTerm.app"
+                                    to open iTerm application on notification click.
+
+    Returns:
         nothing
     """
-    import emoji, click
-    from pydoni.vb import echo
-    from pydoni.pyobj import fmt_seconds
 
     # Save original message before any editing is done if the message will be used in a
     # macOS notification
@@ -290,13 +322,12 @@ def program_complete(
 
     # Add emoji if specified
     if emoji_string is not None:
-        msg = '{} {}'.format(click.style(msg, fg='green'), emoji.emojize(emoji_string, use_aliases=True))
+        msg = '{} {}'.format(click.style(msg, fg='green'), emojize(emoji_string, use_aliases=True))
     else:
         msg = click.style(msg, fg='green')
 
     # Get elapsed time if specified
     if start_time is not None and end_time is not None:
-        import time
         assert isinstance(start_time, float)
         assert isinstance(end_time, float)
         diff = fmt_seconds(end_time - start_time, units='auto', round_digits=2)
