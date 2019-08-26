@@ -22,11 +22,8 @@ def listfiles(path='.', pattern=None, ext=None, full_names=False, recursive=Fals
         {list} -- list of files
     """
 
-    # Check if specified path exists
-    if not isdir(path):
-        echo("Path '{}' does not exist".format(path), fn_name='listfiles', error=True)
-        return None
-    
+    assert isdir(path)
+
     # Change to specified directory and record original directory to change back to at the end
     wd = getcwd()
     chdir(path)

@@ -202,6 +202,9 @@ def fmt_seconds(time_in_sec, units='auto', round_digits=4):
             value = {int}
         )
     """
+
+    assert units in ['auto', 'seconds', 'minutes', 'hours', 'days']
+
     if units == 'auto':
         if time_in_sec < 60:
             time_diff = round(time_in_sec, round_digits)
@@ -226,10 +229,6 @@ def fmt_seconds(time_in_sec, units='auto', round_digits=4):
             time_diff = round(time_in_sec/3600, round_digits)
         else:  # Days
             time_diff = round(time_in_sec/86400, round_digits)
-
-    else:
-        print("Invalid 'units' parameter. Must be one of 'auto', 'seconds', 'minutes', 'hours' or 'days'")
-        return None
 
     return dict(zip(['units', 'value'], [time_measure, time_diff]))
 
