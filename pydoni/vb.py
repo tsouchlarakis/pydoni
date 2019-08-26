@@ -1,11 +1,10 @@
-import click
 import time
+import click
 from emoji import emojize
 from os.path import expanduser
 from datetime import datetime
-from pydoni.os import macos_notify
 from pydoni.pyobj import fmt_seconds
-from pydoni.vb import echo
+from pydoni.os import macos_notify
 
 def echo(
     msg,
@@ -304,7 +303,7 @@ def program_complete(
             subtitle      {str}  -- subtitle of notification
             app_icon      {str}  -- path to app icon image to display on left side of notification
             content_image {str}  -- path to content image to display within notification
-            command       {str}  -- bASH string to execute on notification click
+            command       {str}  -- BASH string to execute on notification click
             open_iterm    {bool} -- if True, sets `command` to "open /Applications/iTerm.app"
                                     to open iTerm application on notification click.
 
