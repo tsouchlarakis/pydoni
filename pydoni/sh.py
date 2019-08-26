@@ -1,3 +1,15 @@
+import datetime
+import exiftool
+import numpy as np
+import re
+import subprocess
+from collections import Counter, OrderedDict
+from itertools import chain
+from os.path import isfile, isdir, join, splitext, basename
+from pydoni.classes import DoniDt
+from pydoni.pyobj import fmt_seconds, split_at, duplicated
+from pydoni.vb import echo, clickfmt
+
 def syscmd(cmd, encoding=''):
     """
     Runs a command on the system, waits for the command to finish, and then
@@ -9,16 +21,16 @@ def syscmd(cmd, encoding=''):
         encoding {str} -- [optional] name of decoding to decode output bytestring with
     
     Returns:
-        {str or int} -- interned system output {str}, or returncode {int}
+        {str} or {int} -- interned system output {str}, or returncode {int}
     """
-    import subprocess
     p = subprocess.Popen(
         cmd,
-        shell=True,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        close_fds=True)
+        shell     = True,
+        stdin     = subprocess.PIPE,
+        stdout    = subprocess.PIPE,
+        stderr    = subprocess.STDOUT,
+        close_fds = True
+    )
     p.wait()
     output = p.stdout.read()
     if len(output) > 1:
@@ -40,9 +52,6 @@ def adobe_dng_converter(fpath, overwrite=False):
     Returns:
         nothing
     """
-    from pydoni.vb import echo
-    from pydoni.sh import syscmd
-    from os.path import join, splitext, basename, isfile
     
     # Check if destination file already exists
     # Build output file with .dng extension and check if it exists
@@ -85,29 +94,29 @@ def stat(fname):
             ModifyDate
             ChangeDate
     """
-    from os.path import isfile
-    from pydoni.sh import syscmd
-    from pydoni.vb import echo, clickfmt
     
     def parse_datestring(fname, datestring):
-        import datetime
+        """
+        Extract datestring from `stat` output.
+
+        Arguments:
+            fname {str} -- filename in question
+            datestring {str} -- string containing date
+        """
         try:
             dt = datetime.datetime.strptime(datestring, '%a %b %d %H:%M:%S %Y')
             return dt.strftime('%Y-%m-%d %H:%M:%S')
+
         except Exception as e:
-            from pydoni.vb import echo, clickfmt
             echo("Unable to parse date string {} for {} (original date string returned)". \
                 format(clickfmt(datestring, 'date'), clickfmt(fname, 'filename')),
                 warn=True, error_msg=str(e))
             return datestring
     
-    # Check that filepath exists
     assert isfile(fname)
 
-    # Build `stat` command
-    cmd = 'stat -x "{}"'.format(fname)
-    
     # Get output of `stat` command and clean for python list
+    cmd = 'stat -x "{}"'.format(fname)
     res = syscmd(cmd, encoding='utf-8')
     res = [x.strip() for x in res.split('\n')]
     
@@ -131,8 +140,8 @@ def mid3v2(fpath, attr_name, attr_value, quiet=True):
     Use mid3v2 to add or overwrite a metadata attribute to a file.
     
     Arguments:
-        fpath      {str}        -- path to file
-        attr_name  {str}        -- name of attribute to assign value to using mid3v2, one of ['artist', 'album', 'song', 'comment', 'picture', 'genre', 'year', 'date', 'track']
+        fpath {str} -- path to file
+        attr_name {str} -- name of attribute to assign value to using mid3v2, one of ['artist', 'album', 'song', 'comment', 'picture', 'genre', 'year', 'date', 'track']
         attr_value {str or int} -- value to assign to attribute `attr_name`
     
     Keyword Arguments:
@@ -141,8 +150,6 @@ def mid3v2(fpath, attr_name, attr_value, quiet=True):
     Returns:
         {bool} -- if True, successfully run. If False, failed
     """
-    from pydoni.sh import syscmd
-    from pydoni.vb import echo
 
     # Check that attribute name is valid
     valid = ['artist', 'album', 'song', 'comment', 'picture', 'genre', 'year', 'date', 'track']
@@ -176,8 +183,6 @@ def convert_audible(fpath, fmt, activation_bytes):
     Returns:
         nothing
     """
-    from os.path import splitext, isfile
-    from pydoni.sh import syscmd
     assert isfile(fpath)
     assert splitext(fpath)[1].lower() == '.aax'
 
@@ -202,7 +207,6 @@ def convert_audible(fpath, fmt, activation_bytes):
 
     # Convert to mp3 if specified
     if fmt == 'mp3':
-        from pydoni.sh import mp4_to_mp3
         mp4_to_mp3(outfile, bitrate=256)
 
 
@@ -217,9 +221,6 @@ def mp4_to_mp3(fpath, bitrate):
     Returns:
         nothing
     """
-    import re
-    from os.path import splitext
-    from pydoni.sh import syscmd
     assert splitext(fpath)[1].lower() == '.mp4'
     
     # Get bitrate as string ###k where ### is any number
@@ -242,7 +243,6 @@ def split_video_scenes(vfpath, outdname):
     Returns:
         {bool} -- True if run successfully, False if run unsuccessfully
     """
-    from os.path import isfile, isdir
 
     assert isfile(vfpath)
     assert isdir(outdname)
@@ -264,7 +264,7 @@ class EXIF(object):
     Extract and handle EXIF metadata from file.
     
     Arguments:
-        fname {str or list} -- filename or list of filenames to initiate EXIF class on
+        fname {str} or {list} -- filename or list of filenames to initiate EXIF class on
     """
 
     def __init__(self, fname):
@@ -288,11 +288,11 @@ class EXIF(object):
         or a batch of files.
         
         Arguments:
-            wrapper {str}  -- wrapper name of exiftool program to run, one of ['doni', 'pyexiftool']
+            wrapper {str} -- wrapper name of exiftool program to run, one of ['doni', 'pyexiftool']
             verbose {bool} -- if True, messages are printed to STDOUT
         
         Returns:
-            dict
+            {dict}
         """
         if wrapper == 'doni':
             self.exif = self.exiftool(
@@ -300,7 +300,6 @@ class EXIF(object):
             return self.exif
 
         elif wrapper == 'pyexiftool':
-            import exiftool
             with exiftool.ExifTool() as et:
                 if isinstance(self.fname, list):
                     self.exif = et.get_metadata_batch(self.fname)
@@ -313,22 +312,13 @@ class EXIF(object):
         Run `exiftool` on a file and fetch output.
         
         Arguments:
-            rmtags    {str or list} -- name(s) of tags to remove with `exiftool`
-            dedup     {bool}        -- if True, names of EXIF attributes will be checked for duplicate names. If any are found, a suffix is appended. Suffixes may be "_2", "_3", ...
-            attr_name {str or list} -- filter output exif dictionary by attribute name(s)
+            rmtags {str} or {list} -- name(s) of tags to remove with `exiftool`
+            dedup {bool} -- if True, names of EXIF attributes will be checked for duplicate names. If any are found, a suffix is appended. Suffixes may be "_2", "_3", ...
+            attr_name {str} or {list} -- filter output exif dictionary by attribute name(s)
         
         Returns:
             dict
         """
-        import re
-        import subprocess
-        import numpy as np
-        from collections import Counter, OrderedDict
-        from itertools import chain
-        from os.path import isfile
-        from pydoni.vb import echo
-        from pydoni.sh import syscmd
-        from pydoni.pyobj import fmt_seconds, split_at, duplicated
 
         def break_into_commandline_batches(fnames, char_limit):
             """
@@ -343,14 +333,12 @@ class EXIF(object):
             character limit.
             
             Arguments:
-                fnames     {str or list} -- path to file(s)
-                char_limit {int}         -- character limit of operating system's command-line character limit
+                fnames {str} or {list} -- path to file(s)
+                char_limit {int} -- character limit of operating system's command-line character limit
             
             Returns:
                 dictionary of lists
             """
-            from collections import OrderedDict
-            from pydoni.pyobj import split_at
 
             # Initialize process
             split_fname = []
@@ -387,11 +375,8 @@ class EXIF(object):
                 res {str} -- raw exiftool output string
             
             Returns:
-                dict
+                {dict}
             """
-            import numpy as np
-            from collections import Counter
-            from pydoni.pyobj import split_at
 
             # Convert string result to list
             res = res.split('\n')
@@ -526,14 +511,12 @@ class EXIF(object):
         Overwrite EXIF attributes on a file or list of files.
         
         Arguments:
-            tags   {str or list} -- names of tags to overwrite
-            values {str or list} -- values to set to `tags`
+            tags {str} or {list} -- names of tags to overwrite
+            values {str} or {list} -- values to set to `tags`
         
         Returns:
             nothing
         """
-        from pydoni.vb import echo
-        from pydoni.sh import syscmd
 
         # Get list of files and ensure tags and values are identical length
         target_files = [self.fname] if isinstance(self.fname, str) else self.fname
@@ -580,13 +563,11 @@ class EXIF(object):
         Remove EXIF attributes from a file or list of files.
         
         Arguments:
-            tags {str or list} -- name(s) of tags to remove with `exiftool`
+            tags {str} or {list} -- name(s) of tags to remove with `exiftool`
         
         Returns:
             nothing
         """
-        from pydoni.vb import echo
-        from pydoni.sh import syscmd
 
         # Get list of files and ensure tags and values are identical length
         target_files = [self.fname] if isinstance(self.fname, str) else self.fname
@@ -629,11 +610,16 @@ class EXIF(object):
     def rename_keys(self, key_dict):
         """
         Rename exif dictionary keys.
-        Ex: key_dict={'file_name': 'fname'} will result in the original key 'file_name'
-        being renamed to 'fname'.
         
         Arguments:
             key_dict (dict): dictionary of key: value pairs where 'key' is current exif key name, and 'value' is desired key name
+        
+        Returns:
+            {dict}
+
+        Example:
+            key_dict={'file_name': 'fname'} will result in the original key 'file_name' being
+            renamed to 'fname'.
         """
         for k, v in key_dict.items():
             if k in self.exif.keys():
@@ -651,23 +637,33 @@ class EXIF(object):
                 - raise: raise an error (stop the program)
                 - null: return None
                 - revert: return original value
-        Example
+        Example:
             fmt='int':
                 '+7' -> 7
                 '-7' -> -7
-        Example
+        Example:
             fmt='date':
                 '2018:02:29 01:28:10' -> ''2018-02-29 01:28:10''
-        Example
+        Example:
             fmt='float':
                 '11.11' -> 11.11
         """
-        import re
-        from pydoni.classes import DoniDt
 
         def evalutate_error(val, onerror, e="Unable to coerce value"):
             """
             Handle error in any specified way, as described in parent function's docstring.
+
+            Arguments:
+                val {<any>} -- value to return if set to 'revert' mode
+                onerror {str} -- dictate behavior of function, one of ['raise', 'null', 'revert']
+
+            Keyword Arguments:
+                e {str} -- error string to raise if run in 'raise' mode
+
+            Returns:
+                {str} -- if onerror='raise' -> error string
+                {None} -- if onerror=None
+                {${val}} -- if onerror='revert' -> original value
             """
             if onerror == 'raise':
                 raise e

@@ -1,3 +1,28 @@
+import re
+import datetime
+from os.path import expanduser, splitext
+from pydoni.vb import echo
+
+class DoniDict(dict):
+    """
+    Dictionary class with recursive 'get' method.
+    
+    Arguments:
+        mydict {dict} -- dictionary to convert to DoniDict
+    """
+
+    def __init__(self, mydict):
+        self.mydict = dictSApply(expanduser, mydict)
+    
+    def rget(self, *args, **kwargs):
+        default = kwargs.get('default')
+        cursor = self.mydict
+        for a in args:
+            if cursor is default: break
+            cursor = cursor.get(a, default)
+        return cursor
+
+
 def dictSApply(func, d):
     """
     Apply function to each terminal element of a dictionary.
@@ -16,37 +41,17 @@ def dictSApply(func, d):
     elif (isinstance(d, list)):
         return [ dictSApply(func, val) for val in d ]
 
-class DoniDict(dict):
-    """
-    Dictionary class with recursive 'get' method.
-    
-    Arguments:
-        mydict {dict} -- dictionary to convert to DoniDict
-    """
-    def __init__(self, mydict):
-        import os
-        self.mydict = dictSApply(os.path.expanduser, mydict)
-    def rget(self, *args, **kwargs):
-        default = kwargs.get('default')
-        cursor = self.mydict
-        for a in args:
-            if cursor is default: break
-            cursor = cursor.get(a, default)
-        return cursor
-
 
 def systime(stripchars=False):
     """
     Print the current time formatted as a string.
     
     Arguments:
-        stripchars {bool} -- if True, strip dashes and colons from datetime string and return
-                             YYYYMMDD_HHMMSS. If False, return as YYYY-MM-DD HH:MM:SS
+        stripchars {bool} -- if True, strip dashes and colons from datetime string and return YYYYMMDD_HHMMSS. If False, return as YYYY-MM-DD HH:MM:SS
     
     Returns:
         {str}
     """
-    import datetime
     if stripchars:
         return datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     else:
@@ -58,38 +63,48 @@ def sysdate(stripchars=False):
     Print the current date formatted as a string.
     
     Arguments:
-        stripchars {bool} -- If True, strip dashes and colons from date string as YYYYMMDD
-                             If False, return as YYYY-MM-DD.
+        stripchars {bool} -- If True, strip dashes and colons from date string as YYYYMMDD If False, return as YYYY-MM-DD.
     
     Returns:
         str
     """
-    import datetime
     if stripchars:
         return datetime.datetime.now().strftime("%Y%m%d")
     else:
         return datetime.datetime.now().strftime("%Y-%m-%d")
 
 
-def assert_len(varlist, varnames):
+def assert_len(varlist, varnames=None):
     """
     Ensure lengths of variables are equal, otherwise throw an error
     
     Arguments:
         varlist {list} -- list of lists to test the lengths of
-        varnames {list} -- list of names of variables (used for verbose output)
+
+    Keyword Arguments:
+        varnames {list} -- list of names of variables (used for verbose output) (default: {None})
 
     Returns:
-        nothing
+        {bool}
     """
-    import click
-    from pydoni.vb import echo
+
+    assert isinstance(varlist, list)
+
     lengths = [len(x) for x in varlist]
+    
     if len(set(lengths)) > 1:
-        echo("Unequal variable lengths: {}. Respective lengths are {}".format(
-            ', '.join("'" + click.style(item,      fg='red', bold=True) + "'" for item in varnames),
-            ', '.join("'" + click.style(str(item), fg='red', bold=True) + "'" for item in lengths)),
-        fn_name='assert_len', abort=True)
+        if varnames is not None:
+            assert length(varlist) == length(varnames)
+            echo("Unequal variable lengths: {}. Respective lengths are {}".format(
+                ', '.join("'" + click.style(item,      fg='red', bold=True) + "'" for item in varnames),
+                ', '.join("'" + click.style(str(item), fg='red', bold=True) + "'" for item in lengths)),
+                fn_name='assert_len', abort=True)
+            return False
+        else:
+            echo("At least one element of 'varlist' is of unequal length", fn_name='assert_len', abort=True)
+            return False
+    else:
+        return True
 
 
 def user_select_from_list(lst, indent=0, msg='Please make a selection (hyphen-separated range ok): ', allow_range=True):
@@ -109,8 +124,6 @@ def user_select_from_list(lst, indent=0, msg='Please make a selection (hyphen-se
         or
         {str} -- element of `lst`
     """
-    import re
-    from pydoni.vb import echo
     
     # Add indent to each element of `lst`
     if indent > 0:
@@ -266,9 +279,9 @@ def replace_nth_char(string, n, replacement):
     Capitalize the Nth character of a string. If 'n' is out of range, return original string.
     
     Arguments:
-        string      (str)       : string to consider
-        n           (int)       : position to capitalize letter in `string`
-        replacement (str or int): string or integer to replace nth char with
+        string {str} -- string to consider
+        n {int} -- position to capitalize letter in `string`
+        replacement {str} or {int} -- string or integer to replace nth char with
     
     Returns:
         {str}
@@ -283,9 +296,9 @@ def insert_nth_char(string, n, char):
     Capitalize the Nth character of a string. If 'n' is out of range, return original string.
     
     Arguments:
-        string (str)       : string to consider
-        n      (int)       : position to capitalize letter in `string`
-        char   (str or int): string or integer to insert at nth position
+        string {str} -- string to consider
+        n {int} -- position to capitalize letter in `string`
+        char {str} or {int} -- string or integer to insert at nth position
     
     Returns:
         {str}
@@ -306,7 +319,7 @@ def human_filesize(nbytes: int) -> str:
         {str}
 
     Original Source:
-      https://stackoverflow.com/questions/5194057/better-way-to-convert-file-sizes-in-python
+        https://stackoverflow.com/questions/5194057/better-way-to-convert-file-sizes-in-python
     """
     base = 1
     for unit in ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']:
@@ -330,10 +343,10 @@ def split_at(lst, idx):
     
     Arguments:
         lst {list} -- list to split
-        idx (int or list): indexes to split the list at
+        idx {int} or {list} -- indexes to split the list at
 
     Returns:
-        list of lists
+        {list} -- list of lists
     """
     return [lst[i:j] for i, j in zip([0] + idx, idx + [None])]
 
@@ -347,7 +360,7 @@ def duplicated(lst):
         lst {list} -- a list to test for duplicates
 
     Returns:
-        list
+        {list}
     """
     dup_ind = []
     for i, item in enumerate(lst):
@@ -368,6 +381,7 @@ def duplicated(lst):
             dup_ind.append(False)
     return dup_ind
 
+
 def ddml_to_md(fname):
     """
     Convert a text file formatted in DDML (Dapper Doni Markup Language) to Markdown.
@@ -378,8 +392,6 @@ def ddml_to_md(fname):
     Returns:
         nothing
     """
-    import re
-    import os
 
     with open(fname, 'r') as f:
         text = f.read().split('\n')
@@ -478,7 +490,7 @@ def ddml_to_md(fname):
             md_final[i] = re.sub(r'^( +\*? )(.*)( <(h|title)>)$', r'\1*\2*', md_final[i])  # Markdown: italic
             md_final[i] = md_final[i] .replace('\*', '*')
 
-    outfile = os.path.splitext(fname)[0] + '.md'
+    outfile = splitext(fname)[0] + '.md'
     with open(outfile, 'w') as f:
         for line in md_final:
             f.write(line + '\n')
@@ -499,7 +511,6 @@ def make_md_list(string, li_type, tab_size=4):
         {str}
     """
 
-    import re
 
     # Replace tabs with spaces
     indent = ' ' * tab_size
@@ -531,7 +542,6 @@ def markdown_toc(md_fpath, li_type):
         {str} -- Markdown TOC string
     """
 
-    import re
 
     with open(md_fpath, 'r') as f:
         md = f.readlines()

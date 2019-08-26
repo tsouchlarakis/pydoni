@@ -1,12 +1,19 @@
+import requests
+import shutil
+import urllib
+from bs4 import BeautifulSoup
+from lxml import html
+
 def check_network_connection(abort=False):
     """
     Check if connected to internet
-    Args
-        abort (bool): if True, quit program
-    Returns
-        bool
+    
+    Arguments:
+        abort {bool} -- if True, quit program
+    
+    Returns:
+        {bool}
     """
-    import urllib.request
     try:
         urllib.request.urlopen('https://www.google.com')
         return True
@@ -20,15 +27,15 @@ def check_network_connection(abort=False):
 def get_element_by_selector(url, selector, attr=None):
     """
     Extract HTML text by CSS selector.
-    Args
-        url      (str): target URL to scrape
-        selector (str): CSS selector
-        attr     (str): name of attribute to extract
-    Returns
-        str
+    
+    Arguments:
+        url {str} -- target URL to scrape
+        selector {str} -- CSS selector
+        attr {str} -- name of attribute to extract
+    
+    Returns:
+        {str}
     """
-    import requests
-    from bs4 import BeautifulSoup
     page = requests.get(url)
     soup = BeautifulSoup(page.content, 'html.parser')
     if attr:
@@ -40,15 +47,15 @@ def get_element_by_selector(url, selector, attr=None):
 def get_element_by_xpath(url, xpath):
     """
     Extract HTML text by Xpath selector.
-    Args
-        url      (str): target URL to scrape
-        selector (str): CSS selector
-        attr     (str): name of attribute to extract
-    Returns
-        str
+    
+    Arguments:
+        url {str} -- target URL to scrape
+        selector {str} -- CSS selector
+        attr {str} -- name of attribute to extract
+    
+    Returns:
+        {str}
     """
-    import requests
-    from lxml import html
     page = requests.get(url)
     tree = html.fromstring(page.content)
     return tree.xpath(xpath)
@@ -56,13 +63,14 @@ def get_element_by_xpath(url, xpath):
 def downloadfile(url, destfile):
     """
     Download file from the web to a local file.
-    Args
-        url (str): target URL to retrieve file from
-        destfile (str): 
-    Returns
-        str
+    
+    Arguments:
+        url {str} -- target URL to retrieve file from
+        destfile {str} -- target file to download to
+    
+    Returns:
+        {str}
     """
-    import requests, shutil
     r = requests.get(url, stream=True)
     with open(destfile, 'wb') as f:
         r.raw.decode_content = True
