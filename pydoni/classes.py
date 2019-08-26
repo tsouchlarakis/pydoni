@@ -13,15 +13,15 @@ from datetime import datetime
 from google.cloud import speech_v1p1beta1 as speech
 from os import chdir, getcwd, mkdir, environ
 from os.path import splitext, isfile, dirname, abspath, basename, isdir, expanduser, join
+from pydub import AudioSegment
+from send2trash import send2trash
+from titlecase import titlecase
+from tqdm import tqdm
 from pydoni.os import listdirs, listfiles, unarchive
 from pydoni.pyobj import cap_nth_char, replace_nth_char, insert_nth_char, listmode, systime
 from pydoni.sh import EXIF, mid3v2, stat, syscmd
 from pydoni.vb import echo
 from pydoni.web import downloadfile, get_element_by_selector, get_element_by_xpath, downloadfile
-from pydub import AudioSegment
-from send2trash import send2trash
-from titlecase import titlecase
-from tqdm import tqdm
 
 class Attribute(object):
     """
