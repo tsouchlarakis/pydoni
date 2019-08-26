@@ -47,34 +47,24 @@ def echo(
         timestamp    {bool} -- if True, print datetimestamp preceding message
         warn         {bool} -- if True, print 'WARNING: ' in yellow preceding message
         error        {bool} -- if True, print 'ERROR: ' in red preceding message
-        error_msg    {str}  -- python error message. Intended for use in try/except. Pass
-                               in `str(e)` here.
-        abort        {bool} -- if True, print 'ERROR (fatal): ' in red preceding message
-                               AND exit program.
-        fn_name      {str}  -- name of function, if any, that echo() was called from. Will
-                               include function in printed message. Useful for debugging. Only
-                               applied if one or more of `warn`, `error` or `abort` are set to True
-        fg           {str}  -- color string indicator color of text. One of [None, 'black',
-                               'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
-        bg           {str}  -- color string indicator color of background of text. One of
-                               [None, 'black', 'red', 'green', 'yellow', 'blue', 'magenta',
-                               'cyan', 'white'],
+        error_msg    {str}  -- python error message. Intended for use in try/except. Pass in `str(e)` here.
+        abort        {bool} -- if True, print 'ERROR (fatal): ' in red preceding message AND exit program.
+        fn_name      {str}  -- name of function, if any, that echo() was called from. Will include function in printed message. Useful for debugging. Only applied if one or more of `warn`, `error` or `abort` are set to True
+        fg           {str}  -- color string indicator color of text. One of [None, 'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
+        bg           {str}  -- color string indicator color of background of text. One of [None, 'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
         bold         {bool} -- if True, print message with bold effect
         dim          {bool} -- if True, print message with dim effect
         underline    {bool} -- if True, print message with underline effect
         blink        {bool} -- if True, print message with blink effect
-        reverse      {bool} -- if True, print message with reverse effect (foreground/background
-                               reversed).
-        notify       {bool} -- if True, invoke `macos_notify()`. Notification customizations can
-                               be altered in `notification` parameter.
+        reverse      {bool} -- if True, print message with reverse effect (foreground/background reversed).
+        notify       {bool} -- if True, invoke `macos_notify()`. Notification customizations can be altered in `notification` parameter.
         notification {dict} -- customize macOS notification. Requires that `notify` set to True
             title         {str}  -- title of notification
             subtitle      {str}  -- subtitle of notification
             app_icon      {str}  -- path to app icon image to display on left side of notification
             content_image {str}  -- path to content image to display within notification
             command       {str}  -- bASH string to execute on notification click
-            open_iterm    {bool} -- if True, sets `command` to "open /Applications/iTerm.app"
-                                    to open iTerm application on notification click.
+            open_iterm    {bool} -- if True, sets `command` to "open /Applications/iTerm.app" to open iTerm application on notification click.
     
     Returns:
         nothing
@@ -240,8 +230,7 @@ def print_columns(lst, ncol=2, delay=None):
 
     Keyword Arguments:
         ncol  {int} -- number of columns to print to screen (default: 2)
-        delay {int} or {float} -- if specified, delay this many seconds after each line
-                                  is printed (default: None)
+        delay {int} or {float} -- if specified, delay this many seconds after each line is printed (default: None)
     
     Returns:
         nothing
@@ -304,8 +293,7 @@ def program_complete(
             app_icon      {str}  -- path to app icon image to display on left side of notification
             content_image {str}  -- path to content image to display within notification
             command       {str}  -- BASH string to execute on notification click
-            open_iterm    {bool} -- if True, sets `command` to "open /Applications/iTerm.app"
-                                    to open iTerm application on notification click.
+            open_iterm    {bool} -- if True, sets `command` to "open /Applications/iTerm.app" to open iTerm application on notification click.
 
     Returns:
         nothing

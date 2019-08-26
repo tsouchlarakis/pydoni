@@ -1,3 +1,28 @@
+import bs4
+import click
+import contextlib
+import datetime
+import googlesearch
+import numpy as np
+import omdb
+import requests
+import shutil
+import subprocess
+import wave
+from datetime import datetime
+from google.cloud import speech_v1p1beta1 as speech
+from os import chdir, getcwd, mkdir, environ
+from os.path import splitext, isfile, dirname, abspath, basename, isdir, expanduser, join
+from pydoni.os import listdirs, listfiles, unarchive
+from pydoni.pyobj import cap_nth_char, replace_nth_char, insert_nth_char, listmode, systime
+from pydoni.sh import EXIF, mid3v2, stat, syscmd
+from pydoni.vb import echo
+from pydoni.web import downloadfile, get_element_by_selector, get_element_by_xpath, downloadfile
+from pydub import AudioSegment
+from send2trash import send2trash
+from titlecase import titlecase
+from tqdm import tqdm
+
 class Attribute(object):
     """
     General attribute to be used either as a standalone class in and of itself, or as an
@@ -7,43 +32,26 @@ class Attribute(object):
     def __init__(self):
         pass
 
-    def assign_file(self, attr, val):
-        """
-        Add a file attribute to self.
-
-        Arguments:
-            attr {str} -- filename to add
-            val {str} -- value to add (normally a filepath)
-        """
-        from os.path import isfile
-        assert isfile(val)
-        setattr(self, attr, val)
-
-    def assign_dir(self, attr, val):
-        """
-        Add a directory attribute to self.
-
-        Arguments:
-            attr {str} -- directory name to add
-            val {str} -- value to add (normally a directory path)
-        """
-        from os.path import isdir
-        assert isdir(val)
-        setattr(self, attr, val)
-
     def __flatten__(self):
         """
         Combine all subattributes of an Attribute. If all lists, flatten to single
         list. If all strings, join into a list.
+
+        Returns:
+            {list}
         """
+        
         dct = self.__dict__
         is_list = list(set([True for k, v in dct.items() if isinstance(v, list)]))
+        
         if len(is_list) == 0:
             # Assume string, no matches for isinstance(..., list)
             return [v for k, v in dct.items()]
+
         elif len(is_list) > 1:
             print('ERROR: Unable to flatten, varying datatypes (list, string, ...)')
             return None
+
         else:
             # Flatten list of lists
             lst_of_lst = [v for k, v in dct.items()]
@@ -55,17 +63,15 @@ class ProgramEnv(object):
     Create, maintain, and erase a temporary program directory for a Python program.
 
     Arguments:
-        path      (str) : path to desired program environment directory
-        overwrite (bool): if True, remove `path` directory if already exists
+        path {str}  -- path to desired program environment directory
+        overwrite {bool} -- if True, remove `path` directory if already exists
     """
 
     def __init__(self, path, overwrite=False):
-        import os, shutil, click
-        from pydoni.vb import echo
         
         # Assign program environment path
         self.path = path
-        if self.path == os.path.expanduser('~'):
+        if self.path == expanduser('~'):
             echo('Path cannot be home directory', abort=True)
         elif self.path == '/':
             echo('Path cannot be root directory', abort=True)
@@ -74,7 +80,7 @@ class ProgramEnv(object):
         self.focus = None
         
         # Overwrite existing directory if specified and directory exists
-        if os.path.isdir(self.path):
+        if isdir(self.path):
             if overwrite:
                 shutil.rmtree(self.path)
             else:
@@ -82,22 +88,21 @@ class ProgramEnv(object):
                     echo('Must answer affirmatively!', abort=True)
         
         # Create program environment
-        if not os.path.isdir(self.path):
-            os.mkdir(self.path)
+        if not isdir(self.path):
+            mkdir(self.path)
     
     def copyfile(self, fname, set_focus=False):
         """
         Copy a file into the program environment.
     
         Arguments:
-            fname     (str) : filename to copy
-            set_focus (bool): if True, set the focus to the newly-copied file
+            fname {str} -- filename to copy
+            set_focus {bool} -- if True, set the focus to the newly copied file
         
         Returns:
             nothing
         """
-        import os, shutil
-        env_dest = os.path.join(self.path, os.path.basename(fname))
+        env_dest = join(self.path, basename(fname))
         shutil.copyfile(fname, env_dest)
         if set_focus:
             self.focus = env_dest
@@ -105,20 +110,17 @@ class ProgramEnv(object):
     def listfiles(self, path='.', pattern=None, full_names=False, recursive=False, ignore_case=True, include_hidden_files=False):
         """
         List files at given path.
-        SEE pydoni.os.listfiles FOR DETAILED DOCUMENTATION OF ARGUMENTS AND THEIR DATATYPES.
+        SEE `pydoni.listfiles()` FOR DETAILED DOCUMENTATION OF ARGUMENTS AND THEIR DATATYPES.
         """
-        from pydoni.os import listfiles
-        files = listfiles(path=path, pattern=pattern, full_names=full_names,
+        return listfiles(path=path, pattern=pattern, full_names=full_names,
             recursive=recursive, ignore_case=ignore_case,
             include_hidden_files=include_hidden_files)
-        return files
     
     def listdirs(self, path='.', pattern=None, full_names=False, recursive=False):
         """
         List directories at given path.
-        SEE pydoni.os.listdirs FOR DETAILED DOCUMENTATION OF ARGUMENTS AND THEIR DATATYPES.
+        SEE `pydoni.listdirs()` FOR DETAILED DOCUMENTATION OF ARGUMENTS AND THEIR DATATYPES.
         """
-        from pydoni.os import listdirs
         return listdirs(path=path, pattern=pattern, full_names=full_names, recursive=recursive)
     
     def downloadfile(self, url, destfile):
@@ -126,13 +128,12 @@ class ProgramEnv(object):
         Download file from the web to a local file in Environment.
     
         Arguments:
-            url (str): target URL to retrieve file from
-            destfile (str): 
+            url {str} -- target URL to retrieve file from
+            destfile {str} -- target filename
         
         Returns:
-            str
+            {str}
         """
-        from pydoni.web import downloadfile
         downloadfile(url=url, destfile=destfile)
     
 
@@ -141,22 +142,18 @@ class ProgramEnv(object):
         Unpack a .zip archive.
     
         Arguments:
-            fpath    (str): path to zip archive file
-            dest_dir (str): path to destination extract directory
+            fpath {str} -- path to zip archive file
+            dest_dir {str} -- path to destination extract directory
         
         Returns:
             nothing
         """
-        from pydoni.os import unarchive
         unarchive(fpath=fpath, dest_dir=dest_dir)
 
     def delete_env(self):
         """
         Remove environment from filesystem.
         """
-        import shutil
-        from os import chdir
-        from os.path import dirname
         chdir(dirname(self.path))
         shutil.rmtree(self.path)
 
@@ -170,8 +167,6 @@ class Audio(object):
     """
     
     def __init__(self, fname):
-        from os.path import splitext
-        from pydub import AudioSegment
 
         # Set filename and extension
         self.fname = fname
@@ -190,19 +185,16 @@ class Audio(object):
         Convert an audio file to destination format and write with identical filename with `pydub`.
         
         Arguments:
-            dest_fmt {[type]} -- desired output format, one of ['mp3', 'wav']
+            dest_fmt {str} -- desired output format, one of ['mp3', 'wav']
         
         Keyword Arguments:
             update_self {bool} -- if True, set `self.fname` and `self.ext` to converted file and file format after conversion (default: {True})
-            num_channels {[type]} -- number of channels to convert audio segment to using pydub.AudioSegment.set_channels() (default: {None})
+            num_channels {int} -- number of channels to convert audio segment to using pydub.AudioSegment.set_channels() (default: {None})
             verbose {bool} -- if True, messages are printed to STDOUT (default: {False})
         
         Returns:
             nothing
         """
-        import os
-        from pydub import AudioSegment
-        from pydoni.vb import echo
 
         dest_fmt = dest_fmt.replace('.', '')
         assert dest_fmt in ['mp3', 'wav']
@@ -219,7 +211,7 @@ class Audio(object):
         # Export output file
         if verbose:
             echo('Exporting audio file')
-        outfile = os.path.splitext(self.fname)[0] + '.' + dest_fmt
+        outfile = splitext(self.fname)[0] + '.' + dest_fmt
         self.sound.export(outfile, format=dest_fmt)
 
         # Overwrite `self` attributes to converted file
@@ -239,12 +231,8 @@ class Audio(object):
             verbose {bool} -- if True, messages are printed to STDOUT (default: {False})
         
         Returns:
-            list -- list of split filenames
+            {list} -- list of split filenames
         """
-        import os, re
-        from pydoni.sh import syscmd
-        from pydoni.os import listfiles
-        from pydoni.vb import echo
         assert isinstance(segment_time, int)
         assert isinstance(verbose, bool)
 
@@ -254,8 +242,8 @@ class Audio(object):
         # Split audio file with ffmpeg
         cmd = 'ffmpeg -i "{}" -f segment -segment_time {} -c copy "{}-ffmpeg-%03d{}"'.format(
             self.fname, segment_time,
-            os.path.splitext(self.fname)[0],
-            os.path.splitext(self.fname)[1])
+            splitext(self.fname)[0],
+            splitext(self.fname)[1])
         syscmd(cmd)
 
         if verbose:
@@ -279,10 +267,6 @@ class Audio(object):
         Returns:
             nothing
         """
-        import os, re
-        from pydub import AudioSegment
-        from pydoni.pyobj import systime
-        from pydoni.vb import echo
         assert isinstance(audiofiles, list)
         assert isinstance(silence_between, int)
 
@@ -292,7 +276,7 @@ class Audio(object):
         # Iterate over list of audio files
         audiofiles = [self.fname] + audiofiles
         for fname in audiofiles:
-            ext = os.path.splitext(fname)[1].lower().replace('.', '')
+            ext = splitext(fname)[1].lower().replace('.', '')
             if ext == 'mp3':
                 fnamesound = AudioSegment.from_mp3(fname)
             elif ext == 'wav':
@@ -307,7 +291,7 @@ class Audio(object):
         outfile = '{}-Audio-Concat-{}-Files{}'.format(
             systime(stripchars=True),
             str(len(audiofiles)),
-            os.path.splitext(self.fname)[1])
+            splitext(self.fname)[1])
         sound.export(outfile, format='mp3')
 
         # Update focus if specified
@@ -325,12 +309,10 @@ class Audio(object):
         Returns:
             nothing
         """
-        from pydub import AudioSegment
         bitrate = str(bitrate).replace('k', '')
         audio = AudioSegment.from_file(self.fname, self.ext)
 
         if outfile is None:
-            from os.path import splitext, isfile
             outfile = splitext(self.fname)[0] + '-compressed.mp3'
             assert not isfile(outfile)
 
@@ -359,8 +341,7 @@ class Audio(object):
         Returns:
             nothing
         """
-        import os
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_application_credentials_json
+        environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_application_credentials_json
     
     def transcribe(self, split_threshold=55, apply_correction=True, verbose=False):
         """
@@ -372,11 +353,8 @@ class Audio(object):
             verbose {bool} -- if True, messages are printed to STDOUT (default: {False})
         
         Returns:
-            str -- transcription string
+            {str} -- transcription string
         """
-        import re, os, tqdm
-        from google.cloud import speech_v1p1beta1 as speech
-        from pydoni.vb import echo
 
         # Convert audio file to wav if mp3 and convert to mono
         if self.ext != '.wav':
@@ -396,7 +374,7 @@ class Audio(object):
         client = speech.SpeechClient()
 
         # Loop over files to transcribe and apply Google Cloud transcription
-        for fname in tqdm.tqdm(fnames_transcribe):
+        for fname in tqdm(fnames_transcribe):
             with open(fname, 'rb') as audio_file:
                 content = audio_file.read()
             aud = speech.types.RecognitionAudio(content=content)
@@ -435,9 +413,8 @@ class Audio(object):
             transcript {str} -- transcript string to apply corrections to. If None, use `self.transcript`
         
         Returns:
-            str -- transcript string with corrections
+            {str} -- transcript string with corrections
         """
-        from pydoni.vb import echo
         
         # Determine transcript to apply corrections to
         if transcript is None:
@@ -454,9 +431,8 @@ class Audio(object):
                 transcript {str} -- transcript string
             
             Returns:
-                str -- transcript string
+                {str} -- transcript string
             """
-            import re
             dictation_map = {
                 r'(\b|\s)(comma)(\s|\b)'            : r',\3',
                 r'(\b|\s)(colon)(\s|\b)'            : r':\3',
@@ -497,10 +473,8 @@ class Audio(object):
                 transcript {str} -- transcript string
             
             Returns:
-                str -- transcript string
+                {str} -- transcript string
             """
-            import re
-            from pydoni.pyobj import cap_nth_char, replace_nth_char, insert_nth_char
             
             # Capitalize first letter of each sentence, split by newline character
             val = transcript
@@ -538,9 +512,8 @@ class Audio(object):
                 transcript {str} -- transcript string
             
             Returns:
-                str -- transcript string
+                {str} -- transcript string
             """
-            import re
             return re.sub(r' +', ' ', transcript)
         
         def manual_corrections(transcript):
@@ -551,11 +524,10 @@ class Audio(object):
                 transcript {str} -- transcript string
             
             Returns:
-                str -- transcript string
+                {str} -- transcript string
             """
 
             # Regex word replacements
-            import re
             dictation_map = {
                 r'(\b)(bye bye)(\b)'    : 'Baba',
                 r'(\b)(Theon us)(\b)'   : "Thea Anna's",
@@ -596,10 +568,8 @@ class Audio(object):
             none
 
         Returns:
-            float
+            {float}
         """
-        import wave
-        import contextlib
         with contextlib.closing(wave.open(self.fname, 'r')) as f:
             frames = f.getnframes()
             rate = f.getframerate()
@@ -613,7 +583,7 @@ class Movie(object):
     Operate on a movie file.
 
     Arguments:
-        fname (str): path to audio file
+        fname {str} -- path to audio file
     """
     
     def __init__(self, fname):
@@ -638,13 +608,12 @@ class Movie(object):
         in format "${TITLE} (${YEAR}).${EXT}".
     
         Arguments:
-            fname (str): filename to extract from, may be left as None if `self.fname` is already defined
-            attr (str): attribute to extract, one of ['title', 'year', 'ext']
+            fname {str} -- filename to extract from, may be left as None if `self.fname` is already defined
+            attr {str} -- attribute to extract, one of ['title', 'year', 'ext']
         
         Returns:
-            str
+            {str}
         """
-        import os, re
         assert attr in ['title', 'year', 'ext']
 
         # Get filename
@@ -656,20 +625,24 @@ class Movie(object):
         assert re.match(rgx_movie, self.fname)
 
         # Extract attribute
-        movie = os.path.splitext(fname)[0]
+        movie = splitext(fname)[0]
         if attr == 'title':
             return re.sub(rgx_movie, r'\1', movie).strip()
         elif attr == 'year':
             return re.sub(rgx_movie, r'\2', movie).strip()
         elif attr == 'ext':
-            return os.path.splitext(fname)[1]
+            return splitext(fname)[1]
         
     def query_omdb(self):
         """
         Query OMDB database from movie title and movie year.
+
+        Arguments:
+            none
+
+        Returns:
+            nothing
         """
-        import omdb
-        from pydoni.vb import echo
         try:
             met = omdb.get(title=self.title, year=self.year, fullplot=False, tomatoes=False)
             met = None if not len(met) else met
@@ -687,8 +660,13 @@ class Movie(object):
     def parse_ratings(self):
         """
         Parse Metacritic, Rotten Tomatoes and IMDB User Ratings from the OMDB API's response.
+
+        Arguments:
+            none
+
+        Returns:
+            nothing
         """
-        import re, numpy as np
         
         # Check that `self` has `ratings` attribute
         # Iterate over each type of rating (imdb, rt, mc) and assign to its own attribute
@@ -729,14 +707,24 @@ class Movie(object):
     def clean_omdb_response(self):
         """
         Clean datatypes and standardize missing values from OMDB API response.
+
+        Arguments:
+            none
+
+        Returns:
+            nothing
         """
-        import numpy as np
         
         def convert_to_int(value):
             """
             Attempt to convert a value to type int.
+
+            Arguments:
+                value {<any>} -- value to convert
+
+            Returns:
+                nothing
             """
-            import numpy as np
             if isinstance(value, int):
                 return value
             try:
@@ -747,20 +735,30 @@ class Movie(object):
         def convert_to_datetime(value):
             """
             Attempt to convert a value to type datetime.
+
+            Arguments:
+                value {<any>} -- value to convert
+
+            Returns:
+                nothing
             """
-            import numpy as np
-            from datetime import datetime
             if not isinstance(value, str):
                 return np.nan
             try:
                 return datetime.strptime(value, '%d %b %Y').strftime('%Y-%m-%d')
             except:
                 return np.nan
+
         def convert_to_bool(value):
             """
             Attempt to convert a value to type bool.
+
+            Arguments:
+                value {<any>} -- value to convert
+
+            Returns:
+                nothing
             """
-            import numpy as np
             if isinstance(value, str):
                 if value.lower() in ['t', 'true']:
                     return True
@@ -797,8 +795,8 @@ class Movie(object):
         Scan all attributes for `value` and replace with `replacement` if found.ArithmeticError
     
         Arguments:
-            value       (<any>): value to search for
-            replacement (<any>): replace `value` with this variable value if found
+            value {<any>} -- value to search for
+            replacement {<any>} -- replace `value` with this variable value if found
         
         Returns:
             nothing
@@ -813,13 +811,12 @@ class DoniDt(object):
     Custom date/datetime handling. Delete miliseconds by default.
 
     Arguments:
-        val      (<any>): value to consider for date/datetime handling, cast initially as string.
-        apply_tz (bool) : if True, apply timezone value if present
+        val {<any>} -- value to consider for date/datetime handling, cast initially as string.
+        apply_tz {bool}  -- if True, apply timezone value if present
             Ex: '2019-05-13 10:29:53-7:00' -> '2019-05-13 03:29:53'
     """
 
     def __init__(self, val, apply_tz=True):
-        from pydoni.classes import Attribute
         
         self.val = str(val)
         sep = r'\.|\/|-|_|\:'
@@ -840,10 +837,12 @@ class DoniDt(object):
         """
         Test if input string is exactly a date or datetime value.
         
+        Arguments:
+            none
+
         Returns:
-            bool
+            {bool}
         """
-        import re
         m = [bool(re.search(pattern, self.val)) for pattern in \
             ['^' + x + '$' for x in  self.rgx.__flatten__()]]
         return any(m)
@@ -851,25 +850,27 @@ class DoniDt(object):
     def contains(self):
         """
         Test if input string contains a date or datetime value.
+
+        Arguments:
+            none
         
         Returns:
-            bool
+            {bool}
         """
-        import re
         m = [bool(re.search(pattern, self.val)) for pattern in self.rgx.__flatten__()]
         return any(m)
     
     def extract_first(self, apply_tz=True):
         """
-        Given a string with a date or datetime value, extract the FIRST datetime
-        value as string
+        Given a string with a date or datetime value, extract the FIRST datetime value as string.
+
+        Arguments:
+            none
     
         Arguments:
-            apply_tz (bool): if True, apply timezone value if present
+            apply_tz {bool} -- if True, apply timezone value if present
                 Ex: '2019-05-13 10:29:53-7:00' -> '2019-05-13 03:29:53'
         """
-        import re, datetime
-        from pydoni.vb import echo
 
         # Strip whitespace from value
         val = self.val.strip()
@@ -884,12 +885,12 @@ class DoniDt(object):
             # Datetime with timezone
             
             # Build dt string
-            dt = '{}-{}-{} {}:{}:{}'.format(
+            dt = '{}-{}-{} {} --{} --{}'.format(
                 m.group('year'), m.group('month'), m.group('day'),
                 m.group('hours'), m.group('minutes'), m.group('seconds'))
             
             # Build timezone string
-            tz = '{}{}:{}'.format(m.group('tz_sign'), m.group('tz_hours'), m.group('tz_minutes'))
+            tz = '{}{} --{}'.format(m.group('tz_sign'), m.group('tz_hours'), m.group('tz_minutes'))
             
             if apply_tz:
                 tz = tz.split(':')[0]
@@ -913,7 +914,7 @@ class DoniDt(object):
 
         elif self.dtype == 'dt':
             # Datetime
-            dt = '{}-{}-{} {}:{}:{}'.format(
+            dt = '{}-{}-{} {} --{} --{}'.format(
                 m.group('year'), m.group('month'), m.group('day'),
                 m.group('hours'), m.group('minutes'), m.group('seconds'))
             self.dtype = 'dt'
@@ -928,11 +929,13 @@ class DoniDt(object):
     def detect_dtype(self):
         """
         Get datatype as one of 'd', 'dt', 'dt_tz', and return regex match object.
+
+        Arguments:
+            none
         
         Returns:
-            str
+            {str}
         """
-        import re
         if re.search(self.rgx.dt_tz, self.val):
             return ('dt_tz', re.search(self.rgx.dt_tz, self.val))
         elif re.search(self.rgx.dt, self.val):
@@ -957,12 +960,11 @@ class Git(object):
         up to date and does not require commit, False if commit is required.
     
         Arguments:
-            nothing
+            none
         
         Returns:
-            bool
+            {bool}
         """
-        from pydoni.sh import syscmd
         out = syscmd('git status').decode()
         working_tree_clean = "On branch masterYour branch is up to date with 'origin/master'.nothing to commit, working tree clean"
         not_git_repo = 'fatal: not a git repository (or any of the parent directories): .git'
@@ -979,12 +981,11 @@ class Git(object):
     
         Arguments:
             fpath (str or list): file(s) to add
-            all   (bool)       : if True, execute 'git add .'
+            all   {bool}       : if True, execute 'git add .'
         
         Returns:
             nothing
         """
-        from pydoni.sh import syscmd
         if all == True and fpath is None:
             syscmd('git add .;', encoding='utf-8')
         elif isinstance(fpath, str):
@@ -998,12 +999,11 @@ class Git(object):
         Execute 'git commit -m {}' where {} is commit message.
     
         Arguments:
-            msg (str): commit message
+            msg {str} -- commit message
         
         Returns:
             nothing
         """
-        import subprocess
         subprocess.call("git commit -m '{}';".format(msg), shell=True)
 
     def push(self):
@@ -1011,12 +1011,11 @@ class Git(object):
         Execute 'git push'.
     
         Arguments:
-            nothing
+            none
         
         Returns:
             nothing
         """
-        import subprocess
         subprocess.call("git push;", shell=True)
 
     def pull(self):
@@ -1024,12 +1023,11 @@ class Git(object):
         Execute 'git pull'.
     
         Arguments:
-            nothing
+            none
         
         Returns:
             nothing
         """
-        import subprocess
         subprocess.call("git pull;", shell=True)
 
 
@@ -1038,13 +1036,10 @@ class Song(object):
     Gather metadata attributes of an .mp3 file
 
     Arguments:
-        fname (str): path to .mp3 file
+        fname {str} -- path to .mp3 file
     """
     
     def __init__(self, fname):
-        import re
-        from os.path import dirname, abspath
-        from pydoni.sh import EXIF
 
         # File parameters
         self.fname = fname
@@ -1084,7 +1079,7 @@ class Song(object):
         Get the image EXIF metadata.
         
         Returns:
-            str
+            {str}
         """
         if 'picture' in self.exif.keys():
             return self.exif['picture']
@@ -1096,7 +1091,7 @@ class Song(object):
         Get the raw disc EXIF metadata if it exists. Most likely it will not exist.
         
         Returns:
-            str
+            {str}
         """
         if 'part_of_set' in self.exif.keys():
             return self.exif['part_of_set']
@@ -1113,9 +1108,8 @@ class Song(object):
         those places, return nothing.
         
         Returns:
-            int
+            {int}
         """
-        import re
 
         if disc_raw is None:
             return 1
@@ -1140,9 +1134,8 @@ class Song(object):
         to parse from song filename.
         
         Returns:
-            str
+            {str}
         """
-        import re
         if 'track' in self.exif.keys():
             return self.exif['track']
         else:
@@ -1162,9 +1155,8 @@ class Song(object):
         Extract the 5, 9 and 2 respectively and convert to int.
         
         Returns:
-            int or None
+            {int} or {None}
         """
-        import re
 
         # No 'track' EXIF attribute, attempt to parse from filename
         if re.match(r'^\d+-\d+ ', self.fname):
@@ -1187,9 +1179,8 @@ class Song(object):
         Parse the year from the directory (album) name.
         
         Returns:
-            int or None
+            {int} or {None}
         """
-        import re
         if re.match(r'(.*?)\((\d{4})\)', self.dname):
             year = re.sub(r'(.*?)(\(\[)(\d{4})(\)\])(.*)', r'\3', self.dname)
             year = int(year) if year.isdigit() else None
@@ -1208,10 +1199,8 @@ class Song(object):
         Attempt to parse song title from raw filename.
         
         Returns:
-            str or None
+            {str} or {None}
         """
-        import re
-        from titlecase import titlecase
 
         # First check regex, then filename
         if 'title' in self.exif.keys():
@@ -1236,10 +1225,8 @@ class Song(object):
         Attempt to parse song artist from raw filename.
         
         Returns:
-            str or None
+            {str} or {None}
         """
-        import re
-        from titlecase import titlecase
 
         # First check EXIF metadata
         if 'artist' in self.exif.keys():
@@ -1265,10 +1252,8 @@ class Song(object):
         Get EXIF album value and apply any corrections.
         
         Returns:
-            str
+            {str}
         """
-        import re
-        from os.path import dirname
 
         if 'album' in self.exif.keys():
             val = self.exif['album']
@@ -1287,7 +1272,7 @@ class Song(object):
         Get song genre from EXIF metadata
         
         Returns:
-            str
+            {str}
         """
         if 'genre' in self.exif.keys():
             val = self.exif['genre']
@@ -1306,10 +1291,8 @@ class Song(object):
             val {str} -- value to clean
         
         Returns:
-            str
+            {str}
         """
-        import re
-        from titlecase import titlecase
 
         # Keep words that are all uppercase, generally acronyms. Titlecase will
         # convert all letters besides the first to lowercase
@@ -1366,9 +1349,8 @@ class Song(object):
             attr_value {value} -- value of attribute to set
         
         Returns:
-            bool or str -- True if successful, error message as string if unsuccessful
+            {bool} or {str} -- True if successful, error message as string if unsuccessful
         """
-        from pydoni.sh import mid3v2
         
         try:
             mid3v2(self.fname, attr_name=attr_name, attr_value=attr_value)
@@ -1383,16 +1365,10 @@ class Album(object):
     considering the metadata of all songs within the album.
     
     Arguments:
-        dname (str): path to directory containing album of music files
+        dname {str} -- path to directory containing album of music files
     """
 
     def __init__(self, dname):
-        from os import chdir, getcwd
-        from os.path import basename, isdir
-        from pydoni.os import listfiles
-        from pydoni.vb import echo
-        from pydoni.pyobj import listmode
-        from pydoni.classes import Song
 
         # Navigate to target directory
         if basename(getcwd()) != dname:
@@ -1475,9 +1451,8 @@ class Album(object):
         Get the number of discs in album.
         
         Returns:
-            int
+            {int}
         """
-        import re
 
         # Get first from song disc indices
         discs = list(filter(None, list(set(song_disc_idxs))))
@@ -1507,10 +1482,10 @@ class Album(object):
         of tracks on disc is equal to the total number of music files in directory.
     
         Arguments:
-            trackraw_vals (list): list of trackraw values 
+            trackraw_vals {list} -- list of trackraw values 
         
         Returns:
-            int
+            {int}
         """
         if all([x is None for x in track_raw_vals]):
             return None
@@ -1543,11 +1518,8 @@ class Album(object):
         Attempt to extract album year from directory name.
 
         Returns:
-            int or None
+            {int} or {None}
         """
-        import re
-        import datetime
-        from os.path import basename
 
         # Establish valid year ranges to check extracted year string against, from year
         # 1800 to current year plus one year
@@ -1598,11 +1570,8 @@ class Album(object):
             image_outfile {str} -- path to desired image outfile from Wikipedia
         
         Returns:
-            str -- genre string scraped from Wikipedia, may be comma-separated for multiple genres
+            {str} -- genre string scraped from Wikipedia, may be comma-separated for multiple genres
         """
-        import requests
-        from os.path import isfile
-        from send2trash import send2trash
 
         def search_google_for_album_wikipage(artist, year, album):
             """
@@ -1614,11 +1583,8 @@ class Album(object):
                 album {str} -- album title
             
             Returns:
-                str -- URL to Wikipedia page
+                {str} -- URL to Wikipedia page
             """
-            import re
-            import bs4
-            import googlesearch
             clean_album = re.sub(
                 r'(\[|\()(.*?)(\]|\))|CD\s*\d+|Disc\s*\d+', '', album, flags=re.IGNORECASE).strip()
             query = '{} {} {} album site:wikipedia.org'.format(
@@ -1638,11 +1604,9 @@ class Album(object):
                 wikilink {str} -- link to Wikipedia page to scrape and
             
             Returns:
-                str -- genre(s) parsed from Wikipedia page
+                {str} -- genre(s) parsed from Wikipedia page
             """
 
-            from titlecase import titlecase
-            from pydoni.web import get_element_by_selector
 
             # Scrape page for CSS selector
             genre = get_element_by_selector(wikilink, '.category a')
@@ -1673,9 +1637,6 @@ class Album(object):
             Returns:
                 nothing
             """
-            import re
-            from os.path import splitext, isfile
-            from pydoni.web import get_element_by_xpath, downloadfile
 
             # Get image xpath
             img_xpath = get_element_by_xpath(
@@ -1706,9 +1667,8 @@ class Album(object):
                     album_artwork_file {str} -- downloaded image file
                 
                 Returns:
-                    bool
+                    {bool}
                 """
-                from pydoni.sh import stat
                 return int(stat(album_artwork_file)['Size']) > 1000
 
         # Execute steps used for getting both Genre and Image

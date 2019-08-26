@@ -1,3 +1,20 @@
+import re
+import os
+import csv
+import pyodbc
+import pymysql
+import datetime
+import subprocess
+import pandas as pd
+from os.path import isfile, expanduser
+from os import getcwd, chdir
+from sqlalchemy import create_engine
+from sqlalchemy import text
+from tqdm import tqdm
+from pydoni.classes import DoniDt
+from pydoni.os import listfiles
+from pydoni.vb import echo
+
 def connect_odbc(driver, server, db, user, pw):
     """
     Establish ODBC database connection.
@@ -12,7 +29,6 @@ def connect_odbc(driver, server, db, user, pw):
     Returns:
         [type] -- [description]
     """
-    import pyodbc
     con_string = 'Driver={%s};Server=%s;Database=%s;uid=%s;pwd=%s' % \
         (driver, server, db, user, pw)
     dbhandle = pyodbc.connect(con_string)
@@ -40,9 +56,8 @@ class MySQL(object):
         Connect to MySQL database.
         
         Returns:
-            [pmysql] -- MySQL database connection object
+            {pmysql} -- MySQL database connection object
         """
-        import pymysql
         dbhandle = pymysql.connect(
             host        = 'localhost',
             user        = self.user,
@@ -72,9 +87,8 @@ class Postgres(object):
         Connect to Postgres database.
         
         Returns:
-            [sqlalchemy] -- database connection
+            {sqlalchemy} -- database connection
         """
-        from sqlalchemy import create_engine
         return create_engine('postgresql://{}@localhost:5432/{}'.format(
             self.dbuser, self.dbname))
 
@@ -93,11 +107,8 @@ class Postgres(object):
         Returns:
             {bool} -- always return True
         """
-        import datetime
-        from sqlalchemy import text
         assert isinstance(sql, str) or isinstance(sql, list)
         if logfile is not None:
-            from os.path import isfile
             assert isinstance(logfile, str)
             assert isfile(logfile)
             write_log = True
@@ -107,7 +118,6 @@ class Postgres(object):
         sql = [sql] if isinstance(sql, str) else sql
         with self.dbcon.begin() as con:
             if progress:
-                from tqdm import tqdm
                 for stmt in tqdm(sql):
                     con.execute(text(stmt))
                     if write_log:
@@ -139,7 +149,6 @@ class Postgres(object):
         Returns::
             {pd.DataFrame} or {pd.Series}
         """
-        import pandas as pd
         return pd.read_sql(sql, con=self.dbcon)
 
     def validate_dtype(self, schema, table, col, val):
@@ -156,7 +165,6 @@ class Postgres(object):
         Returns:
             {bool}
         """
-        from pydoni.vb import echo
 
         # If value is 'NULL', return True automatically, as NULL may exist in a column of
         # any datatype
@@ -281,9 +289,6 @@ class Postgres(object):
         Returns:
             str
         """
-        import re
-        from pydoni.vb import echo
-        from pydoni.classes import DoniDt
 
         # Get columns and values
         columns = [columns] if isinstance(columns, str) else columns
@@ -344,9 +349,6 @@ class Postgres(object):
         Returns:
             str
         """
-        import re
-        from pydoni.vb import echo
-        from pydoni.classes import DoniDt
 
         # Get columns and values
         columns = [columns] if isinstance(columns, str) else columns
@@ -419,7 +421,6 @@ class Postgres(object):
         Returns:
             {dict} -- dictionary of key:value pairs of column_name:column_datatype
         """
-        import pandas as pd
         dtype = self.read_sql("""
             SELECT column_name, data_type
             FROM INFORMATION_SCHEMA.COLUMNS
@@ -448,9 +449,7 @@ class Postgres(object):
         Arguments:
             backup_dir_abspath {str} -- absolute path to directory to dump Postgres database to
         """
-        import subprocess
-        import os
-        backup_dir_abspath = os.path.expanduser(backup_dir_abspath)
+        backup_dir_abspath = expanduser(backup_dir_abspath)
         cmd = 'pg_dump {} > "{}/{}.sql"'.format(
             self.dbname, backup_dir_abspath, self.dbname)
         out = subprocess.call(cmd, shell=True)
@@ -496,12 +495,8 @@ class Postgres(object):
         # Replace 'sep' if different from ',' and quote each text field.
         if coerce_csv:
             if sep != ',':
-                import os
-                import csv
-                import pandas as pd
-                from pydoni.os import listfiles
-                wd = os.getcwd()
-                os.chdir(backup_dir_abspath)
+                wd = getcwd()
+                chdir(backup_dir_abspath)
 
                 # Get tables that were dumped and build filenames
                 get_dumped_tables = """SELECT (table_schema || '.' || table_name) AS schema_table
@@ -521,7 +516,7 @@ class Postgres(object):
                 for csvfile in dumped_tables:
                     pd.read_csv(csvfile, sep=sep).to_csv(
                         csvfile, quoting=csv.QUOTE_NONNUMERIC, index=False)
-                os.chdir(wd)
+                chdir(wd)
 
     def __handle_single_quote__(self, val):
         """

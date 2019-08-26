@@ -1,20 +1,26 @@
+import os
+import re
+import zipfile
+from os import getcwd, walk, listdir, getcwd, chdir
+from os.path import isdir, isfile, expanduser, join, basename, splitext
+from pydoni.sh import syscmd
+
 def listfiles(path='.', pattern=None, ext=None, full_names=False, recursive=False, ignore_case=True, include_hidden_files=False):
     """
     List files in a given directory.
-    Args
-        path       (str) : directory path in which to search for files
-        pattern    (str) : if specified, filter resulting files by matching regex pattern
-        ext        (str) : extention or list of extensions to filter resulting files by
-        full_names (bool): if True, return full filepath from current directory instead of just the file's basename
-        recursive            (bool): if True, search recursively down the directory tree for files
-        ignore_case          (bool): if True, use re.IGNORECASE flag when filtering files by regex specified in `pattern` parameter
-        include_hidden_files (bool): if True, include hidden files in resulting file list
-    Returns
-        list
+    
+    Keyword Arguments:
+        path                  {str} -- directory path in which to search for files (default: {'.'})
+        pattern               {str} -- if specified, filter resulting files by matching regex pattern (default: {None})
+        ext         {str} or {list} -- extention or list of extensions to filter resulting files by (default: {None})
+        full_names           {bool} -- if True, return full filepath from current directory instead of just the file's basename (default: {False})
+        recursive            {bool} -- if True, search recursively down the directory tree for files (default: {False})
+        ignore_case          {bool} -- if True, use re.IGNORECASE flag when filtering files by regex specified in `pattern` parameter (default: {True})
+        include_hidden_files {bool} -- if True, include hidden files in resulting file list (default: {False})
+    
+    Returns:
+        {list} -- list of files
     """
-    from os import getcwd, walk, listdir, getcwd, chdir
-    from os.path import isdir, join, basename, splitext
-    from pydoni.vb import echo
 
     # Check if specified path exists
     if not isdir(path):
@@ -36,7 +42,6 @@ def listfiles(path='.', pattern=None, ext=None, full_names=False, recursive=Fals
     
     # If a regex pattern is specified, filter file list by that pattern
     if pattern is not None:
-        import re
         if ignore_case:
             fnames = [x for x in fnames if re.search(pattern, x, re.IGNORECASE)]
         else:
@@ -66,17 +71,16 @@ def listfiles(path='.', pattern=None, ext=None, full_names=False, recursive=Fals
 def listdirs(path='.', pattern=None, full_names=False, recursive=False):
     """
     List directories at a given directory.
-    Args
-        path       (str) : directory path in which to search for subdirectories
-        pattern    (str) : if specified, filter resulting dirs by matching regex pattern
-        full_names (bool): if True, return full directory path from current directory instead of just the directory's basename
-        recursive  (bool): if True, search recursively down the directory tree for files
-    Returns
-        list
+    
+    Keyword Arguments:
+        path        {str} -- directory path in which to search for subdirectories
+        pattern     {str} -- if specified, filter resulting dirs by matching regex pattern
+        full_names {bool} -- if True, return full directory path from current directory instead of just the directory's basename
+        recursive  {bool} -- if True, search recursively down the directory tree for files
+    
+    Returns:
+        {list} -- list of directories
     """
-    from os import getcwd, walk, getcwd, chdir
-    from os.path import isdir, join
-    from pydoni.vb import echo
 
     # Check if specified path exists
     if not isdir(path):
@@ -104,7 +108,6 @@ def listdirs(path='.', pattern=None, full_names=False, recursive=False):
     
     # If a regex pattern is specified, filter directory list by that pattern
     if pattern is not None:
-        import re
         dnames = [x for x in dnames if re.match(pattern, x)]
     
     # Change back to original directory
@@ -117,24 +120,25 @@ def listdirs(path='.', pattern=None, full_names=False, recursive=False):
 class FinderMacOS(object):
     """
     MacOS Finder object. Holds functions to carry out Finder operations on a file or directory.
-    Args
-        fpath (str): path to file
+    
+    Arguments:
+        fpath {str} -- path to file
     """
     def __init__(self, fpath):
-        from os.path import isfile
         if not isfile(fpath):
-            from pydoni.vb import echo
             echo("Specified filepath '{}' does not exist!".format(fpath), abort=True)
         self.fpath = fpath
     
     def get_comment(self):
         """
         Call `mdls` BASH command to retrieve a file's Finder comment on macOS.
-        Args: none
-        Returns: str
+        
+        Arguments:
+            none
+
+        Returns:
+            {str}
         """
-        import os
-        from pydoni.sh import syscmd
         self.__assert_fpath__()
         cmd = 'mdls -r -nullMarker "" -n kMDItemFinderComment "%s"' % self.fpath
         res = syscmd(cmd, encoding='utf-8')
@@ -145,13 +149,13 @@ class FinderMacOS(object):
     def write_comment(self, comment):
         """
         Use Applescript to write a Finder comment to a file.
-        Args
-            comment (str): comment string to write to file
-        Returns
-            bool
+        
+        Arguments:
+            comment {str} -- comment string to write to file
+        
+        Returns:
+            {bool}
         """
-        import re
-        from pydoni.sh import syscmd
         self.__assert_fpath__()
 
         # First clear the comment field, then write new value
@@ -171,10 +175,13 @@ class FinderMacOS(object):
     def remove_comment(self):
         """
         Use Applescript to remove a file's Finder comment.
-        Args: none; Returns: bool
+        
+        Arguments:
+            none
+
+        Returns:
+            {bool}
         """
-        import os, re
-        from pydoni.vb import echo
         self.__assert_fpath__()
         
         # Remove finder comment by setting to ''
@@ -190,10 +197,13 @@ class FinderMacOS(object):
     def get_tag(self):
         """
         Parse `mdls` output to get a file's Finder tags.
-        Args: none; Returns: list
+        
+        Arguments:
+            none
+
+        Returns:
+            {list}
         """
-        import os
-        from pydoni.sh import syscmd
         self.__assert_fpath__()
         cmd = 'mdls -r -nullMarker "" -n kMDItemUserTags "%s"' % self.fpath
         tags = str(syscmd(cmd, encoding='utf-8'))
@@ -208,13 +218,13 @@ class FinderMacOS(object):
         """
         Write Finder tag or tags to a file. Requires Jdberry's 'tag' command line utility to
         be installed. Install here: https://github.com/jdberry/tag
-        Args
-            tag (str or list): string or list of finder tags. Usually one or more of 'Red', 'Orange', 'Yellow', ...
-        Returns
-            bool
+        
+        Arguments:
+            tag {str} or {list} -- string or list of finder tags. Usually one or more of 'Red', 'Orange', 'Yellow', ...
+        
+        Returns:
+            {bool}
         """
-        import os
-        from pydoni.sh import syscmd
         tag = [tag] if isinstance(tag, str) else tag
         res = []
         for tg in tag:
@@ -232,21 +242,24 @@ class FinderMacOS(object):
         """
         Remove a Finder tag or tags from a file. Requires Jdberry's 'tag' command line utility to
         be installed. Install here: https://github.com/jdberry/tag
-        Args
-            tag (str or list): name(s) of Finder tags to remove
-        Returns
-            bool
+        
+        Arguments:
+            tag {str} or {list} -- name(s) of Finder tags to remove
+        
+        Returns:
+            {bool}
         """
-        import os
-        from pydoni.sh import syscmd
+        
         if tag == 'all':
             tag = self.get_tag()
         elif isinstance(tag, str):
             tag = [tag]
+        
         res = []
         for tg in tag:
             z = syscmd('tag --remove "%s" "%s"' % (tg, self.fpath))
             res.append(z)
+        
         if len(list(set(res))) == 1:
             if list(set(res)) == [0]:
                 return True
@@ -256,8 +269,6 @@ class FinderMacOS(object):
             return False
     
     def __assert_fpath__(self):
-        from os.path import isfile
-        from pydoni.vb import echo
         if not isfile(self.fpath):
             echo("`self.fpath` '{}' no longer exists!".format(self.fpath),
                 fn_name='FinderMacOS.*', abort=True)
@@ -267,14 +278,14 @@ def assert_dpath(dpaths=[], abort=True):
     """
     Check that a given path or paths exist. Optional abort program if one or more directories
     do not exist.
-    Args
-        dpaths (str or list): directory path(s) to check for existence
-        abort  (bool)       : if True, `quit()` will be executed if one or more directories do not exist
-    Returns
-        bool
+    
+    Keyword Arguments:
+        dpaths {str} or {list} -- directory path(s) to check for existence
+        abort {bool} -- if True, `quit()` will be executed if one or more directories do not exist
+    
+    Returns:
+        {bool}
     """
-    from os.path import isdir, expanduser
-    from pydoni.vb import echo, clickfmt
     
     # Expand directory paths
     if not isinstance(dpaths, list):
@@ -308,13 +319,14 @@ def assert_dpath(dpaths=[], abort=True):
 def unarchive(fpath, dest_dir):
     """
     Unpack a .zip archive.
-    Args
-        fpath    (str): path to zip archive file
-        dest_dir (str): path to destination extract directory
-    Returns
+    
+    Arguments:
+        fpath {str} -- path to zip archive file
+        dest_dir {str} -- path to destination extract directory
+    
+    Returns:
         nothing
     """
-    import zipfile
     with zipfile.ZipFile(fpath, 'r') as zip_ref:
         zip_ref.extractall(dest_dir)
 
@@ -324,20 +336,19 @@ def macos_notify(title='', subtitle=None, message='', app_icon=None, content_ima
     Python wrapper for julienXX's terminal-notifier gem found here:
     https://github.com/julienXX/terminal-notifier
 
-    Args
-        title         (str)    : title string for notification
-        subtitle      (str)    : subtitle string for notification
-        message       (str)    : message string for notification
-        app_icon      (str)    : path to image file to display instead of application icon
-        content_image (str)    : path to image file to attach inside of notification
-        command       (str)    : shell command string to execute when notification is clicked
-        open_iterm    (boolean): overwrites 'command' parameter as 'open /Applications/iTerm.app'
-    Returns
+    
+    Keyword Arguments:
+        title         {str} -- title string for notification
+        subtitle      {str} -- subtitle string for notification
+        message       {str} -- message string for notification
+        app_icon      {str} -- path to image file to display instead of application icon
+        content_image {str} -- path to image file to attach inside of notification
+        command       {str} -- shell command string to execute when notification is clicked
+        open_iterm   {bool} -- overwrites 'command' parameter as 'open /Applications/iTerm.app'
+    
+    Returns:
         nothing
     """
-    import os
-    from pydoni.sh import syscmd
-    from pydoni.vb import echo
 
     # Check that terminal-notifier is installed
     tnv = syscmd('which terminal-notifier').decode().strip()
