@@ -1,28 +1,3 @@
-import bs4
-import click
-import contextlib
-import datetime
-import googlesearch
-import numpy as np
-import omdb
-import requests
-import shutil
-import subprocess
-import wave
-from datetime import datetime
-from google.cloud import speech_v1p1beta1 as speech
-from os import chdir, getcwd, mkdir, environ
-from os.path import splitext, isfile, dirname, abspath, basename, isdir, expanduser, join
-from pydub import AudioSegment
-from send2trash import send2trash
-from titlecase import titlecase
-from tqdm import tqdm
-from pydoni.os import listdirs, listfiles, unarchive
-from pydoni.pyobj import cap_nth_char, replace_nth_char, insert_nth_char, listmode, systime
-from pydoni.sh import EXIF, mid3v2, stat, syscmd
-from pydoni.vb import echo
-from pydoni.web import downloadfile, get_element_by_selector, get_element_by_xpath, downloadfile
-
 class Attribute(object):
     """
     General attribute to be used either as a standalone class in and of itself, or as an
@@ -1708,3 +1683,28 @@ class Album(object):
                     self.is_image_downloaded_from_wikipedia = False
             else:
                 self.is_image_downloaded_from_wikipedia = False
+
+import bs4
+import click
+import contextlib
+import datetime
+import googlesearch
+import numpy as np
+import omdb
+import requests
+import shutil
+import subprocess
+import wave
+from datetime import datetime
+from google.cloud import speech_v1p1beta1 as speech
+from os import chdir, getcwd, mkdir, environ
+from os.path import splitext, isfile, dirname, abspath, basename, isdir, expanduser, join
+from pydub import AudioSegment
+from send2trash import send2trash
+from titlecase import titlecase
+from tqdm import tqdm
+from pydoni.os import listdirs, listfiles, unarchive
+from pydoni.pyobj import cap_nth_char, replace_nth_char, insert_nth_char, listmode, systime
+from pydoni.sh import EXIF, mid3v2, stat, syscmd
+from pydoni.vb import echo
+from pydoni.web import downloadfile, get_element_by_selector, get_element_by_xpath, downloadfile

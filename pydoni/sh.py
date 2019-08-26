@@ -1,15 +1,3 @@
-import datetime
-import exiftool
-import numpy as np
-import re
-import subprocess
-from collections import Counter, OrderedDict
-from itertools import chain
-from os.path import isfile, isdir, join, splitext, basename
-from pydoni.classes import DoniDt
-from pydoni.pyobj import fmt_seconds, split_at, duplicated
-from pydoni.vb import echo, clickfmt
-
 def syscmd(cmd, encoding=''):
     """
     Runs a command on the system, waits for the command to finish, and then
@@ -706,3 +694,15 @@ class EXIF(object):
                 val = evalutate_error(val, onerror, e)
 
         return val
+
+import datetime
+import exiftool
+import numpy as np
+import re
+import subprocess
+from collections import Counter, OrderedDict
+from itertools import chain
+from os.path import isfile, isdir, join, splitext, basename
+from pydoni.classes import DoniDt
+from pydoni.pyobj import fmt_seconds, split_at, duplicated
+from pydoni.vb import echo, clickfmt

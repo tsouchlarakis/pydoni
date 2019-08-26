@@ -1,11 +1,3 @@
-import time
-import click
-from emoji import emojize
-from os.path import expanduser
-from datetime import datetime
-from pydoni.pyobj import fmt_seconds
-from pydoni.os import macos_notify
-
 def echo(
     msg,
     indent       = 0,
@@ -335,3 +327,12 @@ def program_complete(
         echo(msg, notify=True, notification=notification)
     else:
         echo(msg)
+
+
+import time
+import click
+from emoji import emojize
+from os.path import expanduser
+from datetime import datetime
+from pydoni.pyobj import fmt_seconds
+from pydoni.os import macos_notify

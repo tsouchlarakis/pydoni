@@ -1,8 +1,3 @@
-from os.path import isfile
-from pydoni.sh import syscmd
-from pydoni.vb import echo
-from pydub import AudioSegment
-
 def join_audiofiles_ffmpeg(audiofiles, targetfile):
     """
     Join multiple audio files into a single audio file using a direct call to ffmpeg.
@@ -99,3 +94,8 @@ def join_audiofiles(audiofiles, targetfile, method=None, silence_between=0):
         out = join_audiofiles_pydub(audiofiles, targetfile, silence_between)
 
     return out
+
+from os.path import isfile
+from pydoni.sh import syscmd
+from pydoni.vb import echo
+from pydub import AudioSegment

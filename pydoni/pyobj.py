@@ -1,8 +1,3 @@
-import re
-import datetime
-from os.path import expanduser, splitext
-from pydoni.vb import echo
-
 class DoniDict(dict):
     """
     Dictionary class with recursive 'get' method.
@@ -29,7 +24,7 @@ def dictSApply(func, d):
     
     Arguments:
         func {function} -- name of function to apply.
-        d    {dict} -- dictionary to apply `func` to.
+        d {dict} -- dictionary to apply `func` to.
 
     Returns:
         {dict}
@@ -107,7 +102,12 @@ def assert_len(varlist, varnames=None):
         return True
 
 
-def user_select_from_list(lst, indent=0, msg='Please make a selection (hyphen-separated range ok): ', allow_range=True):
+def user_select_from_list(
+    lst,
+    indent=0,
+    msg='Please make a selection (hyphen-separated range ok): ',
+    allow_range=True
+    ):
     """
     Prompt user to make a selection from a list. Supports comma- and hyphen-separated selection.
     For example, a user may select elements from a list as:
@@ -115,13 +115,14 @@ def user_select_from_list(lst, indent=0, msg='Please make a selection (hyphen-se
     
     Arguments:
         lst {list} -- list of selections
-        indent {int} -- indentation level of all items of `lst`
-        msg {str} -- [optional] custom message to print instead of default
-        allow_range {bool} -- if True, allow user to make multiple selections
+
+    Keyword Arguments:
+        indent {int} -- indentation level of all items of `lst` (default: {0})
+        msg {str} -- custom message to print instead of default (default: {'Please make a selection (hyphen-separated range ok): '})
+        allow_range {bool} -- if True, allow user to make multiple selections (default: {True})
 
     Returns:
         {list} -- slice of `lst`
-        or
         {str} -- element of `lst`
     """
     
@@ -193,9 +194,11 @@ def fmt_seconds(time_in_sec, units='auto', round_digits=4):
     Format time in seconds to a custom string.
     
     Arguments:
-        time_in_sec  {int} -- time in seconds to format
-        units        {str} -- target units to format seconds as, one of ['auto', 'seconds', 'minutes', 'hours', 'days']
-        round_digits {int} -- number of digits to round to
+        time_in_sec {int} -- time in seconds to format
+
+    Keyword Arguments:
+        units {str} -- target units to format seconds as, one of ['auto', 'seconds', 'minutes', 'hours', 'days'] (default: {'auto'})
+        round_digits {int} -- number of digits to round to (default: {4})
     Return:
         {dict} -- dict(
             units = {str},
@@ -235,7 +238,7 @@ def fmt_seconds(time_in_sec, units='auto', round_digits=4):
 
 def listmode(lst):
     """
-    Get the most frequently-occurring value in a list.
+    Get the most frequently occurring value in a list.
     
     Arguments:
         lst {list} -- list to get mode from
@@ -582,3 +585,10 @@ def markdown_toc(md_fpath, li_type):
     h_toc = ['## Table of Contents', ''] + h_toc
     
     return '\n'.join(h_toc)
+
+
+
+import re
+import datetime
+from os.path import expanduser, splitext
+from pydoni.vb import echo

@@ -1,10 +1,3 @@
-import os
-import re
-import zipfile
-from os import getcwd, walk, listdir, getcwd, chdir
-from os.path import isdir, isfile, expanduser, join, basename, splitext
-from pydoni.sh import syscmd
-
 def listfiles(path='.', pattern=None, ext=None, full_names=False, recursive=False, ignore_case=True, include_hidden_files=False):
     """
     List files in a given directory.
@@ -332,7 +325,6 @@ def macos_notify(title='', subtitle=None, message='', app_icon=None, content_ima
     """
     Python wrapper for julienXX's terminal-notifier gem found here:
     https://github.com/julienXX/terminal-notifier
-
     
     Keyword Arguments:
         title         {str} -- title string for notification
@@ -353,7 +345,7 @@ def macos_notify(title='', subtitle=None, message='', app_icon=None, content_ima
         echo("terminal-notifier is not installed! Please install it per instructions at https://github.com/julienXX/terminal-notifier", abort=True)
 
     # Check that operating system is macOS
-    if os.name.lower() != 'posix':
+    if os_name.lower() != 'posix':
         echo('Operating system is not macOS!', abort=True)
 
     # Build list of arguments for terminal-notifier and check that each parameter is valid
@@ -384,4 +376,12 @@ def macos_notify(title='', subtitle=None, message='', app_icon=None, content_ima
     
     # Build final command and execute
     cmd = 'terminal-notifier {}'.format(' '.join(cl_string))
-    os.system(cmd)
+    syscmd(cmd)
+
+
+import os
+import re
+import zipfile
+from os import getcwd, walk, listdir, getcwd, chdir, name as os_name
+from os.path import isdir, isfile, expanduser, join, basename, splitext
+from pydoni.sh import syscmd
