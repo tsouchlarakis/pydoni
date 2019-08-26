@@ -60,6 +60,7 @@ def get_element_by_xpath(url, xpath):
     tree = html.fromstring(page.content)
     return tree.xpath(xpath)
 
+
 def downloadfile(url, destfile):
     """
     Download file from the web to a local file.
