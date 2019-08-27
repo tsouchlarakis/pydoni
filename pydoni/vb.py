@@ -1,3 +1,10 @@
+import time
+import click
+from emoji import emojize
+from os.path import expanduser
+from datetime import datetime
+
+
 def echo(
     msg,
     indent       = 0,
@@ -71,30 +78,41 @@ def echo(
     msg = click.style(msg, fg=fg, bg=bg, bold=bold, dim=dim, underline=underline,
         blink=blink, reverse=reverse)
 
-    # Add 'ERROR: ' or 'ERROR (fatal): ' or 'WARNING: ' to beginning of string, and add function
-    # name if specified
-    if error or abort or warn:
-        msg = '{}{}{} {}'.format(
-            click.style('ERROR' if error or abort else 'WARNING',
-                       fg='red' if error or abort else 'yellow', bold=True),
-            click.style(' (fatal)' if abort else '', fg='red', bold=True),
-            click.style(' in function {}():'.format(fn_name) if fn_name else ':',
-                fg='red' if error or abort else 'yellow', bold=True), msg)
-    
+    # Add 'ERROR: ' or 'ERROR (fatal): ' or 'WARNING: ' to beginning of string
+    if abort:
+        ew_string = click.style('Error (fatal): ', fg='red')
+    elif error:
+        ew_string = click.style('Error: ', fg='red')
+    elif warn:
+        ew_string = click.style('Warning: ', fg='yellow')
+    else:
+        ew_string = ''
+
+    # Function name string
+    if fn_name:
+        if error or abort:
+            fn_name_col = 'red'
+        elif warn:
+            fn_name_col = 'yellow'
+        else:
+            fn_name_col = 'white'
+        fnn_string = click.style('<fn: ', fg=fn_name_col) + \
+            click.style(fn_name.replace('(', '').replace(')', '') + '()', fg='white') + \
+            click.style('> ', fg=fn_name_col)
+    else:
+        fnn_string = ''
+
     # Add indentation. If not specified, adds an empty string
-    tab = '  ' * indent if indent > 0 else ''
-    msg = tab + msg
+    idt_string = '  ' * indent if indent > 0 else ''
 
     # Add timestamp if specified
-    if timestamp:
-        timestamp = click.style(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), fg='cyan', bold=False)
-        if tab == '':
-            msg = timestamp + ' ' + msg
-        else:
-            msg = timestamp + msg
+    ts_string = click.style(datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' ', fg='cyan') if timestamp else ''
     
+    # Construct message
+    msg_out = ts_string + fnn_string + idt_string + ew_string + msg
+
     # Print message to STDOUT
-    click.echo(msg)
+    click.echo(msg_out)
     
     # If `error_msg` is specified, print after `msg`
     if error_msg:
@@ -106,26 +124,25 @@ def echo(
         # Ex. If a user supplies notification=dict(title='test title'), then all other
         # notification elements (subtitle, app_icon, ...) will be not present in dictionary.
         # Assign these nonexistent values to default.
-        if 'title' not in notification.keys():
-            notification['title'] = ''
-        if 'subtitle' not in notification.keys():
-            notification['subtitle'] = None
-        if 'message' not in notification.keys():
-            notification['message'] = msg_raw
-        if 'app_icon' not in notification.keys():
-            notification['app_icon'] = None
-        if isinstance(notification['app_icon'], str):
-            if '~' in notification['app_icon']:
-                notification['app_icon'] = expanduser(notification['app_icon'])
-        if 'content_image' not in notification.keys():
-            notification['content_image'] = None
-        if isinstance(notification['content_image'], str):
-            if '~' in notification['content_image']:
-                notification['content_image'] = expanduser(notification['content_image'])
-        if 'command' not in notification.keys():
-            notification['command'] = None
-        if 'open_iterm' not in notification.keys():
-            notification['open_iterm'] = False
+        notif_default = {
+            'title': '',
+            'subtitle': None,
+            'message': None,
+            'app_icon': None,
+            'content_image': None,
+            'command': None,
+            'open_iterm': False
+        }
+        for k, v in notif_default.items():
+            if k not in notification.keys():
+                if k in ['app_icon', 'content_image']:
+                    if isinstance(v, str):
+                        if '~' in v:
+                            v = expanduser(v)
+                notification[k] = v
+
+        notification['message'] = msg_raw if notification['message'] is None else notification['message']
+
         macos_notify(
             title         = notification['title'],
             subtitle      = notification['subtitle'],
@@ -329,10 +346,5 @@ def program_complete(
         echo(msg)
 
 
-import time
-import click
-from emoji import emojize
-from os.path import expanduser
-from datetime import datetime
 from pydoni.pyobj import fmt_seconds
 from pydoni.os import macos_notify

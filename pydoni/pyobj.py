@@ -1,3 +1,8 @@
+import re
+import datetime
+from os.path import expanduser, splitext
+
+
 class DoniDict(dict):
     """
     Dictionary class with recursive 'get' method.
@@ -587,8 +592,4 @@ def markdown_toc(md_fpath, li_type):
     return '\n'.join(h_toc)
 
 
-
-import re
-import datetime
-from os.path import expanduser, splitext
 from pydoni.vb import echo

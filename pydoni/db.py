@@ -1,3 +1,18 @@
+import re
+import os
+import csv
+import pyodbc
+import pymysql
+import datetime
+import subprocess
+import pandas as pd
+from os.path import isfile, expanduser
+from os import getcwd, chdir
+from sqlalchemy import create_engine
+from sqlalchemy import text
+from tqdm import tqdm
+
+
 def connect_odbc(driver, server, db, user, pw):
     """
     Establish ODBC database connection.
@@ -517,19 +532,6 @@ class Postgres(object):
         return val
 
 
-import re
-import os
-import csv
-import pyodbc
-import pymysql
-import datetime
-import subprocess
-import pandas as pd
-from os.path import isfile, expanduser
-from os import getcwd, chdir
-from sqlalchemy import create_engine
-from sqlalchemy import text
-from tqdm import tqdm
 from pydoni.classes import DoniDt
 from pydoni.os import listfiles
 from pydoni.vb import echo

@@ -1,110 +1,7 @@
-def listfiles(path='.', pattern=None, ext=None, full_names=False, recursive=False, ignore_case=True, include_hidden_files=False):
-    """
-    List files in a given directory.
-    
-    Keyword Arguments:
-        path                  {str} -- directory path in which to search for files (default: {'.'})
-        pattern               {str} -- if specified, filter resulting files by matching regex pattern (default: {None})
-        ext         {str} or {list} -- extention or list of extensions to filter resulting files by (default: {None})
-        full_names           {bool} -- if True, return full filepath from current directory instead of just the file's basename (default: {False})
-        recursive            {bool} -- if True, search recursively down the directory tree for files (default: {False})
-        ignore_case          {bool} -- if True, use re.IGNORECASE flag when filtering files by regex specified in `pattern` parameter (default: {True})
-        include_hidden_files {bool} -- if True, include hidden files in resulting file list (default: {False})
-    
-    Returns:
-        {list} -- list of files
-    """
-
-    assert isdir(path)
-
-    # Change to specified directory and record original directory to change back to at the end
-    wd = getcwd()
-    chdir(path)
-
-    # List files, either recursively or not recursively
-    fnames = [join(dp, f).replace('./', '') \
-        for dp, dn, filenames in walk('.') \
-        for f in filenames] if recursive else listdir()
-    
-    # Filter out hidden files if specified
-    if not include_hidden_files:
-        fnames = [fname for fname in fnames if not basename(fname).startswith('.')]
-    
-    # If a regex pattern is specified, filter file list by that pattern
-    if pattern is not None:
-        if ignore_case:
-            fnames = [x for x in fnames if re.search(pattern, x, re.IGNORECASE)]
-        else:
-            fnames = [x for x in fnames if re.search(pattern, x)]
-    
-    # If an extension or list of extensions is specified, filter resulting file list by
-    # that extension or those extensions
-    if ext:
-        ext = [ext] if isinstance(ext, str) else ext
-        ext = [x.lower() for x in ext]
-        ext = ['.' + x if not x.startswith('.') else x for x in ext]
-        fnames = [x for x in fnames if splitext(x)[1].lower() in ext]
-    
-    # Specify full name from current directory down if specified by joining the current
-    # directory onto each filename
-    if full_names:
-        path_expand = getcwd() if path == '.' else path
-        fnames = [join(path_expand, fname) for fname in fnames]
-    
-    # Change back to original directory
-    chdir(wd)
-
-    # Return sorted list of files
-    return sorted(fnames)
-
-
-def listdirs(path='.', pattern=None, full_names=False, recursive=False):
-    """
-    List directories at a given directory.
-    
-    Keyword Arguments:
-        path        {str} -- directory path in which to search for subdirectories
-        pattern     {str} -- if specified, filter resulting dirs by matching regex pattern
-        full_names {bool} -- if True, return full directory path from current directory instead of just the directory's basename
-        recursive  {bool} -- if True, search recursively down the directory tree for files
-    
-    Returns:
-        {list} -- list of directories
-    """
-
-    # Check if specified path exists
-    if not isdir(path):
-        echo("Path '{}' does not exist".format(path), fn_name='listdirs', error=True)
-        return None
-
-    # Change to specified directory and record original directory to change back to at the end
-    wd = getcwd()
-    chdir(path)
-
-    # List directories either recursively or not
-    if recursive:
-        dnames = [join(root, subdir).replace('./', '') \
-            for root, subdirs, filenames in walk('.') \
-            for subdir in subdirs]
-    else:
-        dnames = next(walk(path))[1]
-        dnames = sorted(dnames)
-    
-    # Specify full name from current directory down if specified by joining the current
-    # directory onto each dirname
-    if full_names:
-        path_expand = getcwd() if path == '.' else path
-        dnames = [join(path_expand, dname) for dname in dnames]
-    
-    # If a regex pattern is specified, filter directory list by that pattern
-    if pattern is not None:
-        dnames = [x for x in dnames if re.match(pattern, x)]
-    
-    # Change back to original directory
-    chdir(wd)
-
-    # Return sorted list of dirs
-    return sorted(dnames)
+import re
+import zipfile
+from os import getcwd, walk, listdir, getcwd, chdir, name as os_name
+from os.path import isdir, isfile, expanduser, join, basename, splitext
 
 
 class FinderMacOS(object):
@@ -132,7 +29,7 @@ class FinderMacOS(object):
         self.__assert_fpath__()
         cmd = 'mdls -r -nullMarker "" -n kMDItemFinderComment "%s"' % self.fpath
         res = syscmd(cmd, encoding='utf-8')
-        if 'could not find ' + os.path.basename(self.fpath) in res:
+        if 'could not find ' + basename(self.fpath) in res:
             res = ''
         return res
 
@@ -264,6 +161,123 @@ class FinderMacOS(object):
                 fn_name='FinderMacOS.*', abort=True)
 
 
+def listfiles(
+    path                 = '.',
+    pattern              = None,
+    ext                  = None,
+    full_names           = False,
+    recursive            = False,
+    ignore_case          = True,
+    include_hidden_files = False
+    ):
+    """
+    List files in a given directory.
+    
+    Keyword Arguments:
+        path {str} -- directory path in which to search for files (default: {'.'})
+        pattern {str} -- if specified, filter resulting files by matching regex pattern (default: {None})
+        ext {str} or {list} -- extention or list of extensions to filter resulting files by (default: {None})
+        full_names {bool} -- if True, return full filepath from current directory instead of just the file's basename (default: {False})
+        recursive {bool} -- if True, search recursively down the directory tree for files (default: {False})
+        ignore_case {bool} -- if True, use re.IGNORECASE flag when filtering files by regex specified in `pattern` parameter (default: {True})
+        include_hidden_files {bool} -- if True, include hidden files in resulting file list (default: {False})
+    
+    Returns:
+        {list} -- list of files
+    """
+
+    assert isdir(path)
+
+    # Change to specified directory and record original directory to change back to at the end
+    wd = getcwd()
+    chdir(path)
+
+    # List files, either recursively or not recursively
+    fnames = [join(dp, f).replace('./', '') \
+        for dp, dn, filenames in walk('.') \
+        for f in filenames] if recursive else listdir()
+    
+    # Filter out hidden files if specified
+    if not include_hidden_files:
+        fnames = [fname for fname in fnames if not basename(fname).startswith('.')]
+    
+    # If a regex pattern is specified, filter file list by that pattern
+    if pattern is not None:
+        if ignore_case:
+            fnames = [x for x in fnames if re.search(pattern, x, re.IGNORECASE)]
+        else:
+            fnames = [x for x in fnames if re.search(pattern, x)]
+    
+    # If an extension or list of extensions is specified, filter resulting file list by
+    # that extension or those extensions
+    if ext:
+        ext = [ext] if isinstance(ext, str) else ext
+        ext = [x.lower() for x in ext]
+        ext = ['.' + x if not x.startswith('.') else x for x in ext]
+        fnames = [x for x in fnames if splitext(x)[1].lower() in ext]
+    
+    # Specify full name from current directory down if specified by joining the current
+    # directory onto each filename
+    if full_names:
+        path_expand = getcwd() if path == '.' else path
+        fnames = [join(path_expand, fname) for fname in fnames]
+    
+    # Change back to original directory
+    chdir(wd)
+
+    # Return sorted list of files
+    return sorted(fnames)
+
+
+def listdirs(path='.', pattern=None, full_names=False, recursive=False):
+    """
+    List subdirectories in a given directory.
+    
+    Keyword Arguments:
+        path {str} -- directory path in which to search for subdirectories
+        pattern {str} -- if specified, filter resulting dirs by matching regex pattern
+        full_names {bool} -- if True, return full directory path from current directory instead of just the directory's basename
+        recursive {bool} -- if True, search recursively down the directory tree for files
+    
+    Returns:
+        {list} -- list of directories
+    """
+
+    # Check if specified path exists
+    if not isdir(path):
+        echo("Path '{}' does not exist".format(path), fn_name='listdirs', error=True)
+        return None
+
+    # Change to specified directory and record original directory to change back to at the end
+    wd = getcwd()
+    chdir(path)
+
+    # List directories either recursively or not
+    if recursive:
+        dnames = [join(root, subdir).replace('./', '') \
+            for root, subdirs, filenames in walk('.') \
+            for subdir in subdirs]
+    else:
+        dnames = next(walk(path))[1]
+        dnames = sorted(dnames)
+    
+    # Specify full name from current directory down if specified by joining the current
+    # directory onto each dirname
+    if full_names:
+        path_expand = getcwd() if path == '.' else path
+        dnames = [join(path_expand, dname) for dname in dnames]
+    
+    # If a regex pattern is specified, filter directory list by that pattern
+    if pattern is not None:
+        dnames = [x for x in dnames if re.match(pattern, x)]
+    
+    # Change back to original directory
+    chdir(wd)
+
+    # Return sorted list of dirs
+    return sorted(dnames)
+
+
 def assert_dpath(dpaths=[], abort=True):
     """
     Check that a given path or paths exist. Optional abort program if one or more directories
@@ -339,9 +353,11 @@ def macos_notify(title='', subtitle=None, message='', app_icon=None, content_ima
         nothing
     """
 
+    assert message > ''
+
     # Check that terminal-notifier is installed
     tnv = syscmd('which terminal-notifier').decode().strip()
-    if not os.path.isfile(tnv):
+    if not isfile(tnv):
         echo("terminal-notifier is not installed! Please install it per instructions at https://github.com/julienXX/terminal-notifier", abort=True)
 
     # Check that operating system is macOS
@@ -361,11 +377,11 @@ def macos_notify(title='', subtitle=None, message='', app_icon=None, content_ima
         cl_string.append('-message {!r}'.format(message))
     if app_icon is not None:
         assert isinstance(app_icon, str)
-        assert os.path.isfile(app_icon)
+        assert isfile(app_icon)
         cl_string.append('-appIcon {!r}'.format(app_icon))
     if content_image is not None:
         assert isinstance(content_image, str)
-        assert os.path.isfile(content_image)
+        assert isfile(content_image)
         cl_string.append('-contentImage {!r}'.format(content_image))
     assert isinstance(open_iterm, bool)
     if open_iterm:
@@ -378,10 +394,4 @@ def macos_notify(title='', subtitle=None, message='', app_icon=None, content_ima
     cmd = 'terminal-notifier {}'.format(' '.join(cl_string))
     syscmd(cmd)
 
-
-import os
-import re
-import zipfile
-from os import getcwd, walk, listdir, getcwd, chdir, name as os_name
-from os.path import isdir, isfile, expanduser, join, basename, splitext
 from pydoni.sh import syscmd
