@@ -1,7 +1,8 @@
 import contextlib
 import wave
+import numpy as np
 from os import environ
-from os.path import isfile, splitext
+from os.path import isfile, splitext, join, expanduser
 from pydub import AudioSegment
 
 
@@ -23,17 +24,21 @@ class Audio(object):
 
         # Read audio file as AudioSegement
         if self.ext.lower() == '.mp3':
-            self.sound = AudioSegment.from_mp3(self.fname)
+            self.sound = AudioSegment.from_mp3(self.audiofile)
         elif self.ext.lower() == '.wav':
-            self.sound = AudioSegment.from_wav(self.fname)
+            self.sound = AudioSegment.from_wav(self.audiofile)
         else:
-            self.sound = AudioSegment.from_file(self.fname)
+            self.sound = AudioSegment.from_file(self.audiofile)
 
         # Get duration of audio segment
         try:
-            self.duration = self.get_duration()
+            if self.ext.lower() != '.wav':
+                self.convert(dest_fmt='wav')
+                self.duration = get_duration(splitext(self.audiofile)[0] + '.wav')
+            else:
+                self.duration = self.get_duration()
         except Exception as e:
-            echo('Unable to get audio duration!', warn=True, error_msg=str(e))
+            echo('Unable to get audio duration!', warn=True, fn_name='Audio.__init__', error_msg=str(e))
             self.duration = None
 
     def split(self, segment_time):
@@ -62,7 +67,7 @@ class Audio(object):
             nothing
         """
         outfile = self.audiofile if outfile is None else outfile
-        self.sound.export(outfile=outfile, bitrate=92)
+        self.sound.export(outfile, bitrate=92)
 
     def set_channels(self, num_channels):
         """
@@ -75,7 +80,6 @@ class Audio(object):
             nothing
         """
         self.sound = self.sound.set_channels(num_channels)
-
 
     def convert(self, dest_fmt, num_channels=None):
         """
@@ -106,233 +110,250 @@ class Audio(object):
 
     def transcribe(self, method='gcs', gcs_split_threshold=55, apply_correction=True, verbose=True):
         """
-        Transcribe audio file in .wav format using method of choice.
-
-        Keyword Arguments:
-            method {str} -- method to use for audiofile transcription, one of ['gcs']
-            gcs_split_threshold {int} -- maximum audio clip size in seconds, if clip exceeds this length it will be split using bound method `split()` (default: {55})
-            apply_correction {bool} -- if True, call `self.apply_transcription_corrections()` after transcript created (default: {True})
-            verbose {bool} -- if True, print progress messages to console (default: {True})
-
-        Returns:
-            {str} -- transcription string
+        Wrapper for pydoni.audio.transcribe().
         """
+        return transcribe(
+            audiofile=self.audiofile,
+            gcs_split_threshold=gcs_split_threshold,
+            apply_correction=apply_correction,
+            verbose=verbose)
 
-        assert method in ['gcs']
 
-        if method == 'gcs':
+def transcribe(audiofile, method='gcs', gcs_split_threshold=55, apply_correction=True, verbose=True):
+    """
+    Transcribe audio file in .wav format using method of choice.
 
-            # Ensure file is in .wav format. If not, create a temporary .wav file1
-            if self.ext.lower() != '.wav':
-                if verbose:
-                    echo('Converting audio')
-                fname = join(expanduser('~'),
-                    '.tmp.pydoni.audio.transcribe.wavfile.wav')
-                self.sound.export(outfile=fname, format='wav')
+    Arguments:
+        audiofile {str} -- audio file to transcribe
+
+    Keyword Arguments:
+        method {str} -- method to use for audiofile transcription, one of ['gcs']
+        gcs_split_threshold {int} -- maximum audio clip size in seconds, if clip exceeds this length it will be split using class method `split()` (default: {55})
+        apply_correction {bool} -- if True, call `self.apply_transcription_corrections()` after transcript created (default: {True})
+        verbose {bool} -- if True, print progress messages to console (default: {True})
+
+    Returns:
+        {str} -- transcription string
+    """
+
+    assert method in ['gcs']
+
+    # Copy `audiofile` to temporary program environment
+    wd = join(expanduser('~'), '.tmp.pydoni.transcribe')
+    env = ProgramEnv(wd)
+    env.copyfile(audiofile, set_focus=True)
+    # chdir(env.path)
+
+    if method == 'gcs':
+
+        # Ensure file is in .wav format. If not, create a temporary .wav file
+        ext = splitext(env.focus)[1]
+        if ext.lower() != '.wav':
+            if verbose:
+                echo('Converting audio to .wav', timestamp=True, fn_name='transcribe')
+            fname = splitext(env.focus)[0] + '.wav'
+            Audio(env.focus).sound.export(fname, format='wav')
+            env.focus = fname
+
+        # Split audio file into segments if longer than 55 seconds
+        duration = get_duration(env.focus)
+        if isinstance(duration, int) or isinstance(duration, float):
+            if np.floor(duration) > 55:
+                echo('Splitting audio into %s second chunks' % gcs_split_threshold,
+                    timestamp=True, fn_name='transcribe')
+                fnames = split_audiofile(env.focus, segment_time=gcs_split_threshold)
             else:
-                fname = self.audiofile
+                fnames = [fname]
+                fname_is_split = False
 
-            # Split audio file into segments if longer than 55 seconds
-            if isinstance(self.duration, int):
-                if self.duration > 55:
-                    fnames = self.split(55, verbose=verbose)
-                else:
-                    fnames = [self.fname]
+        # Set up transcription
+        transcript = []
+        client = speech.SpeechClient()
 
-            # Set up transcription
-            transcript = []
-            client = speech.SpeechClient()
+        # Loop over files to transcribe and apply Google Cloud transcription
+        if verbose:
+            echo('Transcribing audio', timestamp=True, fn_name='transcribe')
+            iter = tqdm(fnames)
+        else:
+            iter = fnames    
+        for fname in iter:
+            with open(fname, 'rb') as audio_file:
+                content = audio_file.read()
+                aud = speech.types.RecognitionAudio(content=content)
+                config = speech.types.RecognitionConfig(
+                    encoding=speech.enums.RecognitionConfig.AudioEncoding.LINEAR16,
+                    # sample_rate_hertz=400,
+                    language_code='en-US',
+                    audio_channel_count=1,
+                    enable_separate_recognition_per_channel=False
+                )
+                response = client.recognize(config, aud)
+            
+            # Each result is for a consecutive portion of the audio. Iterate through
+            # them to get the transcripts for the entire audio file.
+            for result in response.results:
+                # The first alternative is the most likely one for this portion.
+                transcript.append(result.alternatives[0].transcript)
 
-            # Loop over files to transcribe and apply Google Cloud transcription
-            iter = tqdm(fnames) if verbose else fnames
-            for fname in iter:
-                with open(fname, 'rb') as audio_file:
-                    content = audio_file.read()
-                    aud = speech.types.RecognitionAudio(content=content)
-                    config = speech.types.RecognitionConfig(
-                        encoding=speech.enums.RecognitionConfig.AudioEncoding.LINEAR16,
-                        # sample_rate_hertz=400,
-                        language_code='en-US',
-                        audio_channel_count=1,
-                        enable_separate_recognition_per_channel=False
-                    )
-                    response = client.recognize(config, aud)
-                
-                # Each result is for a consecutive portion of the audio. Iterate through
-                # them to get the transcripts for the entire audio file.
-                for result in response.results:
-                    # The first alternative is the most likely one for this portion.
-                    transcript.append(result.alternatives[0].transcript)
+        # De-capitalize first letter of each transcript. This happens as a long audio segment is
+        # broken into smaller clips, the first word in each of those clips becomes capitalized.
+        transcript = [x[0].lower() + x[1:] for x in transcript]
+        transcript = re.sub(r' +', ' ', ' '.join(transcript)).strip()
 
-            # De-capitalize first letter of each transcript. This happens as a long audio segment is
-            # broken into smaller clips, the first word in each of those clips becomes capitalized.
-            transcript = [x[0].lower() + x[1:] for x in transcript]
-            transcript = re.sub(r' +', ' ', ' '.join(transcript)).strip()
-            self.transcript = transcript
+        # Apply transcription corrections if specified
+        if apply_correction:
+            transcript = apply_transcription_corrections(transcript)
 
-            # Apply transcription corrections if specified
-            if apply_correction:
-                transcript = self.apply_transcription_corrections()
-                self.transcript = transcript
-
-        return transcript
+    return transcript
 
 
-    def apply_transcription_corrections(self, transcript=None):
+def apply_transcription_corrections(transcript):
+    """
+    Apply any and all corrections to output of `self.transcribe()`.
+
+    Arguments:
+        transcript {str} -- transcript string to apply corrections to
+
+    Returns:
+        {str} -- transcript string with corrections
+    """
+
+    def smart_dictation(transcript):
         """
-        Apply any and all corrections to output of `self.transcribe()`.
-
+        Apply corrections to spoken keywords like 'comma', 'period' or 'quote'/'unquote'.
+        
         Arguments:
-            transcript {str} -- transcript string to apply corrections to. If None, use `self.transcript`
-
+            transcript {str} -- transcript string
+        
         Returns:
-            {str} -- transcript string with corrections
+            {str} -- transcript string
         """
+        dictation_map = {
+            r'(\b|\s)(comma)(\s|\b)'            : r',\3',
+            r'(\b|\s)(colon)(\s|\b)'            : r':\3',
+            r'(\b|\s)(semicolon)(\s|\b)'        : r';\3',
+            r'(\b|\s)(period)(\s|\b)'           : r'.\3',
+            r'(\b|\s)(exclamation point)(\s|\b)': r'!\3',
+            r'(\b|\s)(question mark)(\s|\b)'    : r'?\3',
+            r'(\b|\s)(unquote)(\s|\b)'          : r'"\3',
+            r'(\b|\s)(end quote)(\s|\b)'        : r'"\3',
+            r'(\b|\s)(quote)(\s|\b)'            : r'\1"',
+            r'(\b|\s)(hyphen)(\s|\b)'           : '-',
+            ' , '                               : ', ',
+            r' \. '                               : '. ',
+            r'(\b|\s)(tab)(\s|\b)'              : '  ',
+            r'( *)(new line)( *)'               : '\n',
+            r'( *)(newline)( *)'                : '\n',
+            r'(\b|\s)(tag title)\n'             : r'\1<title>\n',
+            r'(\b|\s)(tag heading)\n'           : r'\1<h>\n',
+            r'(\b|\s)(tag emphasis)\n'          : r'\1<em>\n',
+            r'(\b|\s)(emphasis)\n'              : r'\1<em>\n',
+            r'(\b|\s)(tag emphasized)\n'        : r'\1<em>\n',
+            r'(\b|\s)(emphasized)\n'            : r'\1<em>\n'}
 
-        # Determine transcript to apply corrections to
-        if transcript is None:
-            if hasattr(self, 'transcript'):
-                transcript = self.transcript
-            else:
-                echo('Must create transcript before applying corrections! Run `Audio.transcribe()` first.', abort=True)
-
-        def smart_dictation(transcript):
-            """
-            Apply corrections to spoken keywords like 'comma', 'period' or 'quote'/'unquote'.
-            
-            Arguments:
-                transcript {str} -- transcript string
-            
-            Returns:
-                {str} -- transcript string
-            """
-            dictation_map = {
-                r'(\b|\s)(comma)(\s|\b)'            : r',\3',
-                r'(\b|\s)(colon)(\s|\b)'            : r':\3',
-                r'(\b|\s)(semicolon)(\s|\b)'        : r';\3',
-                r'(\b|\s)(period)(\s|\b)'           : r'.\3',
-                r'(\b|\s)(exclamation point)(\s|\b)': r'!\3',
-                r'(\b|\s)(question mark)(\s|\b)'    : r'?\3',
-                r'(\b|\s)(unquote)(\s|\b)'          : r'"\3',
-                r'(\b|\s)(end quote)(\s|\b)'        : r'"\3',
-                r'(\b|\s)(quote)(\s|\b)'            : r'\1"',
-                r'(\b|\s)(hyphen)(\s|\b)'           : '-',
-                ' , '                               : ', ',
-                r' \. '                               : '. ',
-                r'(\b|\s)(tab)(\s|\b)'              : '  ',
-                r'( *)(new line)( *)'               : '\n',
-                r'( *)(newline)( *)'                : '\n',
-                r'(\b|\s)(tag title)\n'             : r'\1<title>\n',
-                r'(\b|\s)(tag heading)\n'           : r'\1<h>\n',
-                r'(\b|\s)(tag emphasis)\n'          : r'\1<em>\n',
-                r'(\b|\s)(emphasis)\n'              : r'\1<em>\n',
-                r'(\b|\s)(tag emphasized)\n'        : r'\1<em>\n',
-                r'(\b|\s)(emphasized)\n'            : r'\1<em>\n'}
-
-            for string, replacement in dictation_map.items():
-                transcript = re.sub(string, replacement, transcript, flags=re.IGNORECASE)
-
-            return transcript
-
-        def smart_capitalize(transcript):
-            """
-            Capitalize transcript intelligently according to the following methods:
-                1. Capitalize first letter of each sentence, split by newline character.
-                2. Capitalize word following keyphrase 'make capital'.
-                3. Capitalize word and concatenate letters following keyphrase 'make letter'.
-                4. Capitalie letter following '?'.
-            
-            Arguments:
-                transcript {str} -- transcript string
-            
-            Returns:
-                {str} -- transcript string
-            """
-            
-            # Capitalize first letter of each sentence, split by newline character
-            val = transcript
-            val = '\n'.join([cap_nth_char(x, 0) for x in val.split('\n')])
-            
-            # Capitalize word following keyphrase 'make capital'
-            cap_idx = [m.start()+len('make capital')+1 for m in re.finditer('make capital', val)]
-            if len(cap_idx):
-                for idx in cap_idx:
-                    val = cap_nth_char(val, idx)
-                val = val.replace('make capital ', '')
-            
-            # Capitalize and concatenate letters following keyphrase 'make letter'. Ex: 'make letter a' -> 'A'
-            letter_idx = [m.start()+len('make letter')+1 for m in re.finditer('make letter', val)]
-            if len(letter_idx):
-                for idx in letter_idx:
-                    val = cap_nth_char(val, idx)
-                    val = replace_nth_char(val, idx+1, '.')
-                    if idx == letter_idx[len(letter_idx)-1]:
-                        val = insert_nth_char(val, idx+2, ' ')
-                val = val.replace('make letter ', '')
-            
-            # Capitalize letter following '?'
-            if '? ' in val:
-                q_idx = [m.start()+len('? ') for m in re.finditer(r'\? ', val)]
-                for idx in q_idx:
-                    val = cap_nth_char(val, idx)
-            return val
-
-        def excess_spaces(transcript):
-            """
-            Replace extra spaces with a single space.
-            
-            Arguments:
-                transcript {str} -- transcript string
-            
-            Returns:
-                {str} -- transcript string
-            """
-            return re.sub(r' +', ' ', transcript)
-
-        def manual_corrections(transcript):
-            """
-            Apply manual corrections to transcription.
-            
-            Arguments:
-                transcript {str} -- transcript string
-            
-            Returns:
-                {str} -- transcript string
-            """
-
-            # Regex word replacements
-            dictation_map = {
-                r'(\b)(bye bye)(\b)'    : 'Baba',
-                r'(\b)(Theon us)(\b)'   : "Thea Anna's",
-                r'(\b)(Theon as)(\b)'   : "Thea Anna's",
-                r'(\b)(the ana\'s)(\b)' : "Thea Anna's",
-                r'(\b)(the ionos)(\b)'  : "Thea Anna's",
-                # Capitalize first letter of sentence following tab indentation,
-                r'\n([A-Za-z])'         : lambda x: '\n' + x.groups()[0].upper(),
-                r'\n  ([A-Za-z])'       : lambda x: '\n  ' + x.groups()[0].upper(),
-                r'\n    ([A-Za-z])'     : lambda x: '\n    ' + x.groups()[0].upper(),
-                r'\n      ([A-Za-z])'   : lambda x: '\n      ' + x.groups()[0].upper(),
-                r'\n        ([A-Za-z])' : lambda x: '\n        ' + x.groups()[0].upper(),
-                r"s\'s"                 : "s'",
-                'grace'                 : 'Grace',
-                'the west'              : 'the West',
-                'The west'              : 'The West',
-                'on certain'            : 'uncertain',
-                'advent'                : 'advent'}
-
-            for string, replacement in dictation_map.items():
-                transcript = re.sub(string, replacement, transcript, flags=re.IGNORECASE)
-
-            return transcript
-
-        # Apply all correction methods    
-        self.transcript = smart_dictation(self.transcript)
-        self.transcript = smart_capitalize(self.transcript)
-        self.transcript = excess_spaces(self.transcript)
-        self.transcript = manual_corrections(self.transcript)
+        for string, replacement in dictation_map.items():
+            transcript = re.sub(string, replacement, transcript, flags=re.IGNORECASE)
 
         return transcript
 
+    def smart_capitalize(transcript):
+        """
+        Capitalize transcript intelligently according to the following methods:
+            1. Capitalize first letter of each sentence, split by newline character.
+            2. Capitalize word following keyphrase 'make capital'.
+            3. Capitalize word and concatenate letters following keyphrase 'make letter'.
+            4. Capitalie letter following '?'.
+        
+        Arguments:
+            transcript {str} -- transcript string
+        
+        Returns:
+            {str} -- transcript string
+        """
+        
+        # Capitalize first letter of each sentence, split by newline character
+        val = transcript
+        val = '\n'.join([cap_nth_char(x, 0) for x in val.split('\n')])
+        
+        # Capitalize word following keyphrase 'make capital'
+        cap_idx = [m.start()+len('make capital')+1 for m in re.finditer('make capital', val)]
+        if len(cap_idx):
+            for idx in cap_idx:
+                val = cap_nth_char(val, idx)
+            val = val.replace('make capital ', '')
+        
+        # Capitalize and concatenate letters following keyphrase 'make letter'. Ex: 'make letter a' -> 'A'
+        letter_idx = [m.start()+len('make letter')+1 for m in re.finditer('make letter', val)]
+        if len(letter_idx):
+            for idx in letter_idx:
+                val = cap_nth_char(val, idx)
+                val = replace_nth_char(val, idx+1, '.')
+                if idx == letter_idx[len(letter_idx)-1]:
+                    val = insert_nth_char(val, idx+2, ' ')
+            val = val.replace('make letter ', '')
+        
+        # Capitalize letter following '?'
+        if '? ' in val:
+            q_idx = [m.start()+len('? ') for m in re.finditer(r'\? ', val)]
+            for idx in q_idx:
+                val = cap_nth_char(val, idx)
+        return val
+
+    def excess_spaces(transcript):
+        """
+        Replace extra spaces with a single space.
+        
+        Arguments:
+            transcript {str} -- transcript string
+        
+        Returns:
+            {str} -- transcript string
+        """
+        return re.sub(r' +', ' ', transcript)
+
+    def manual_corrections(transcript):
+        """
+        Apply manual corrections to transcription.
+        
+        Arguments:
+            transcript {str} -- transcript string
+        
+        Returns:
+            {str} -- transcript string
+        """
+
+        # Regex word replacements
+        dictation_map = {
+            r'(\b)(bye bye)(\b)'    : 'Baba',
+            r'(\b)(Theon us)(\b)'   : "Thea Anna's",
+            r'(\b)(Theon as)(\b)'   : "Thea Anna's",
+            r'(\b)(the ana\'s)(\b)' : "Thea Anna's",
+            r'(\b)(the ionos)(\b)'  : "Thea Anna's",
+            # Capitalize first letter of sentence following tab indentation,
+            r'\n([A-Za-z])'         : lambda x: '\n' + x.groups()[0].upper(),
+            r'\n  ([A-Za-z])'       : lambda x: '\n  ' + x.groups()[0].upper(),
+            r'\n    ([A-Za-z])'     : lambda x: '\n    ' + x.groups()[0].upper(),
+            r'\n      ([A-Za-z])'   : lambda x: '\n      ' + x.groups()[0].upper(),
+            r'\n        ([A-Za-z])' : lambda x: '\n        ' + x.groups()[0].upper(),
+            r"s\'s"                 : "s'",
+            'grace'                 : 'Grace',
+            'the west'              : 'the West',
+            'The west'              : 'The West',
+            'on certain'            : 'uncertain',
+            'advent'                : 'advent'}
+
+        for string, replacement in dictation_map.items():
+            transcript = re.sub(string, replacement, transcript, flags=re.IGNORECASE)
+
+        return transcript
+
+    # Apply all correction methods    
+    transcript = smart_dictation(transcript)
+    transcript = smart_capitalize(transcript)
+    transcript = excess_spaces(transcript)
+    transcript = manual_corrections(transcript)
+
+    return transcript
 
 
 def join_audiofiles_ffmpeg(audiofiles, targetfile):
@@ -476,6 +497,7 @@ def get_duration(audiofile):
     """
 
     assert isfile(audiofile)
+    assert splitext(audiofile)[1].lower() == '.wav'
 
     with contextlib.closing(wave.open(audiofile, 'r')) as f:
         frames = f.getnframes()
@@ -502,3 +524,4 @@ def set_google_credentials(self, google_application_credentials_json):
 from pydoni.sh import syscmd
 from pydoni.vb import echo
 from pydoni.os import listfiles
+from pydoni.classes import ProgramEnv
