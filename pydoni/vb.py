@@ -79,9 +79,9 @@ def echo(
         blink=blink, reverse=reverse)
 
     # Add 'ERROR: ' or 'ERROR (fatal): ' or 'WARNING: ' to beginning of string
-    if abort:
-        ew_string = click.style('Error (fatal): ', fg='red')
-    elif error:
+    # if abort:
+    #     ew_string = click.style('Error (fatal): ', fg='red')
+    if error:
         ew_string = click.style('Error: ', fg='red')
     elif warn:
         ew_string = click.style('Warning: ', fg='yellow')
@@ -90,7 +90,8 @@ def echo(
 
     # Function name string
     if fn_name:
-        if error or abort:
+        # if error or abort:
+        if error:
             fn_name_col = 'red'
         elif warn:
             fn_name_col = 'yellow'
@@ -112,10 +113,11 @@ def echo(
     msg_out = ts_string + fnn_string + idt_string + ew_string + msg
 
     # Print message to STDOUT
-    click.echo(msg_out)
+    if not abort:
+        click.echo(msg_out)
     
     # If `error_msg` is specified, print after `msg`
-    if error_msg:
+    if error_msg and not abort:
         print(error_msg)
 
     # Throw macOS notification if specified
@@ -159,7 +161,8 @@ def echo(
     
     # Exit program if specified
     if abort:
-        quit()
+        # quit()
+        raise Exception(msg)
 
 
 def clickfmt(string, fmt):
