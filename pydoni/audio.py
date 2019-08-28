@@ -41,7 +41,7 @@ class Audio(object):
             else:
                 self.duration = self.get_duration()
         except Exception as e:
-            echo('Unable to get audio duration!', warn=True, fn_name='Audio.__init__', error_msg=str(e))
+            echo('Unable to get audio duration!', warn=True, fn_name='pydoni.Audio.__init__', error_msg=str(e))
             self.duration = None
 
     def split(self, segment_time):
@@ -122,7 +122,7 @@ class Audio(object):
             verbose=verbose)
 
 
-def transcribe(audiofile, method='gcs', gcs_split_threshold=55, apply_correction=True, verbose=False):
+def transcribe(audiofile, method='gcs', gcs_split_threshold=50, apply_correction=True, verbose=False):
     """
     Transcribe audio file in .wav format using method of choice.
 
@@ -140,10 +140,15 @@ def transcribe(audiofile, method='gcs', gcs_split_threshold=55, apply_correction
     """
 
     assert method in ['gcs']
+    fn_name = 'pydoni.audio.transcribe'
 
     # Copy `audiofile` to temporary program environment
     wd = join(expanduser('~'), '.tmp.pydoni.transcribe')
+    if verbose:
+        echo("Creating temporary environment at '%s'" % wd, fn_name=fn_name, timestamp=True)
     env = ProgramEnv(wd, overwrite=True)
+    if verbose:
+        echo("Copying file '%s' to environment" % audiofile, fn_name=fn_name, timestamp=True)
     env.copyfile(audiofile, set_focus=True)
     # chdir(env.path)
 
@@ -151,27 +156,26 @@ def transcribe(audiofile, method='gcs', gcs_split_threshold=55, apply_correction
         if method == 'gcs':
 
             if 'GOOGLE_APPLICATION_CREDENTIALS' not in environ.keys():
-                echo("Must run 'set_google_credentials()' before running GCS transcription!",
-                    fn_name='transcribe', abort=True)
+                echo("Must run 'set_google_credentials()' before running GCS transcription!", abort=True)
 
             # Ensure file is in .wav format. If not, create a temporary .wav file
             ext = splitext(env.focus)[1]
             if ext.lower() != '.wav':
                 if verbose:
-                    echo('Converting audio to .wav', timestamp=True, fn_name='transcribe')
+                    echo('Converting audio to .wav', timestamp=True, fn_name=fn_name)
                 fname = splitext(env.focus)[0] + '.wav'
                 audio = Audio(env.focus)
                 audio.set_channels(1)
                 audio.sound.export(fname, format='wav')
                 env.focus = fname
 
-            # Split audio file into segments if longer than 55 seconds
+            # Split audio file into segments if longer than `gcs_split_threshold` seconds
             duration = get_duration(env.focus)
             if isinstance(duration, int) or isinstance(duration, float):
-                if np.floor(duration) > 55:
+                if np.floor(duration) > gcs_split_threshold:
                     if verbose:
                         echo('Splitting audio into %s second chunks' % gcs_split_threshold,
-                            timestamp=True, fn_name='transcribe')
+                            timestamp=True, fn_name=fn_name)
                     fnames = split_audiofile(env.focus, segment_time=gcs_split_threshold)
                 else:
                     fnames = [env.focus]
@@ -184,7 +188,7 @@ def transcribe(audiofile, method='gcs', gcs_split_threshold=55, apply_correction
 
             # Loop over files to transcribe and apply Google Cloud transcription
             if verbose:
-                echo('Transcribing audio', timestamp=True, fn_name='transcribe')
+                echo('Transcribing audio', timestamp=True, fn_name=fn_name)
                 iter = tqdm(fnames)
             else:
                 iter = fnames
@@ -210,6 +214,7 @@ def transcribe(audiofile, method='gcs', gcs_split_threshold=55, apply_correction
 
             except Exception as e:
                 env.delete_env()
+                echo('Transcription failed! Temporary program environment deleted!', error=True)
                 raise e
 
             # De-capitalize first letter of each transcript. This happens as a long audio segment is
@@ -232,6 +237,7 @@ def transcribe(audiofile, method='gcs', gcs_split_threshold=55, apply_correction
         
     except Exception as e:
         env.delete_env()
+        echo('Transcription failed! Temporary program environment deleted!', error=True)
         raise e
 
     env.delete_env()
