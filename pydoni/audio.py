@@ -1,10 +1,12 @@
 import contextlib
 import wave
+import re
 import numpy as np
-from os import environ
-from os.path import isfile, splitext, join, expanduser
+from os import environ, chdir, getcwd
+from os.path import isfile, splitext, join, expanduser, dirname, basename
 from pydub import AudioSegment
-
+from google.cloud import speech_v1p1beta1 as speech
+from tqdm import tqdm
 
 class Audio(object):
     """
@@ -119,7 +121,7 @@ class Audio(object):
             verbose=verbose)
 
 
-def transcribe(audiofile, method='gcs', gcs_split_threshold=55, apply_correction=True, verbose=True):
+def transcribe(audiofile, method='gcs', gcs_split_threshold=55, apply_correction=True, verbose=False):
     """
     Transcribe audio file in .wav format using method of choice.
 
@@ -140,70 +142,97 @@ def transcribe(audiofile, method='gcs', gcs_split_threshold=55, apply_correction
 
     # Copy `audiofile` to temporary program environment
     wd = join(expanduser('~'), '.tmp.pydoni.transcribe')
-    env = ProgramEnv(wd)
+    env = ProgramEnv(wd, overwrite=True)
     env.copyfile(audiofile, set_focus=True)
-    # chdir(env.path)
 
-    if method == 'gcs':
+    try:
+        if method == 'gcs':
 
-        # Ensure file is in .wav format. If not, create a temporary .wav file
-        ext = splitext(env.focus)[1]
-        if ext.lower() != '.wav':
-            if verbose:
-                echo('Converting audio to .wav', timestamp=True, fn_name='transcribe')
-            fname = splitext(env.focus)[0] + '.wav'
-            Audio(env.focus).sound.export(fname, format='wav')
-            env.focus = fname
+            if 'GOOGLE_APPLICATION_CREDENTIALS' not in environ.keys():
+                echo("Must run 'set_google_credentials()' before running GCS transcription!",
+                    fn_name='transcribe', abort=True)
 
-        # Split audio file into segments if longer than 55 seconds
-        duration = get_duration(env.focus)
-        if isinstance(duration, int) or isinstance(duration, float):
-            if np.floor(duration) > 55:
-                echo('Splitting audio into %s second chunks' % gcs_split_threshold,
-                    timestamp=True, fn_name='transcribe')
-                fnames = split_audiofile(env.focus, segment_time=gcs_split_threshold)
+            # Ensure file is in .wav format. If not, create a temporary .wav file
+            ext = splitext(env.focus)[1]
+            if ext.lower() != '.wav':
+                if verbose:
+                    echo('Converting audio to .wav', timestamp=True, fn_name='transcribe')
+                fname = splitext(env.focus)[0] + '.wav'
+                audio = Audio(env.focus)
+                audio.set_channels(1)
+                audio.sound.export(fname, format='wav')
+                env.focus = fname
+
+            # Split audio file into segments if longer than 55 seconds
+            duration = get_duration(env.focus)
+            if isinstance(duration, int) or isinstance(duration, float):
+                if np.floor(duration) > 55:
+                    if verbose:
+                        echo('Splitting audio into %s second chunks' % gcs_split_threshold,
+                            timestamp=True, fn_name='transcribe')
+                    fnames = split_audiofile(env.focus, segment_time=gcs_split_threshold)
+                else:
+                    fnames = [env.focus]
             else:
-                fnames = [fname]
-                fname_is_split = False
+                fnames = [env.focus]
 
-        # Set up transcription
-        transcript = []
-        client = speech.SpeechClient()
+            # Set up transcription
+            transcript = []
+            client = speech.SpeechClient()
 
-        # Loop over files to transcribe and apply Google Cloud transcription
-        if verbose:
-            echo('Transcribing audio', timestamp=True, fn_name='transcribe')
-            iter = tqdm(fnames)
-        else:
-            iter = fnames    
-        for fname in iter:
-            with open(fname, 'rb') as audio_file:
-                content = audio_file.read()
-                aud = speech.types.RecognitionAudio(content=content)
-                config = speech.types.RecognitionConfig(
-                    encoding=speech.enums.RecognitionConfig.AudioEncoding.LINEAR16,
-                    # sample_rate_hertz=400,
-                    language_code='en-US',
-                    audio_channel_count=1,
-                    enable_separate_recognition_per_channel=False
-                )
-                response = client.recognize(config, aud)
-            
-            # Each result is for a consecutive portion of the audio. Iterate through
-            # them to get the transcripts for the entire audio file.
-            for result in response.results:
-                # The first alternative is the most likely one for this portion.
-                transcript.append(result.alternatives[0].transcript)
+            # Loop over files to transcribe and apply Google Cloud transcription
+            if verbose:
+                echo('Transcribing audio', timestamp=True, fn_name='transcribe')
+                iter = tqdm(fnames)
+            else:
+                iter = fnames
+            try:
+                for fname in iter:
+                    with open(fname, 'rb') as audio_file:
+                        content = audio_file.read()
+                        aud = speech.types.RecognitionAudio(content=content)
+                        config = speech.types.RecognitionConfig(
+                            encoding=speech.enums.RecognitionConfig.AudioEncoding.LINEAR16,
+                            # sample_rate_hertz=400,
+                            language_code='en-US',
+                            audio_channel_count=1,
+                            enable_separate_recognition_per_channel=False
+                        )
+                        response = client.recognize(config, aud)
+                    
+                    # Each result is for a consecutive portion of the audio. Iterate through
+                    # them to get the transcripts for the entire audio file.
+                    for result in response.results:
+                        # The first alternative is the most likely one for this portion.
+                        transcript.append(result.alternatives[0].transcript)
 
-        # De-capitalize first letter of each transcript. This happens as a long audio segment is
-        # broken into smaller clips, the first word in each of those clips becomes capitalized.
-        transcript = [x[0].lower() + x[1:] for x in transcript]
-        transcript = re.sub(r' +', ' ', ' '.join(transcript)).strip()
+            except Exception as e:
+                env.delete_env()
+                raise e
 
-        # Apply transcription corrections if specified
-        if apply_correction:
-            transcript = apply_transcription_corrections(transcript)
+            # De-capitalize first letter of each transcript. This happens as a long audio segment is
+            # broken into smaller clips, the first word in each of those clips becomes capitalized.
+            if 'transcript' in locals():
+                if isinstance(transcript, list):
+                    transcript = [x[0].lower() + x[1:] for x in transcript]
+                    transcript = re.sub(r' +', ' ', ' '.join(transcript)).strip()
 
+                    # Apply transcription corrections if specified
+                    if apply_correction:
+                        transcript = apply_transcription_corrections(transcript).strip()
+                    
+                else:
+                    env.delete_env()
+                    echo('Unable to transcribe audio file!', abort=True)
+            else:
+                env.delete_env()
+                echo('Unable to transcribe audio file!', abort=True)
+        
+    except Exception as e:
+        env.delete_env()
+        raise e
+
+    env.delete_env()
     return transcript
 
 
@@ -468,6 +497,7 @@ def split_audiofile(audiofile, segment_time):
 
     assert isfile(audiofile)
     assert isinstance(segment_time, int)
+    wd = getcwd()
 
     # Split audio file with ffmpeg
     cmd = 'ffmpeg -i "{}" -f segment -segment_time {} -c copy "{}-ffmpeg-%03d{}"'.format(
@@ -479,9 +509,18 @@ def split_audiofile(audiofile, segment_time):
     syscmd(cmd)
 
     # Return resulting files under `fnames_split` attribute
-    splitfiles = listfiles(pattern=r'%s-ffmpeg-\d{3}\.%s' % \
-        (splitext(audiofile)[1].replace('.', ''), splitext(audiofile)[0]))
-    
+    dname = dirname(audiofile)
+    dname = '.' if dname == '' else dname
+    chdir(dname)
+    splitfiles = listfiles(
+        path=dname,
+        pattern=r'%s-ffmpeg-\d{3}\.%s' % \
+            (basename(splitext(audiofile)[0]), splitext(audiofile)[1].replace('.', ''))
+    )
+    if dname != '.':
+        splitfiles = [join(dname, x) for x in splitfiles]
+
+    chdir(wd)
     return splitfiles
 
 
@@ -507,7 +546,7 @@ def get_duration(audiofile):
     return duration
 
 
-def set_google_credentials(self, google_application_credentials_json):
+def set_google_credentials(google_application_credentials_json):
     """
     Set environment variable as path to Google credentials JSON file.
     
@@ -525,3 +564,4 @@ from pydoni.sh import syscmd
 from pydoni.vb import echo
 from pydoni.os import listfiles
 from pydoni.classes import ProgramEnv
+from pydoni.pyobj import cap_nth_char, replace_nth_char, insert_nth_char
