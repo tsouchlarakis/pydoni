@@ -8,6 +8,7 @@ from pydub import AudioSegment
 from google.cloud import speech_v1p1beta1 as speech
 from tqdm import tqdm
 
+
 class Audio(object):
     """
     Operate on an audio file.
@@ -144,6 +145,7 @@ def transcribe(audiofile, method='gcs', gcs_split_threshold=55, apply_correction
     wd = join(expanduser('~'), '.tmp.pydoni.transcribe')
     env = ProgramEnv(wd, overwrite=True)
     env.copyfile(audiofile, set_focus=True)
+    # chdir(env.path)
 
     try:
         if method == 'gcs':
@@ -219,7 +221,7 @@ def transcribe(audiofile, method='gcs', gcs_split_threshold=55, apply_correction
 
                     # Apply transcription corrections if specified
                     if apply_correction:
-                        transcript = apply_transcription_corrections(transcript).strip()
+                        transcript = apply_transcription_corrections(transcript)
                     
                 else:
                     env.delete_env()
