@@ -1,7 +1,7 @@
 import re
 import os
 import csv
-import pyodbc
+# import pyodbc
 import pymysql
 import datetime
 import subprocess
@@ -137,17 +137,24 @@ class Postgres(object):
 
         return True
 
-    def read_sql(self, sql):
+    def read_sql(self, sql, simplify=True):
         """
         Execute SQL and read results using Pandas.
         
         Arguments:
             sql {str} -- SQL string to execute and read results from
+
+        Keyword Arguments:
+            simplify {bool} -- if True, return pd.Series if pd.DataFrame returned only has 1 column (default: {True})
         
         Returns::
             {pd.DataFrame} or {pd.Series}
         """
-        return pd.read_sql(sql, con=self.dbcon)
+        res = pd.read_sql(sql, con=self.dbcon)
+        if res.shape[1] == 1:
+            if simplify:
+                res = res.iloc[:, 0]
+        return res
 
     def validate_dtype(self, schema, table, col, val):
         """
