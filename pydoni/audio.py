@@ -405,7 +405,7 @@ def join_audiofiles_ffmpeg(audiofiles, targetfile):
         {bool} -- True if successful, False if not
     """
 
-    cmd = 'ffmpeg -i "concat:{}" -acodec copy "{}"'.format(audiofiles.join('|'), targetfile)
+    cmd = 'ffmpeg -i "concat:{}" -acodec copy "{}"'.format('|'.join(audiofiles), targetfile)
     try:
         syscmd(cmd) 
         return True
