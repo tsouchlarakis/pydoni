@@ -2,7 +2,7 @@ import contextlib
 import wave
 import re
 import numpy as np
-from os import environ, chdir, getcwd
+from os import environ, chdir, getcwd, remove
 from os.path import isfile, splitext, join, expanduser, dirname, basename
 from pydub import AudioSegment
 from google.cloud import speech_v1p1beta1 as speech
@@ -405,9 +405,22 @@ def join_audiofiles_ffmpeg(audiofiles, targetfile):
         {bool} -- True if successful, False if not
     """
 
-    cmd = 'ffmpeg -i "concat:{}" -acodec copy "{}"'.format('|'.join(audiofiles), targetfile)
+    assert isinstance(audiofiles, list)
+    assert len(audiofiles) > 1
+
+    # cmd = 'ffmpeg -i "concat:{}" -acodec copy "{}"'.format('|'.join(audiofiles), targetfile)
+    
+    tmpfile = '.tmp.pydoni.audio.join_audiofiles_ffmpeg.txt'
+    with open(tmpfile, 'w') as f:
+        for fname in audiofiles:
+            f.write("file '%s'\n" % fname)
+        f.write('')
+
+    cmd = 'ffmpeg -f concat -safe 0 -i "%s" -c copy "%s"' % (tmpfile, targetfile)
     try:
-        syscmd(cmd) 
+        syscmd(cmd)
+        if isfile(tmpfile):
+            remove(tmpfile)
         return True
 
     except Exception as e:
