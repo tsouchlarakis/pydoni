@@ -1,8 +1,11 @@
 import requests
 import shutil
 import urllib
+from os import chdir, mkdir
+from os.path import isdir, basename
 from bs4 import BeautifulSoup
 from lxml import html
+from tqdm import tqdm
 
 def check_network_connection(abort=False):
     """
@@ -61,18 +64,65 @@ def get_element_by_xpath(url, xpath):
     return tree.xpath(xpath)
 
 
-def downloadfile(url, destfile):
+def downloadfile(url, destfile=None, method='requests'):
     """
     Download file from the web to a local file.
     
     Arguments:
         url {str} -- target URL to retrieve file from
-        destfile {str} -- target file to download to
+
+    Keyword Arguments:
+        destfile {str} -- target file to download to, must be specified if `method = 'requests'`. If None, may use with `method = 'curl'`, and the -O flag will be passed into curl to keep the original filename
+        method {str} -- method to use in downloading file, one of ['requests', 'curl'] (default: {'requests'})
     
     Returns:
         {str}
     """
-    r = requests.get(url, stream=True)
-    with open(destfile, 'wb') as f:
-        r.raw.decode_content = True
-        shutil.copyfileobj(r.raw, f)
+
+    assert method in ['requests', 'curl']
+
+    if method == 'requests':
+        assert isinstance(destfile, str)
+
+        r = requests.get(url, stream=True)
+        with open(destfile, 'wb') as f:
+            r.raw.decode_content = True
+            shutil.copyfileobj(r.raw, f)
+
+    elif method == 'curl':
+        if isinstance(destfile, str):
+            cmd = 'curl -o "{}" "{}"'.format(destfile, url)
+        else:
+            cmd = 'curl -O "{}"'.format(url)
+        syscmd(cmd)
+
+
+def download_audiobookslab(url, targetdir):
+    """
+    Download audiobooks off of audiobookslab.com webpage.
+
+    Arguments:
+        url {str} -- audiobookslab.com webpage link to scrape
+        targetdir {str} -- path to directory to download files to. Will be created if it doesn't exist
+
+    Returns:
+        nothing
+    """
+
+    if not isdir(targetdir):
+        mkdir(targetdir)
+    chdir(targetdir)
+
+    mp3_links = sorted(list(set(get_element_by_selector(url, selector='audio'))))
+    if len(mp3_links):
+        with tqdm(total=len(mp3_links), unit='file') as pbar:
+            for mp3_link in mp3_links:
+                pbar.set_postfix(file=basename(mp3_link))
+                downloadfile(mp3_link, method='curl')
+                pbar.update(1)
+    else:
+        echo("No audiobooks to download at URL '%s'" % url, abort=True)
+
+
+from pydoni.sh import syscmd
+from pydoni.vb import echo
