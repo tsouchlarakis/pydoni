@@ -70,7 +70,7 @@ class Audio(object):
             nothing
         """
         outfile = self.audiofile if outfile is None else outfile
-        self.sound.export(outfile, bitrate=92)
+        self.sound.export(outfile, bitrate='92k')
 
     def set_channels(self, num_channels):
         """

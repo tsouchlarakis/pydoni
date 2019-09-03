@@ -91,15 +91,15 @@ def echo(
     # Function name string
     if fn_name:
         # if error or abort:
-        if error:
-            fn_name_col = 'red'
-        elif warn:
-            fn_name_col = 'yellow'
-        else:
-            fn_name_col = 'white'
-        fnn_string = click.style('<fn: ', fg=fn_name_col) + \
-            click.style(fn_name.replace('(', '').replace(')', '') + '()', fg='white') + \
-            click.style('> ', fg=fn_name_col)
+        # if error:
+        #     fn_name_col = 'red'
+        # elif warn:
+        #     fn_name_col = 'yellow'
+        # else:
+        #     fn_name_col = 'white'
+        fnn_string = click.style('<fn: ', fg='white') + \
+            click.style(fn_name.replace('(', '').replace(')', '') + '()', fg='white', underline=True) + \
+            click.style('> ', fg='white')
     else:
         fnn_string = ''
 
