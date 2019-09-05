@@ -8,7 +8,6 @@ import requests
 import shutil
 import subprocess
 import re
-from datetime import datetime
 from os import chdir, getcwd, mkdir, environ
 from os.path import splitext, isfile, dirname, abspath, basename, isdir, expanduser, join
 from send2trash import send2trash
