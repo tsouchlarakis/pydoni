@@ -69,7 +69,8 @@ class Audio(object):
         Returns:
             nothing
         """
-        outfile = self.audiofile if outfile is None else outfile
+        if outfile is None:
+            outfile = splitext(self.audiofile)[0] + '.mp3'
         self.sound.export(outfile, bitrate='92k')
 
     def set_channels(self, num_channels):
@@ -417,6 +418,7 @@ def join_audiofiles_ffmpeg(audiofiles, targetfile):
         f.write('')
 
     cmd = 'ffmpeg -f concat -safe 0 -i "%s" -c copy "%s"' % (tmpfile, targetfile)
+    print(cmd)
     try:
         syscmd(cmd)
         if isfile(tmpfile):
