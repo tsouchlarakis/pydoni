@@ -619,4 +619,59 @@ def naturalsort(lst):
     return sorted(lst, key=natural_keys)
 
 
+def get_input(msg, mode="default"):
+    """
+    Get user input, optionally of specified format.
+
+    Keyword Arguments:
+        msg {str} -- message to print to console (default: {'Enter input: '})
+        mode {str} -- apply filter to user input, one of ['bool', 'date', 'int', 'float'] (default: {"default"})
+
+    Returns:
+        {str}
+    """
+
+    assert mode in ['default', 'bool', 'date', 'int', 'float']
+
+    def is_date(date_string):
+        """
+        Test if string is valid date.
+
+        Arguments:
+            date_string {str} -- string to test
+
+        Returns:
+            {bool}
+        """
+        try:
+            test = datetime.strptime(date_string, '%Y-%m-%d')
+            return True
+        except:
+            return False
+
+    # Add suffix based on mode
+    msg = re.sub(r': *$', '', msg).strip()
+    if mode == 'bool':
+        msg = msg + ' ' + '(y/n): '
+    elif mode == 'date':
+        msg = msg + ' ' + '(YYYY-MM-DD): '
+    else:
+        msg == msg + ' : '
+
+    uin_raw = input(msg)
+
+    if mode == 'bool':
+        while uin_raw.lower() not in ['y', 'yes', 'n', 'no']:
+            uin_raw = input("Must enter 'y' or 'n': ")
+        if uin_raw.lower() in ['y', 'yes']:
+            return True
+        else:
+            return False
+    elif mode == 'date':
+        while not is_date(uin_raw):
+            uin_raw = input("Must enter valid date in format 'YYYY-MM-DD': ")
+
+    return uin_raw
+
+
 from pydoni.vb import echo
