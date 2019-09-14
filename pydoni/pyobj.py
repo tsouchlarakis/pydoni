@@ -649,13 +649,14 @@ def test(value, dtype):
         return False
 
 
-def get_input(msg='Enter input', mode='str'):
+def get_input(msg='Enter input', mode='str', indicate_mode=False):
     """
     Get user input, optionally of specified format.
 
     Keyword Arguments:
         msg {str} -- message to print to console (default: {'Enter input'})
         mode {str} -- apply filter to user input, one of ['bool', 'date', 'int', 'float', 'str'] (default: {'str'})
+        indicate_mode {bool} -- if True, print type of anticipated datatype with message
 
     Returns:
         {str}
@@ -663,14 +664,18 @@ def get_input(msg='Enter input', mode='str'):
 
     assert mode in ['str', 'bool', 'date', 'int', 'float']
 
-    # Add suffix based on mode
+    add_colon = lambda x: x + ': '
+    add_clarification = lambda x, clar: x + ' ' + clar
+
+    # Add suffix based on `mode`
     msg = re.sub(r': *$', '', msg).strip()
     if mode == 'bool':
-        msg = msg + ' ' + '(y/n): '
+        msg = add_clarification(msg, '(y/n)')
     elif mode == 'date':
-        msg = msg + ' ' + '(YYYY-MM-DD): '
-    else:
-        msg == msg + ' : '
+        msg = add_clarification(msg, '(YYYY-MM-DD)')
+    if indicate_mode:
+        msg = add_clarification(msg, '{%s}' % mode)
+    msg = add_colon(msg)
 
     uin_raw = input(msg)
 
