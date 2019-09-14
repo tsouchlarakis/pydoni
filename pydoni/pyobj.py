@@ -635,7 +635,7 @@ def test(value, dtype):
 
     try:
         if dtype == 'bool':
-            assert value.lower() in ['true', 'false']
+            assert value.lower() in ['true', 'false', 'y', 'yes', 'n', 'no']
         elif dtype == 'date':
             test = datetime.strptime(value, '%Y-%m-%d')
         elif dtype == 'int':
@@ -649,19 +649,19 @@ def test(value, dtype):
         return False
 
 
-def get_input(msg='Enter input', mode='default'):
+def get_input(msg='Enter input', mode='str'):
     """
     Get user input, optionally of specified format.
 
     Keyword Arguments:
         msg {str} -- message to print to console (default: {'Enter input'})
-        mode {str} -- apply filter to user input, one of ['bool', 'date', 'int', 'float', 'str'] (default: {'default'})
+        mode {str} -- apply filter to user input, one of ['bool', 'date', 'int', 'float', 'str'] (default: {'str'})
 
     Returns:
         {str}
     """
 
-    assert mode in ['default', 'bool', 'date', 'int', 'float', 'str']
+    assert mode in ['str', 'bool', 'date', 'int', 'float']
 
     # Add suffix based on mode
     msg = re.sub(r': *$', '', msg).strip()
@@ -675,15 +675,21 @@ def get_input(msg='Enter input', mode='default'):
     uin_raw = input(msg)
 
     if mode == 'bool':
-        while uin_raw.lower() not in ['y', 'yes', 'n', 'no']:
+        while test(uin_raw, 'bool'):
             uin_raw = input("Must enter 'y' or 'n': ")
         if uin_raw.lower() in ['y', 'yes']:
             return True
         else:
             return False
     elif mode == 'date':
-        while not is_date(uin_raw):
+        while not test(uin_raw, 'date'):
             uin_raw = input("Must enter valid date in format 'YYYY-MM-DD': ")
+    elif mode == 'int':
+        while not test(uin_raw, 'int'):
+            uin_raw = input('Must enter integer value: ')
+    elif mode == 'float':
+        while not test(uin_raw, 'float'):
+            uin_raw = input('Must enter float value: ')
 
     return uin_raw
 
