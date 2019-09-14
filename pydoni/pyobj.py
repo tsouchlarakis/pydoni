@@ -649,20 +649,19 @@ def test(value, dtype):
         return False
 
 
-def get_input(msg, mode="default"):
+def get_input(msg='Enter input', mode='default'):
     """
     Get user input, optionally of specified format.
 
     Keyword Arguments:
-        msg {str} -- message to print to console (default: {'Enter input: '})
-        mode {str} -- apply filter to user input, one of ['bool', 'date', 'int', 'float'] (default: {"default"})
+        msg {str} -- message to print to console (default: {'Enter input'})
+        mode {str} -- apply filter to user input, one of ['bool', 'date', 'int', 'float', 'str'] (default: {'default'})
 
     Returns:
         {str}
     """
 
     assert mode in ['default', 'bool', 'date', 'int', 'float', 'str']
-
 
     # Add suffix based on mode
     msg = re.sub(r': *$', '', msg).strip()
