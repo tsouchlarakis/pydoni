@@ -418,7 +418,6 @@ def join_audiofiles_ffmpeg(audiofiles, targetfile):
         f.write('')
 
     cmd = 'ffmpeg -f concat -safe 0 -i "%s" -c copy "%s"' % (tmpfile, targetfile)
-    print(cmd)
     try:
         syscmd(cmd)
         if isfile(tmpfile):
@@ -426,7 +425,7 @@ def join_audiofiles_ffmpeg(audiofiles, targetfile):
         return True
 
     except Exception as e:
-        echo(e)
+        echo(str(e))
         return False
 
 
