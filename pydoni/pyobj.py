@@ -619,6 +619,36 @@ def naturalsort(lst):
     return sorted(lst, key=natural_keys)
 
 
+def test(value, dtype):
+    """
+    Test if a value is an instance of type `dtype`.
+
+    Arguments:
+        value {str} -- value to test
+        dtype {str} -- one of ['bool', 'date', 'int', 'float', 'str']
+
+    Returns:
+        {bool}
+    """
+    
+    assert dtype in ['bool', 'date', 'int', 'float', 'str']
+
+    try:
+        if dtype == 'bool':
+            assert value.lower() in ['true', 'false']
+        elif dtype == 'date':
+            test = datetime.strptime(value, '%Y-%m-%d')
+        elif dtype == 'int':
+            test = int(value)
+        elif dtype == 'float':
+            test = float(value)
+        elif dtype == 'str':
+            test = str(value)
+        return True
+    except:
+        return False
+
+
 def get_input(msg, mode="default"):
     """
     Get user input, optionally of specified format.
@@ -631,23 +661,8 @@ def get_input(msg, mode="default"):
         {str}
     """
 
-    assert mode in ['default', 'bool', 'date', 'int', 'float']
+    assert mode in ['default', 'bool', 'date', 'int', 'float', 'str']
 
-    def is_date(date_string):
-        """
-        Test if string is valid date.
-
-        Arguments:
-            date_string {str} -- string to test
-
-        Returns:
-            {bool}
-        """
-        try:
-            test = datetime.strptime(date_string, '%Y-%m-%d')
-            return True
-        except:
-            return False
 
     # Add suffix based on mode
     msg = re.sub(r': *$', '', msg).strip()
