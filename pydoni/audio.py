@@ -582,6 +582,22 @@ def set_google_credentials(google_application_credentials_json):
     environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_application_credentials_json
 
 
+def m4a_to_mp3(m4a_file):
+    """
+    Use ffmpeg to convert a .m4a file to .mp3.
+
+    Arguments:
+        m4a_file {str} -- path to file to convert to .mp3
+
+    Returns:
+        nothing
+    """
+    cmd = 'ffmpeg -i "{}" -codec:v copy -codec:a libmp3lame -q:a 2 "{}.mp3"'.format(
+        m4a_file, splitext(m4a_file)[0]
+    )
+    syscmd(cmd)
+
+
 from pydoni.sh import syscmd
 from pydoni.vb import echo
 from pydoni.os import listfiles
