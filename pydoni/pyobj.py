@@ -194,6 +194,11 @@ def user_select_from_list(
             invalid = True
             continue
     
+    # If single item selected, return as string not as list
+    if isinstance(val, list):
+        if len(val) == 1:
+            return val[0]
+
     return val
 
 
