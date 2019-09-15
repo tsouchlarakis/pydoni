@@ -271,7 +271,7 @@ class Postgres(object):
         else:
             return True
 
-    def build_update(self, schema, table, pkey_name, pkey_value, columns, values, validate=True):
+    def build_update(self, schema, table, pkey_name, pkey_value, columns, values, validate=True, newlines=False):
         """
         Construct SQL UPDATE statement.
         By default, this method will:
@@ -290,9 +290,10 @@ class Postgres(object):
             
         Keyword Arguments:
             validate {bool} -- if True, query column type from DB, validate that datatypes of existing column and value to insert are the same
+            newlines {bool} -- if True, add newlines to query string (default: {False})
         
         Returns:
-            str
+            {str}
         """
 
         # Get columns and values
@@ -321,8 +322,16 @@ class Postgres(object):
                     pass
                 else:  # Assume string, handle quotes
                     val = self.__handle_single_quote__(val)
-            lst.append('"{}"={}'.format(col, val))
-        sql = "UPDATE {}.{} SET {} WHERE {} = {};"
+            if newlines:
+                lst.append('\n    "{}"={}'.format(col, val))
+            else:
+                lst.append('"{}"={}'.format(col, val))
+
+        if newlines:
+            lst[0] = lst[0].strip()
+            sql = "UPDATE {}.{}\nSET {}\nWHERE {} = {};"
+        else:
+            sql = "UPDATE {}.{} SET {} WHERE {} = {};"
         
         return sql.format(
             schema,
@@ -331,7 +340,7 @@ class Postgres(object):
             '"' + pkey_name + '"',
             pkey_value)
 
-    def build_insert(self, schema, table, columns, values, validate=False):
+    def build_insert(self, schema, table, columns, values, validate=False, newlines=False):
         """
         Construct SQL INSERT statement.
         By default, this method will:
@@ -350,9 +359,10 @@ class Postgres(object):
             
         Keyword Arguments:
             validate {bool} -- if True, query column type from DB, validate that datatypes of existing column and value to insert are the same (default: {False})
+            newlines {bool} -- if True, add newlines to query string (default: {False})
         
         Returns:
-            str
+            {str}
         """
 
         # Get columns and values
@@ -382,10 +392,15 @@ class Postgres(object):
         values_final = ', '.join(str(x) for x in lst)
         values_final = values_final.replace("'NULL'", 'NULL')
         columns = ', '.join(['"' + x + '"' for x in columns])
-        sql = "INSERT INTO {}.{} ({}) VALUES ({});"
+        
+        if newlines:
+            sql = "INSERT INTO {}.{} ({})\nVALUES ({});"
+        else:
+            sql = "INSERT INTO {}.{} ({}) VALUES ({});"
+        
         return sql.format(schema, table, columns, values_final)
 
-    def build_delete(self, schema, table, pkey_name, pkey_value):
+    def build_delete(self, schema, table, pkey_name, pkey_value, newlines=False):
         """
         Construct SQL DELETE FROM statement.
         
@@ -394,12 +409,18 @@ class Postgres(object):
             table      {str} -- table name
             pkey_name  {str} -- name of primary key in table
             pkey_value {<any>} -- value of primary key for value to update
+
+        Keyword Arguments:
+            newlines {bool} -- if True, add newlines to query string (default: {False})
         
         Returns:
-            str
+            {str}
         """
         pkey_value = self.__handle_single_quote__(pkey_value)
-        return "DELETE FROM {}.{} WHERE {} = {};".format(schema, table, pkey_name, pkey_value)
+        if newlines:
+            return "DELETE FROM {}.{}\nWHERE {} = {};".format(schema, table, pkey_name, pkey_value)
+        else:
+            return "DELETE FROM {}.{} WHERE {} = {};".format(schema, table, pkey_name, pkey_value)
 
     def colnames(self, schema, table):
         """
