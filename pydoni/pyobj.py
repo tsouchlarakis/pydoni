@@ -638,7 +638,10 @@ def test(value, dtype):
 
     try:
         if dtype == 'bool':
-            assert value.lower() in ['true', 'false', 'y', 'yes', 'n', 'no']
+            if value.lower() in ['true', 'false', 'y', 'yes', 'n', 'no']:
+                return True
+            else:
+                return False
         elif dtype == 'date':
             test = datetime.strptime(value, '%Y-%m-%d')
         elif dtype == 'int':
@@ -683,7 +686,7 @@ def get_input(msg='Enter input', mode='str', indicate_mode=False):
     uin_raw = input(msg)
 
     if mode == 'bool':
-        while test(uin_raw, 'bool'):
+        while not test(uin_raw, 'bool'):
             uin_raw = input("Must enter 'y' or 'n': ")
         if uin_raw.lower() in ['y', 'yes']:
             return True
