@@ -136,6 +136,9 @@ def user_select_from_list(
         tab = '\t' * indent
         for i, item in enumerate(lst):
             print('{}({}) {}'.format(tab, str(i+1), item))
+    else:
+        for i, item in enumerate(lst):
+            print('({}) {}'.format(str(i+1), item))
     
     # User must make a valid selection. If selection is invalid, re-run through this while loop.
     invalid = True
