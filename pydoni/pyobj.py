@@ -698,7 +698,7 @@ def get_input(msg='Enter input', mode='str', indicate_mode=False):
         else:
             return False
     elif mode == 'date':
-        while not test(uin_raw, 'date'):
+        while not test(uin_raw, 'date') and uin_raw != '':
             uin_raw = input("Must enter valid date in format 'YYYY-MM-DD': ")
     elif mode == 'int':
         while not test(uin_raw, 'int'):
