@@ -443,7 +443,7 @@ class Postgres(object):
         
         Arguments:
             schema {str} -- schema name
-            table  {str} -- table name
+            table {str} -- table name
         
         Returns:
             {dict} -- dictionary of key:value pairs of column_name:column_datatype
@@ -484,12 +484,14 @@ class Postgres(object):
     def dump_tables(self, backup_dir_abspath, sep=',', coerce_csv=False):
         """
         Dump each table in database to a textfile with specified separator.
-        https://stackoverflow.com/questions/17463299/export-database-into-csv-file?answertab=oldest#tab-top
         
         Arguments:
             backup_dir_abspath {str} -- absolute path to directory to dump Postgres database to
             sep {str} -- output datafile separator, defaults to comma
             coerce_csv {bool} -- if True, read in each file outputted, then write as a quoted CSV
+
+        Source:
+            https://stackoverflow.com/questions/17463299/export-database-into-csv-file?answertab=oldest#tab-top
         """
         
         db_to_csv = """
