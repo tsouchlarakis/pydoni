@@ -320,7 +320,8 @@ class Postgres(object):
                     pass
                 elif isinstance(val, int) or isinstance(val, float):
                     pass
-                else:  # Assume string, handle quotes
+                else:
+                    # Assume string, handle quotes
                     val = self.__handle_single_quote__(val)
             if newlines:
                 lst.append('\n    "{}"={}'.format(col, val))
