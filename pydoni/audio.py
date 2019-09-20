@@ -71,7 +71,10 @@ class Audio(object):
         """
         if outfile is None:
             outfile = splitext(self.audiofile)[0] + '.mp3'
-        self.sound.export(outfile, bitrate='92k')
+        wavfile = splitext(self.audiofile)[0] + '.wav'
+        self.sound.export(outfile, bitrate='32k')
+        if isfile(wavfile):
+            remove(wavfile)
 
     def set_channels(self, num_channels):
         """
@@ -411,7 +414,11 @@ def join_audiofiles_ffmpeg(audiofiles, targetfile):
 
     # cmd = 'ffmpeg -i "concat:{}" -acodec copy "{}"'.format('|'.join(audiofiles), targetfile)
     
-    tmpfile = '.tmp.pydoni.audio.join_audiofiles_ffmpeg.txt'
+    tmpfile = join(
+        dirname(audiofiles[0]),
+        '.tmp.pydoni.audio.join_audiofiles_ffmpeg.txt'
+    )
+
     with open(tmpfile, 'w') as f:
         for fname in audiofiles:
             f.write("file '%s'\n" % fname)

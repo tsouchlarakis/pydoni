@@ -8,7 +8,7 @@ import requests
 import shutil
 import subprocess
 import re
-from os import chdir, getcwd, mkdir, environ
+from os import chdir, getcwd, mkdir, environ, listdir
 from os.path import splitext, isfile, dirname, abspath, basename, isdir, expanduser, join
 from send2trash import send2trash
 from titlecase import titlecase
@@ -526,14 +526,23 @@ class Git(object):
     def __init__(self):
         pass
 
+    def is_git_repo(self):
+        """
+        Determine whether current dir is a git repository.
+
+        Returns:
+            {bool}
+        """
+        if '.git' in listdir():
+            return True
+        else:
+            return False
+
     def status(self):
         """
         Return boolean based on output of 'git status' command. Return True if working tree is
         up to date and does not require commit, False if commit is required.
     
-        Arguments:
-            none
-        
         Returns:
             {bool}
         """
@@ -552,8 +561,8 @@ class Git(object):
         Add files to commit.
     
         Arguments:
-            fpath (str or list): file(s) to add
-            all   {bool}       : if True, execute 'git add .'
+            fpath {str} or {list} -- file(s) to add
+            all {bool} -- if True, execute 'git add .'
         
         Returns:
             nothing

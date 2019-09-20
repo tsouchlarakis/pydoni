@@ -710,4 +710,50 @@ def get_input(msg='Enter input', mode='str', indicate_mode=False):
     return uin_raw
 
 
+# def initiate_argparser():
+#     """
+#     Initiate argument parser, return Namespace.
+
+#     Arguments:
+#         none
+
+#     Returns:
+#         Namespace
+#     """
+
+#     parser = argparse.ArgumentParser(description='___ argument parser')
+#     parser._action_groups.pop()
+
+#     # Required arguments
+
+#     required = parser.add_argument_group('required arguments')
+    
+#     required.add_argument(
+#         '--cdc_year',
+#         type     = str,
+#         required = True,
+#         help     = 'Year to run program on'
+#     )
+
+#     # Optional arguments
+
+#     optional = parser.add_argument_group('optional arguments')
+
+#     optional.add_argument(
+#         '--wd',
+#         type    = str,
+#         default = dirname(realpath(__file__)),
+#         help    = 'CDC project directory'
+#     )
+
+#     optional.add_argument(
+#         '--verbose',
+#         action  = "store_true",
+#         default = False,
+#         help    = 'Output progress messages to console'
+#     )
+
+#     return parser.parse_args()
+
+
 from pydoni.vb import echo
