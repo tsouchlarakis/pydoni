@@ -64,7 +64,8 @@ def initialize_argparser():
     parser._action_groups.pop()
 
     required = parser.add_argument_group('required arguments')
-    required.add_argument('--vol_source',type=str, required=True, help='Source volume name')
+    required.add_argument('--vol_source',type=str, required=True,
+        help='Source volume name')
     required.add_argument('--coll_target', type=str, required=True,
         help='Absolute filepath to target collection directory')
     required.add_argument('--date', type=str, required=True,
