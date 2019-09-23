@@ -1,4 +1,4 @@
 **/*.archive/
 **/*__pycache__/
-# **/*.app/
+**/*.app/
 **/*.DS_Store
