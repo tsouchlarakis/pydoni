@@ -4,7 +4,7 @@ from os import chdir, rename
 from os.path import isdir, splitext, basename
 from send2trash import send2trash
 from tqdm import tqdm
-from pydoni.os import listfiles
+from pydoni.os import listfiles, macos_notify
 from pydoni.vb import echo, verbose_header, program_complete
 
 
@@ -22,7 +22,7 @@ class RenameConvert(object):
         verbose {bool} -- if True, print messages to STDOUT (default: {False})
     """
 
-    def __init__(self, dname, initials, tz_adjust, ignore_rename, ignore_convert, recursive, verbose):
+    def __init__(self, dname, initials, tz_adjust, ignore_rename, ignore_convert, recursive, verbose, notify):
         self.dname = dname
         self.initials = initials
         self.tz_adjust = tz_adjust
@@ -30,6 +30,7 @@ class RenameConvert(object):
         self.ignore_convert = ignore_convert
         self.recursive = recursive
         self.verbose = verbose
+        self.notify = notify
 
     def run(self):
         """
@@ -50,11 +51,11 @@ class RenameConvert(object):
 
         # Rename
         if not self.ignore_rename:
-            media_files = listfiles(full_names=True, recursive=self.recursive)
-            media_files = [x for x in media_files \
+            media_files_r = listfiles(full_names=True, recursive=self.recursive)
+            media_files_r = [x for x in media_files_r \
                 if not re.match(c.photo, basename(x)) \
                 and not re.match(c.video, basename(x))]
-            if len(media_files):
+            if len(media_files_r):
                 if self.verbose:
                     verbose_header('Renaming {} media files'.format(str(len(media_files))))
                     with tqdm(total=len(media_files), unit='mediafile') as pbar:
@@ -85,32 +86,29 @@ class RenameConvert(object):
 
         # Convert to DNG
         if not self.ignore_convert:
-            media_files = listfiles(full_names=True, ext=['arw', 'cr2'], recursive=self.recursive)
-            if len(media_files):
+            media_files_c = listfiles(full_names=True, ext=['arw', 'cr2'], recursive=self.recursive)
+            if len(media_files_c):
                 if self.verbose:
-                    verbose_header('Converting {} raw files'.format(str(len(media_files))))
-                    with tqdm(total=len(media_files), unit='rawfile') as pbar:
-                        for f in media_files:
+                    verbose_header('Converting {} raw files'.format(str(len(media_files_c))))
+                    with tqdm(total=len(media_files_c), unit='rawfile') as pbar:
+                        for f in media_files_c:
                             pbar.set_postfix(mediafile=f[-10:])
                             mf = MediaFile(f, run_exiftool=False).convert_dng(remove_original=True)
                             pbar.update(1)
                 else:
-                    for f in media_files:
+                    for f in media_files_c:
                         mf = MediaFile(f, run_exiftool=False).convert_dng(remove_original=True)
             else:
                 if self.verbose:
                     echo('No files to convert!', fg='green')
 
         if self.verbose:
-            program_complete(
-                msg          = 'Rename and convert successful!',
-                emoji_string = ':poop:',
-                notify       = True,
-                notification = dict(
-                    title='Rename/Convert',
-                    open_iterm=True
-                )
-            )
+            echo('Summary', underline=True, fg='white', bold=True)
+            echo('Renamed media files: %s' % str(len(media_files_r)), indent=2)
+            echo('Converted RAW files: %s' % str(len(media_files_c)), indent=2)
+
+        if self.notify:
+            macos_notify(title='Rename/Convert', message='Rename/Convert completed successfully!')
 
 
 from pydoni.scripts.dump_sd.dump_sd import Convention, Extension

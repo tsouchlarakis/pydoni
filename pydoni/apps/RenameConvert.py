@@ -41,9 +41,9 @@ def initialize_argparser():
         help='Directory name to run program on')
 
     optional = parser.add_argument_group('optional arguments')
-    required.add_argument('--initials', type=str, required=False, default='AS',
+    optional.add_argument('--initials', type=str, required=False, default='AS',
         help='Two-character initial string')
-    required.add_argument('--tz_adjust', type=int, required=False, default=0,
+    optional.add_argument('--tz_adjust', type=int, required=False, default=0,
         help='Subtract this many hours from photo created date to use in file renaming (default: {False})')
     optional.add_argument('--ignore_rename', action='store_true', default=False,
         help='Ignore the Rename portion of program (default: {False})')
@@ -53,6 +53,8 @@ def initialize_argparser():
         help='Operate on all subdirectories found in `dname` (default: {False})')
     optional.add_argument('--verbose', action='store_true', default=False,
         help='Print messages to STDOUT (default: {False})')
+    optional.add_argument('--notify', action='store_true', default=False,
+        help='Send macOS notification upon program completion (default: {False})')
 
     return parser.parse_args()
 
@@ -65,5 +67,6 @@ RenameConvert(
     ignore_rename=ns.ignore_rename,
     ignore_convert=ns.ignore_convert,
     recursive=ns.recursive,
-    verbose=ns.verbose
+    verbose=ns.verbose,
+    notify=ns.notify
 ).run()
