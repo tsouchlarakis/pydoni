@@ -1,5 +1,18 @@
 """
+Back up a directory to another directory.
 
+Arguments:
+    source_dir {str} -- Absolute path to source directory 
+    target_dir {str} -- Absolute path to target directory 
+
+Keyword Arguments:
+    prompt {bool} -- Verify with user before executing program (default: {False})
+    skip_copy {bool} -- Skip "copy" portion of program (default: {False})
+    skip_replace {bool} -- Skip "replace" portion of program (default: {False})
+    skip_delete {bool} -- Skip "delete" portion of program (default: {False})
+    logfile {str} -- Log changes to target folder in this file (default: {None})
+    verbose {bool} -- Print program messages to STDOUT (default: {False})
+    notify {bool} -- Send macOS notification on program completion (default: {False})
 """
 
 import argparse
