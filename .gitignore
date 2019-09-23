@@ -1,8 +1,4 @@
-*.archive/
-*__pycache__/
-*.app/
-*.DS_Store*
-*.DS_Store
-.DS_Store*
-/*.DS_Store
-.DS_Store
+**/*.archive/
+**/*__pycache__/
+**/*.app/
+**/*.DS_Store
