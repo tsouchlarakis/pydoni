@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from pydoni.os import listfiles
 from pydoni.vb import echo, verbose_header, program_complete, macos_notify
 
-test
+
 def parse_date(date):
     """
     Get date in format YYYY-MM-DD if entered as 'today' or 'yesterday'.
