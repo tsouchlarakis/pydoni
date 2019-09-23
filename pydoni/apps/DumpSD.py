@@ -81,9 +81,9 @@ def initialize_argparser():
         help='Send macOS notification upon program completion (default: {False})')
     optional.add_argument('--test_mode', action="store_true", default=False,
         help='Run program in test mode (default: {False})')
-    required.add_argument('--rc_initials', type=str, required=False, default='AS',
+    optional.add_argument('--rc_initials', type=str, required=False, default='AS',
         help='Only necessary if `rename_convert` is True. Two-character initials string to insert into new mediafile names (default: {AS})')
-    required.add_argument('--rc_tz_adjust', type=int, required=False, default=0,
+    optional.add_argument('--rc_tz_adjust', type=int, required=False, default=0,
         help='subtract this many hours from photo created date to use in file renaming (default: {0})')
 
     return parser.parse_args()
