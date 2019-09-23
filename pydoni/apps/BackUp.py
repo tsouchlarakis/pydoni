@@ -16,7 +16,7 @@ Keyword Arguments:
 """
 
 import argparse
-from pydoni.scripts.dump_sd.back_up import BackUp
+from pydoni.scripts.back_up.back_up import BackUp
 
 
 def initialize_argparser():
