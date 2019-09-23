@@ -3,4 +3,4 @@
 **/*__pycache__/
 **/*.app/
 **/*.DS_Store
-# pydoni/scripts/back_up
+pydoni/scripts/back_up
