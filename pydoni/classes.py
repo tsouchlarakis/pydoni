@@ -146,8 +146,9 @@ class ProgramEnv(object):
         """
         Remove environment from filesystem.
         """
-        chdir(dirname(self.path))
-        shutil.rmtree(self.path)
+        if isdir(self.path):
+            chdir(dirname(self.path))
+            shutil.rmtree(self.path)
 
 
 class Movie(object):
