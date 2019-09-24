@@ -1,3 +1,6 @@
 [submodule "pydoni/scripts"]
 	path = pydoni/scripts
 	url = https://github.com/tsouchlarakis/pydoni-scripts
+[submodule "pydoni/apps"]
+	path = pydoni/apps
+	url = https://github.com/tsouchlarakis/pydoni-apps
