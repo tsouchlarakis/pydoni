@@ -7,3 +7,5 @@ pydoni/scripts/*
 pydoni/scripts
 pydoni/apps/*
 pydoni/apps
+**/scripts
+**/apps
