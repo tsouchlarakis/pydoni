@@ -136,7 +136,7 @@ def transcribe(audiofile, method='gcs', gcs_split_threshold=50, apply_correction
     Keyword Arguments:
         method {str} -- method to use for audiofile transcription, one of ['gcs']
         gcs_split_threshold {int} -- maximum audio clip size in seconds, if clip exceeds this length it will be split using class method `split()` (default: {55})
-        apply_correction {bool} -- if True, call `self.apply_transcription_corrections()` after transcript created (default: {True})
+        apply_correction {bool} -- if True, call apply_transcription_corrections() after transcript created (default: {True})
         verbose {bool} -- if True, print progress messages to console (default: {True})
 
     Returns:
@@ -162,16 +162,18 @@ def transcribe(audiofile, method='gcs', gcs_split_threshold=50, apply_correction
             if 'GOOGLE_APPLICATION_CREDENTIALS' not in environ.keys():
                 echo("Must run 'set_google_credentials()' before running GCS transcription!", abort=True)
 
-            # Ensure file is in .wav format. If not, create a temporary .wav file
+            # Ensure file is in mono .wav format. If not, create a temporary .wav file
             ext = splitext(env.focus)[1]
-            if ext.lower() != '.wav':
-                if verbose:
-                    echo('Converting audio to .wav', timestamp=True, fn_name=fn_name)
-                fname = splitext(env.focus)[0] + '.wav'
-                audio = Audio(env.focus)
-                audio.set_channels(1)
-                audio.sound.export(fname, format='wav')
-                env.focus = fname
+            if verbose:
+                if ext != '.wav':
+                    echo('Converting %s audio to mono wav' % ext, timestamp=True, fn_name=fn_name)
+                else:
+                    echo('Converting .wav audio to mono', timestamp=True, fn_name=fn_name)
+            fname = splitext(env.focus)[0] + '.wav'
+            audio = Audio(env.focus)
+            audio.set_channels(1)
+            audio.sound.export(fname, format='wav')
+            env.focus = fname
 
             # Split audio file into segments if longer than `gcs_split_threshold` seconds
             duration = get_duration(env.focus)
@@ -193,11 +195,11 @@ def transcribe(audiofile, method='gcs', gcs_split_threshold=50, apply_correction
             # Loop over files to transcribe and apply Google Cloud transcription
             if verbose:
                 echo('Transcribing audio', timestamp=True, fn_name=fn_name)
-                iter = tqdm(fnames)
+                iterable = tqdm(fnames, total=len(fnames), unit='audiofile')
             else:
-                iter = fnames
+                iterable = fnames
             try:
-                for fname in iter:
+                for fname in iterable:
                     with open(fname, 'rb') as audio_file:
                         content = audio_file.read()
                         aud = speech.types.RecognitionAudio(content=content)
@@ -245,12 +247,15 @@ def transcribe(audiofile, method='gcs', gcs_split_threshold=50, apply_correction
         raise e
 
     env.delete_env()
+    if verbose:
+        program_complete('Transcription complete')
+
     return transcript
 
 
 def apply_transcription_corrections(transcript):
     """
-    Apply any and all corrections to output of `self.transcribe()`.
+    Apply any and all corrections to output of transcribe().
 
     Arguments:
         transcript {str} -- transcript string to apply corrections to
@@ -606,7 +611,7 @@ def m4a_to_mp3(m4a_file):
 
 
 from pydoni.sh import syscmd
-from pydoni.vb import echo
+from pydoni.vb import echo, program_complete
 from pydoni.os import listfiles
 from pydoni.classes import ProgramEnv
 from pydoni.pyobj import cap_nth_char, replace_nth_char, insert_nth_char
