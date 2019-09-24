@@ -4,4 +4,6 @@
 **/*.app/
 **/*.DS_Store
 pydoni/scripts/*
+pydoni/scripts
 pydoni/apps/*
+pydoni/apps
