@@ -115,9 +115,7 @@ def user_select_from_list(
     ):
     """
     Prompt user to make a selection from a list. Supports comma- and hyphen-separated selection.
-    For example, a user may select elements from a list as:
-        1-3, 5, 10-15, 29  ->  [1,2,3,5,10,11,12,13,14,15,29]
-    
+
     Arguments:
         lst {list} -- list of selections
 
@@ -129,6 +127,10 @@ def user_select_from_list(
     Returns:
         {list} -- slice of `lst`
         {str} -- element of `lst`
+
+    Example:
+        A user may select elements from a list as:
+        1-3, 5, 10-15, 29  ->  [1,2,3,5,10,11,12,13,14,15,29]
     """
     
     # Add indent to each element of `lst`
