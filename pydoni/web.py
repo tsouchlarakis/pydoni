@@ -22,7 +22,8 @@ def check_network_connection(abort=False):
         return True
     except:
         if abort:
-            quit()
+            from pydoni.vb import echo
+            echo('No internet connection!', abort=True)
         else:
             return False
 
