@@ -394,4 +394,5 @@ def macos_notify(title='', subtitle=None, message='', app_icon=None, content_ima
     cmd = 'terminal-notifier {}'.format(' '.join(cl_string))
     syscmd(cmd)
 
+
 from pydoni.sh import syscmd
