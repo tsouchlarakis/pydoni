@@ -447,7 +447,7 @@ class EXIF(object):
                 return exifd
 
         # Check if `exiftool` is installed
-        ep = syscmd('which exiftool').decode().strip()
+        ep = syscmd('which /usr/local/bin/exiftool').decode().strip()
         if not isfile(ep):
             echo("exiftool is not installed! Please install it per instructions with `brew install exiftool`", abort=True)
 
@@ -482,7 +482,7 @@ class EXIF(object):
             # Iterate over batches and append results to master dictionary
 
             # Obtain exiftool result
-            cmd = 'exiftool ' + \
+            cmd = '/usr/local/bin/exiftool ' + \
                 ' '.join('"' + item + '"' for item in batch_files)
             res = subprocess.run(cmd, stdout=subprocess.PIPE, shell=True)
             res = str(res.stdout.decode('utf-8', errors='backslashreplace'))
