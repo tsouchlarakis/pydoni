@@ -1,6 +1,6 @@
 import re
 import datetime
-from os.path import expanduser, splitext
+from os.path import expanduser, splitext, isdir, isfile
 
 
 class DoniDict(dict):
