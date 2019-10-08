@@ -687,7 +687,7 @@ def get_input(msg='Enter input', mode='str', indicate_mode=False):
     elif mode == 'date':
         msg = add_clarification(msg, '(YYYY-MM-DD)')
     if indicate_mode:
-        msg = add_clarification(msg, '{%s}' % mode)
+        msg = add_clarification(msg, '{%s}' % mode.replace('v', '') if mode in ['filev', 'dirv'] else mode)
     msg = add_colon(msg)
 
     uin_raw = input(msg)
