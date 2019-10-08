@@ -668,14 +668,14 @@ def get_input(msg='Enter input', mode='str', indicate_mode=False):
 
     Keyword Arguments:
         msg {str} -- message to print to console (default: {'Enter input'})
-        mode {str} -- apply filter to user input, one of ['bool', 'date', 'int', 'float', 'str'] (default: {'str'})
+        mode {str} -- apply filter to user input, one of ['bool', 'date', 'int', 'float', 'str', 'file', 'filev', 'dir', 'dirv']. 'filev' and 'dirv' options are 'file'/'dir' with an added layer of validation, to ensure the file/dir exists (default: {'str'})
         indicate_mode {bool} -- if True, print type of anticipated datatype with message
 
     Returns:
         {str}
     """
 
-    assert mode in ['str', 'bool', 'date', 'int', 'float']
+    assert mode in ['str', 'bool', 'date', 'int', 'float', 'file', 'filev', 'dir', 'dirv']
 
     add_colon = lambda x: x + ': '
     add_clarification = lambda x, clar: x + ' ' + clar
@@ -708,6 +708,12 @@ def get_input(msg='Enter input', mode='str', indicate_mode=False):
     elif mode == 'float':
         while not test(uin_raw, 'float'):
             uin_raw = input('Must enter float value: ')
+    elif mode in ['file', 'filev', 'dir', 'dirv']:
+        uin_raw = uin_raw.strip()
+        if mode == 'filev':
+            assert isfile(uin_raw)
+        elif mode == 'dirv':
+            assert isdir(uin_raw)
 
     return uin_raw
 

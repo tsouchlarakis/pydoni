@@ -262,7 +262,6 @@ def print_columns(lst, ncol=2, delay=None):
         for i in range(0, len(lst), chunk_size):
             yield lst[i:i + chunk_size]
 
-
     lstlst = list(chunks(lst, ncol))
     col_width = max(len(word) for row in lstlst for word in row) + 2
     for row in lstlst:
