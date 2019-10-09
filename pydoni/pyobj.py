@@ -110,7 +110,7 @@ def assert_len(varlist, varnames=None):
 def user_select_from_list(
     lst,
     indent=0,
-    msg='Please make a selection (hyphen-separated range ok): ',
+    msg=None,
     allow_range=True
     ):
     """
@@ -121,7 +121,7 @@ def user_select_from_list(
 
     Keyword Arguments:
         indent {int} -- indentation level of all items of `lst` (default: {0})
-        msg {str} -- custom message to print instead of default (default: {'Please make a selection (hyphen-separated range ok): '})
+        msg {str} -- custom message to print instead of default (default: {None})
         allow_range {bool} -- if True, allow user to make multiple selections (default: {True})
 
     Returns:
@@ -142,11 +142,16 @@ def user_select_from_list(
         for i, item in enumerate(lst):
             print('({}) {}'.format(str(i+1), item))
     
+    if allow_range:
+        msg = 'Please make a selection (hyphen-separated range ok)'
+    else:
+        msg = 'Please make a single selection'
+
     # User must make a valid selection. If selection is invalid, re-run through this while loop.
     invalid = True
     while invalid:
         # Get user input
-        uin_raw = input(msg + ': ' if not msg.rstrip().endswith(':') else msg)
+        uin_raw = get_input(msg)
 
         # Test if user input is valid. User input must consist only of numbers, commas and/or hyphens
         if not uin_raw.replace('-', '').replace(',', '').replace(' ', '').strip().isdigit():
