@@ -1,6 +1,12 @@
 import re
 import datetime
+import pylab
+import matplotlib
+import colr
+import numpy as np
+import itertools
 from os.path import expanduser, splitext, isdir, isfile
+from collections import OrderedDict
 
 
 class DoniDict(dict):
@@ -142,7 +148,7 @@ def user_select_from_list(
         for i, item in enumerate(lst):
             print('({}) {}'.format(str(i+1), item))
     
-    if allow_range:
+    if allow_range is True:
         msg = 'Please make a selection (hyphen-separated range ok)'
     else:
         msg = 'Please make a single selection'
@@ -721,6 +727,45 @@ def get_input(msg='Enter input', mode='str', indicate_mode=False):
             assert isdir(uin_raw)
 
     return uin_raw
+
+
+def extract_colorpalette(palette_name, n=None, mode='hex'):
+    """
+    Convert color palette to color ramp list.
+
+    Arguments:
+        palette_name {str} -- name of color palette
+
+    Keyword Arguments:
+        n {int} -- size of color ramp. If None, automatically return the maximum number of colors in the color palette (default: {None})
+        mode {str} -- type of colors to return, one of ['rgb', 'hex', 'ansi'] (default: {'hex'})
+
+    Returns:
+        {list}
+    """
+    assert mode in ['rgb', 'hex', 'ansi']
+    
+    if n is None:
+        cmap_mpl = pylab.cm.get_cmap(palette_name)
+    else:
+        cmap_mpl = pylab.cm.get_cmap(palette_name, n)
+        
+    cmap = dict(rgb=OrderedDict(), hex=OrderedDict(), ansi=OrderedDict())
+    for i in range(cmap_mpl.N):
+        rgb = cmap_mpl(i)[:3]
+        hex = matplotlib.colors.rgb2hex(rgb)
+        ansi = colr.color('', fore=hex)
+        cmap['rgb'].update({rgb: None})
+        cmap['hex'].update({hex: None})
+        cmap['ansi'].update({ansi: None})
+
+    target = [x for x, _ in cmap[mode].items()]
+    if n > len(target):
+        rep = int(np.floor(n / len(target)))
+        target = list(itertools.chain.from_iterable(itertools.repeat(x, rep) for x in target))
+        target += [target[-1]] * (n - len(target))
+
+    return target
 
 
 from pydoni.vb import echo
