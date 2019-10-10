@@ -722,9 +722,9 @@ def get_input(msg='Enter input', mode='str', indicate_mode=False):
     elif mode in ['file', 'filev', 'dir', 'dirv']:
         uin_raw = expanduser(uin_raw.strip())
         if mode == 'filev':
-            assert isfile(uin_raw)
+            raise Exception('File must exist!')
         elif mode == 'dirv':
-            assert isdir(uin_raw)
+            raise Exception('Directory must exist!')
 
     return uin_raw
 
