@@ -720,7 +720,7 @@ def get_input(msg='Enter input', mode='str', indicate_mode=False):
         while not test(uin_raw, 'float'):
             uin_raw = input('Must enter float value: ')
     elif mode in ['file', 'filev', 'dir', 'dirv']:
-        uin_raw = uin_raw.strip()
+        uin_raw = expanduser(uin_raw.strip())
         if mode == 'filev':
             assert isfile(uin_raw)
         elif mode == 'dirv':
