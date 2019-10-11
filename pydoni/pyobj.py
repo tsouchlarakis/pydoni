@@ -148,10 +148,11 @@ def user_select_from_list(
         for i, item in enumerate(lst):
             print('({}) {}'.format(str(i+1), item))
     
-    if allow_range is True:
-        msg = 'Please make a selection (hyphen-separated range ok)'
-    else:
-        msg = 'Please make a single selection'
+    if msg is None:
+        if allow_range is True:
+            msg = 'Please make a selection (hyphen-separated range ok)'
+        else:
+            msg = 'Please make a single selection'
 
     # User must make a valid selection. If selection is invalid, re-run through this while loop.
     invalid = True
@@ -698,7 +699,7 @@ def get_input(msg='Enter input', mode='str', indicate_mode=False):
     elif mode == 'date':
         msg = add_clarification(msg, '(YYYY-MM-DD)')
     if indicate_mode:
-        msg = add_clarification(msg, '{%s}' % mode.replace('v', '') if mode in ['filev', 'dirv'] else mode)
+        msg = add_clarification(msg, '{%s}' % mode)
     msg = add_colon(msg)
 
     uin_raw = input(msg)
@@ -722,9 +723,11 @@ def get_input(msg='Enter input', mode='str', indicate_mode=False):
     elif mode in ['file', 'filev', 'dir', 'dirv']:
         uin_raw = expanduser(uin_raw.strip())
         if mode == 'filev':
-            raise Exception('File must exist!')
+            while not isfile(uin_raw):
+                uin_raw = input('Must enter existing file: ')
         elif mode == 'dirv':
-            raise Exception('Directory must exist!')
+            while not isdir(uin_raw):
+                uin_raw = input('Must enter existing directory: ')
 
     return uin_raw
 
