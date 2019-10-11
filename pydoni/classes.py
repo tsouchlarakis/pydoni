@@ -1251,7 +1251,13 @@ class Album(object):
                 Returns:
                     {bool}
                 """
-                return int(stat(album_artwork_file)['Size']) > 1000
+                try:
+                    if isfile(album_artwork_file):
+                        return int(stat(album_artwork_file)['Size']) > 1000
+                    else:
+                        return False
+                except:
+                    return False
 
         # Execute steps used for getting both Genre and Image
         # Get wikipedia link
