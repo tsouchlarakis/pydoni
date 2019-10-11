@@ -601,8 +601,32 @@ def colorize_sql(sql):
             csql2.append(token)
 
     return ' '.join(csql2)
-    
+
+
+def progrun_update(name, started, ended, args):
+    """
+    Update code.progrun with program run information.
+
+    Arguments:
+        name {str} -- name of program
+        started {datetime} -- timestamp of program start time
+        ended {datetime} -- timestamp of program end time
+        args {str} -- string of dictionary (str(dict(...))) containing program arguments
+
+    Returns:
+        nothing
+    """
+    pg = Postgres('Andoni', 'Andoni')
+    pg.execute(
+        pg.build_insert(
+            schema='code',
+            table='progrun',
+            columns=['name', 'started', 'ended', 'args'],
+            values=[name, started, ended, args],
+            validate=True))
+
 
 from pydoni.classes import DoniDt
 from pydoni.os import listfiles
 from pydoni.vb import echo
+from pydoni.db import Postgres

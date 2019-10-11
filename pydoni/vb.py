@@ -1,6 +1,7 @@
 import time
 import click
 from emoji import emojize
+from tqdm import trange
 from os.path import expanduser
 from datetime import datetime
 
@@ -346,6 +347,44 @@ def program_complete(
         echo(msg, notify=True, notification=notification)
     else:
         echo(msg)
+
+
+def stabilize_postfix(key, max_len, fillchar):
+    """
+    Create "stabilized" postfix (of consistent length) to be fed into
+    a tqdm progress bar. This ensures that the postfix is always of
+    a certain length, which causes the tqdm progress bar to be stable
+    rather than moving left to right when keys of length smaller
+    than `max_len` are encountered.
+
+    Arguments:
+        key {str} -- string to set as postfix
+        max_len {int} -- length of postfix
+        fillchar {str} -- character to fill any spaces on the left with
+
+    Returns:
+        {str}
+    """
+    postfix = key[-max_len:].rjust(max_len, fillchar)
+    m = re.match(r'^ +', postfix)
+    if m:
+        leading_spaces = m.group(0)
+        postfix = re.sub(r'^ +', fillchar * len(leading_spaces), postfix)
+    return postfix
+
+
+def line_messages(messages):
+    """
+    Print messages below TQDM progress bar.
+
+    Arguments:
+        messages {list} -- list of messages to print, each on its own line
+
+    Returns:
+        nothing
+    """
+    for i, m in enumerate(messages, 1):
+        trange(1, desc=str(m), position=i, bar_format='{desc}')
 
 
 from pydoni.pyobj import fmt_seconds
