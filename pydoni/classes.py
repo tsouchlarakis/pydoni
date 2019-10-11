@@ -1266,32 +1266,36 @@ class Album(object):
 
         # Get Wikipedia link if possible and overwrite `self.genre` if scraping successful
         if get_genre:
-            if requests.get(wikilink).status_code == 200:  # Webpage exists
-                try:
-                    parsed_genre = extract_genre_from_wikipage(wikilink)
-                    if parsed_genre is not None:
-                        # Overwrite genre
-                        self.genre = parsed_genre
-                        self.is_genre_from_wikipedia = True
-                    else:
+            if isinstance(wikilink, str):
+                if requests.get(wikilink).status_code == 200:  # Webpage exists
+                    try:
+                        parsed_genre = extract_genre_from_wikipage(wikilink)
+                        if parsed_genre is not None:
+                            # Overwrite genre
+                            self.genre = parsed_genre
+                            self.is_genre_from_wikipedia = True
+                        else:
+                            self.is_genre_from_wikipedia = False
+                    except:
+                        # Scraping fails, do not overwrite genre
                         self.is_genre_from_wikipedia = False
-                except:
-                    # Scraping fails, do not overwrite genre
-                    self.is_genre_from_wikipedia = False
 
         if get_image:
             # Get image by scraping Wikipedia page
-            downloaded_file = extract_image_from_wikipage(wikilink, image_outfile)
-            if isinstance(downloaded_file, str):
-                if isfile(downloaded_file):
-                    # Check that image is valid
-                    if not verify_downloaded_image(downloaded_file):
-                        if isfile(downloaded_file):
-                            send2trash(downloaded_file)
+            if isinstance(wikilink, str):
+                downloaded_file = extract_image_from_wikipage(wikilink, image_outfile)
+                if isinstance(downloaded_file, str):
+                    if isfile(downloaded_file):
+                        # Check that image is valid
+                        if not verify_downloaded_image(downloaded_file):
+                            if isfile(downloaded_file):
+                                send2trash(downloaded_file)
+                            else:
+                                self.is_image_downloaded_from_wikipedia = False
                         else:
-                            self.is_image_downloaded_from_wikipedia = False
+                            self.is_image_downloaded_from_wikipedia = True
                     else:
-                        self.is_image_downloaded_from_wikipedia = True
+                        self.is_image_downloaded_from_wikipedia = False
                 else:
                     self.is_image_downloaded_from_wikipedia = False
             else:
