@@ -378,8 +378,8 @@ class Postgres(object):
             col = columns[i]
             if validate:
                 self.validate_dtype(schema, table, col, val)
-            if DoniDt(val).is_exact():
-                val = DoniDt(val).extract_first(apply_tz=True)
+            # if DoniDt(val).is_exact():
+            #     val = DoniDt(val).extract_first(apply_tz=True)
             if str(val) in ['nan', 'N/A', 'null', '']:
                 val = 'NULL'
             elif isinstance(val, bool) or str(val).lower() in ['true', 'false']:
@@ -557,8 +557,8 @@ class Postgres(object):
         Returns:
             {`type(val)`}
         """
-        if isinstance(val, str):
-            val = val.replace("'", "''")
+        if type(val) not in [bool, int, float]:
+            val = str(val).replace("'", "''")
             val = "'" + val + "'"
         return val
 
