@@ -616,14 +616,18 @@ def progrun_update(name, started, ended, args):
     Returns:
         nothing
     """
-    pg = Postgres('Andoni', 'Andoni')
-    pg.execute(
-        pg.build_insert(
-            schema='code',
-            table='progrun',
-            columns=['name', 'started', 'ended', 'args'],
-            values=[name, started, ended, args],
-            validate=True))
+    try:
+        pg = Postgres('Andoni', 'Andoni')
+        pg.execute(
+            pg.build_insert(
+                schema='code',
+                table='progrun',
+                columns=['name', 'started', 'ended', 'args'],
+                values=[name, started, ended, args],
+                validate=True))
+    except Exception as e:
+        echo("Unable to update Postgres database for program '%s'" % prog,
+            warn=True, fn_name='pydoni.db.progrun_update', error_msg=str(e))
 
 
 from pydoni.classes import DoniDt
