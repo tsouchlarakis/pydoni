@@ -706,6 +706,99 @@ class EXIF(object):
         return val
 
 
+class FFmpeg(object):
+    """
+    Wrapper for FFmpeg BASH commands.
+    """
+
+    def __init__(self):
+        pass
+
+    def compress(self, f, outfile=None):
+        """
+        Arguments:
+            f {str} or {list} -- file or files to compress
+
+        Keyword Arguments:
+            outfile {str} -- output file (default: {splitext(x)[0] + '-COMPRESSED' + splitext(x)[1]})
+
+        Returns:
+            nothing
+        """
+        if isinstance(f, str):
+            f = [f]
+        for x in f:
+            outfile = splitext(x)[0] + '-COMPRESSED' + splitext(x)[1] if outfile is None else outfile
+            cmd = 'ffmpeg -i "{}" -map 0:a:0 -b:a 32k "{}"'.format(x, outfile)
+            syscmd(cmd)
+
+    def join(self, audiofiles, targetfile):
+        """
+        Join multiple audio files into a single audio file using a direct call to ffmpeg.
+
+        Arguments:
+            audiofiles {list} -- list of audio filenames to join together
+            targetfile {str} -- name of file to create from joined audio files
+
+        Returns:
+            nothing
+        """
+
+        assert isinstance(audiofiles, list)
+        assert len(audiofiles) > 1
+
+        # cmd = 'ffmpeg -i "concat:{}" -acodec copy "{}"'.format('|'.join(audiofiles), targetfile)
+        
+        tmpfile = join(
+            dirname(audiofiles[0]),
+            '.tmp.pydoni.audio.FFmpeg.join.txt'
+        )
+
+        with open(tmpfile, 'w') as f:
+            for fname in audiofiles:
+                f.write("file '%s'\n" % fname)
+            f.write('')
+
+        cmd = 'ffmpeg -f concat -safe 0 -i "%s" -c copy "%s"' % (tmpfile, targetfile)
+        syscmd(cmd)
+        if isfile(tmpfile):
+            remove(tmpfile)
+        return True
+
+    def split(self, audiofile, segment_time):
+        """
+        Split audiofile into `segment_time` second size chunks.
+
+        Arguments:
+            audiofile {str} -- audiofile to split
+            segment_time {int} -- desired number of seconds of each chunk
+
+        Returns:
+            nothing
+        """
+        # Split audio file with ffmpeg
+        cmd = 'ffmpeg -i "{}" -f segment -segment_time {} -c copy "{}-ffmpeg-%03d{}"'.format(
+            audiofile,
+            segment_time,
+            splitext(audiofile)[0],
+            splitext(audiofile)[1])
+        syscmd(cmd)
+
+    def m4a_to_mp3(self, m4a_file):
+        """
+        Use ffmpeg to convert a .m4a file to .mp3.
+
+        Arguments:
+            m4a_file {str} -- path to file to convert to .mp3
+
+        Returns:
+            nothing
+        """
+        cmd = 'ffmpeg -i "{}" -codec:v copy -codec:a libmp3lame -q:a 2 "{}.mp3"'.format(
+            m4a_file, splitext(m4a_file)[0])
+        syscmd(cmd)
+
+
 from pydoni.classes import DoniDt
 from pydoni.pyobj import fmt_seconds, split_at, duplicated
 from pydoni.vb import echo, clickfmt
