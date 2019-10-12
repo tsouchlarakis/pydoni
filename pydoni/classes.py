@@ -633,7 +633,7 @@ class Song(object):
         
         # Run `exiftool` on music file
         self.exif = EXIF(fname).run(wrapper='doni')
-        
+
         # Extract song-specific data
         self.title     = self.__get_song_title__()
         self.image     = self.__get_song_image__()
@@ -719,16 +719,33 @@ class Song(object):
             {str}
         """
         if 'track' in self.exif.keys():
-            return self.exif['track']
-        else:
-            if re.match(self.fname_rgx, self.fname) or re.match(self.fname_rgx2, self.fname):
-                track_raw = re.sub(self.fname_rgx, r'\1', self.fname).strip()
-                try:
-                    return int(track_raw)
-                except:
-                    return None
-            else:
-                return None
+            # Some track information in EXIF. Get as much as possible. Might be
+            # the numerator and denominator (best case), could be just numerator
+            track_raw = str(self.exif['track'])
+            if track_raw.isdigit():
+                return track_raw
+            if '/' in track_raw:
+                if track_raw.count('/') == 1:
+                    num, den = track_raw.split('/')
+                    if num.isdigit() and den.isdigit():
+                        # track_raw matches \d+/\d+
+                        return '{}/{}'.format(num, den)
+
+        rgx_num_den = r'^(\d+)(\.|-| )(\d+)'
+        rgx_num = r'^(\d+)'
+
+        m_num_den = re.match(rgx_num_den, self.fname)
+        if m_num_den:
+            # Numerator and denominator match. Something like '1-01 Houng Dog.mp3'
+            num = m_num_den.group(1)
+            den = m_num_den.group(3)
+            return '{}/{}'.format(num, den)            
+
+        m_num = re.match(rgx_num, self.fname)
+        if m_num:
+            return m_num.group(1)
+
+        return None
 
     def __get_song_track_idx__(self, track_raw):
         """
@@ -739,22 +756,19 @@ class Song(object):
         Returns:
             {int} or {None}
         """
-
-        # No 'track' EXIF attribute, attempt to parse from filename
-        if re.match(r'^\d+-\d+ ', self.fname):
-            track_raw = re.sub(r'^(\d+)(-)(\d+) ', r'\3', self.fname)
-        elif re.match(r'^\d{2} ', self.fname):
-            track_raw = self.fname.split(' ')[0]
-        else:
+        if track_raw is None:
             return None
 
-        # Convert to int. If can't convert to int, then invalid, so return None
+        if '/' in track_raw:
+            if track_raw.count('/') == 1:
+                num = track_raw.split('/')[0]
+                if num.isdigit():
+                    return int(num)
+
         if track_raw.isdigit():
             return int(track_raw)
-        elif re.match(r'^\d+\/\d+$', track_raw):
-            return int(track_raw.split('/')[0])
-        else:
-            return None
+
+        return None
 
     def __get_song_year__(self):
         """
@@ -947,54 +961,42 @@ class Album(object):
     considering the metadata of all songs within the album.
     
     Arguments:
-        dname {str} -- path to directory containing album of music files
+        dpath {str} -- path to directory containing album of music files
     """
 
-    def __init__(self, dname):
-
-        # Navigate to target directory
-        if basename(getcwd()) != dname:
-            if isdir(dname):
-                chdir(dname)
-            else:
-                echo("Cannot instantiate Album class because directory '{}' does not exist!".format(
-                    dname), abort=True, fn_name='Album.__init__')
-
-        # Get song files in directory
-        self.dname = dname
-        self.fnames = listfiles(ext=['mp3', 'flac'])
-        if not len(self.fnames):
-            echo("Cannot instantiate Album class because there are no mp3 or flac files found in directory '{}'!".format(
-                self.dname), warn=True, fn_name='Album.__init__')
+    def __init__(self, dpath, valid_ext=['.mp3', '.flac']):
+        chdir(dpath)
+        self.dname = basename(dpath)
+        self.fnames = listfiles(ext=valid_ext)
+        assert len(self.fnames)
 
         # Loop over each song file and get album attributes:
         # album artist, album title, album year, album genre, number of tracks on disc
-        if len(self.fnames):
-            albuminfo = dict(
-                artist    = [],
-                title     = [],
-                year      = [],
-                genre     = [],
-                songs     = [],
-                has_image = []
-            )
-            songinfo = dict(
-                title                = [],
-                song_disc_idxs       = [],
-                song_class_instances = []
-            )
-            track_raw_vals = []
-            for fname in self.fnames:
-                song = Song(fname)
-                albuminfo['artist'].append(song.artist)
-                albuminfo['title'].append(song.album)
-                albuminfo['year'].append(song.year)
-                albuminfo['genre'].append(song.genre)
-                albuminfo['has_image'].append(song.has_image)
-                songinfo['title'].append(song.title)
-                songinfo['song_disc_idxs'].append(song.disc_idx)
-                songinfo['song_class_instances'].append(song)
-                track_raw_vals.append(song.track_raw)
+        albuminfo = dict(
+            artist    = [],
+            title     = [],
+            year      = [],
+            genre     = [],
+            songs     = [],
+            has_image = []
+        )
+        songinfo = dict(
+            title                = [],
+            song_disc_idxs       = [],
+            song_class_instances = []
+        )
+        track_raw_vals = []
+        for fname in self.fnames:
+            song = Song(fname)
+            albuminfo['artist'].append(song.artist)
+            albuminfo['title'].append(song.album)
+            albuminfo['year'].append(song.year)
+            albuminfo['genre'].append(song.genre)
+            albuminfo['has_image'].append(song.has_image)
+            songinfo['title'].append(song.title)
+            songinfo['song_disc_idxs'].append(song.disc_idx)
+            songinfo['song_class_instances'].append(song)
+            track_raw_vals.append(song.track_raw)
 
             # Get number of discs in album
             self.disc_count = self.__get_discs_in_album__(
