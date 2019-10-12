@@ -799,6 +799,100 @@ class FFmpeg(object):
         syscmd(cmd)
 
 
+class Git(object):
+    """
+    House git command line function python wrappers.
+    """
+
+    def __init__(self):
+        pass
+
+    def is_git_repo(self):
+        """
+        Determine whether current dir is a git repository.
+
+        Returns:
+            {bool}
+        """
+        if '.git' in listdir():
+            return True
+        else:
+            return False
+
+    def status(self):
+        """
+        Return boolean based on output of 'git status' command. Return True if working tree is
+        up to date and does not require commit, False if commit is required.
+    
+        Returns:
+            {bool}
+        """
+        out = syscmd('git status').decode()
+        working_tree_clean = "On branch masterYour branch is up to date with 'origin/master'.nothing to commit, working tree clean"
+        not_git_repo = 'fatal: not a git repository (or any of the parent directories): .git'
+        if out.replace('\n', '') == working_tree_clean:
+            return True
+        elif out.replace('\n', '') == not_git_repo:
+            return None
+        else:
+            return False
+
+    def add(self, fpath=None, all=False):
+        """
+        Add files to commit.
+    
+        Arguments:
+            fpath {str} or {list} -- file(s) to add
+            all {bool} -- if True, execute 'git add .'
+        
+        Returns:
+            nothing
+        """
+        if all == True and fpath is None:
+            syscmd('git add .;', encoding='utf-8')
+        elif isinstance(fpath, str):
+            syscmd('git add "%s";' % fpath, encoding='utf-8')
+        elif isinstance(fpath, list):
+            for f in fpath:
+                syscmd('git add "%s";' % f, encoding='utf-8')
+
+    def commit(self, msg):
+        """
+        Execute 'git commit -m {}' where {} is commit message.
+    
+        Arguments:
+            msg {str} -- commit message
+        
+        Returns:
+            nothing
+        """
+        subprocess.call("git commit -m '{}';".format(msg), shell=True)
+
+    def push(self):
+        """
+        Execute 'git push'.
+    
+        Arguments:
+            none
+        
+        Returns:
+            nothing
+        """
+        subprocess.call("git push;", shell=True)
+
+    def pull(self):
+        """
+        Execute 'git pull'.
+    
+        Arguments:
+            none
+        
+        Returns:
+            nothing
+        """
+        subprocess.call("git pull;", shell=True)
+
+
 from pydoni.classes import DoniDt
 from pydoni.pyobj import fmt_seconds, split_at, duplicated
 from pydoni.vb import echo, clickfmt
