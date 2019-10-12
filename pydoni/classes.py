@@ -1151,7 +1151,7 @@ class Album(object):
         Keyword Arguments:
             get_genre {bool} -- if True, attempt to retrieve Wikipedia album genre (default: {True})
             get_image {bool} -- if True, attempt to retrieve Wikipedia album image (default: {True})
-            image_outfile {str} -- path to desired image outfile from Wikipedia
+            image_outfile {str} -- path to desired image outfile from Wikipedia (default: {None})
         
         Returns:
             {str} -- genre string scraped from Wikipedia, may be comma-separated for multiple genres
