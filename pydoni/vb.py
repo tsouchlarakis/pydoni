@@ -23,6 +23,7 @@ def echo(
     underline    = None,
     blink        = None,
     reverse      = None,
+    return_str   = False,
     notify       = False,
     notification = dict(
         title         = '',
@@ -57,6 +58,7 @@ def echo(
         underline    {bool} -- if True, print message with underline effect
         blink        {bool} -- if True, print message with blink effect
         reverse      {bool} -- if True, print message with reverse effect (foreground/background reversed).
+        return_str   {bool} -- if True, return string instead of printing (default: {False})
         notify       {bool} -- if True, invoke `macos_notify()`. Notification customizations can be altered in `notification` parameter.
         notification {dict} -- customize macOS notification. Requires that `notify` set to True
             title         {str}  -- title of notification
@@ -91,13 +93,6 @@ def echo(
 
     # Function name string
     if fn_name:
-        # if error or abort:
-        # if error:
-        #     fn_name_col = 'red'
-        # elif warn:
-        #     fn_name_col = 'yellow'
-        # else:
-        #     fn_name_col = 'white'
         fnn_string = click.style('<fn: ', fg='white') + \
             click.style(fn_name.replace('(', '').replace(')', '') + '()', fg='white', underline=True) + \
             click.style('> ', fg='white')
@@ -114,7 +109,7 @@ def echo(
     msg_out = ts_string + fnn_string + idt_string + ew_string + msg
 
     # Print message to STDOUT
-    if not abort:
+    if not abort and not return_str:
         click.echo(msg_out)
     
     # If `error_msg` is specified, print after `msg`
@@ -162,8 +157,10 @@ def echo(
     
     # Exit program if specified
     if abort:
-        # quit()
         raise Exception(msg)
+
+    if return_str:
+        return msg_out
 
 
 def clickfmt(string, fmt):
