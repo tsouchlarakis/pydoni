@@ -193,9 +193,13 @@ def listfiles(
     chdir(path)
 
     # List files, either recursively or not recursively
-    fnames = [join(dp, f).replace('./', '') \
-        for dp, dn, filenames in walk('.') \
-        for f in filenames] if recursive else listdir()
+    if recursive:
+        fnames = [join(dp, f).replace('./', '') \
+            for dp, dn, filenames in walk('.') \
+            for f in filenames]
+    else:
+        fnames = listdir()
+    fnames = [f for f in fnames if isfile(f)]
     
     # Filter out hidden files if specified
     if not include_hidden_files:
