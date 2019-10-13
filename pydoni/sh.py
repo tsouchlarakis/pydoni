@@ -5,7 +5,12 @@ import re
 import subprocess
 from collections import Counter, OrderedDict
 from itertools import chain
-from os.path import isfile, isdir, join, splitext, basename
+from os import listdir
+from os.path import basename
+from os.path import isdir
+from os.path import isfile
+from os.path import join
+from os.path import splitext
 
 
 def syscmd(cmd, encoding=''):
