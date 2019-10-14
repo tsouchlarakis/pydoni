@@ -1,12 +1,16 @@
-import re
-import datetime
-import pylab
-import matplotlib
+import click
 import colr
-import numpy as np
+import datetime
 import itertools
-from os.path import expanduser, splitext, isdir, isfile
+import matplotlib
+import numpy as np
+import pylab
+import re
 from collections import OrderedDict
+from os.path import expanduser
+from os.path import isdir
+from os.path import isfile
+from os.path import splitext
 
 
 class DoniDict(dict):
