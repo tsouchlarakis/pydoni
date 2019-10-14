@@ -114,10 +114,12 @@ def assert_len(varlist, varnames=None):
 
 
 def user_select_from_list(
+    # FIXME: do not allow user to enter out of bounds index when return_idx = True
     lst,
     indent=0,
     msg=None,
-    allow_range=True
+    allow_range=True,
+    return_idx=False
     ):
     """
     Prompt user to make a selection from a list. Supports comma- and hyphen-separated selection.
@@ -129,6 +131,7 @@ def user_select_from_list(
         indent {int} -- indentation level of all items of `lst` (default: {0})
         msg {str} -- custom message to print instead of default (default: {None})
         allow_range {bool} -- if True, allow user to make multiple selections (default: {True})
+        return_idx {bool} -- if True, return index of selections in `lst` instead of `lst` items. NOTE: this function prints a list indexed at 1, but if this option is set to True, it will return values indexed at 0 (default: {False})
 
     Returns:
         {list} -- slice of `lst`
@@ -179,10 +182,12 @@ def user_select_from_list(
                 else:
                     selection.append([int(x)])
             selection = list(set([item for sublist in selection for item in sublist]))
+            if return_idx:
+                return [x-1 for x in selection]
             assert all([isinstance(x, int) for x in selection])
 
             # Test if range is truly within the length of `lst`
-            if selection[len(selection)-1] > len(lst) or selection[0] < 1:
+            if selection[len(selection) - 1] > len(lst) or selection[0] < 1:
                 # Range is outside of true length of `lst`
                 echo('Entry must be between {} and {}'.format('1', str(len(lst))), error=True)
                 invalid = True
@@ -196,11 +201,16 @@ def user_select_from_list(
         elif re.search(r'^(\d+)$', uin_raw):
             # User input is single selection (valid)
             uin = int(uin_raw)
+            
             if uin < 1 or uin > len(lst):
                 echo('Entry must be between {} and {}'.format('1', str(len(lst))), error=True)
                 invalid = True
                 continue
-            return lst[uin-1]
+
+            if return_idx:
+                return uin - 1
+            else:
+                return lst[uin - 1]
         
         else:
             # User input is invalid (not a single selection or a range selection)
