@@ -1,11 +1,19 @@
-import re
-import wave
 import contextlib
 import numpy as np
-from os import environ, chdir, getcwd, remove
-from os.path import isfile, splitext, join, expanduser, dirname, basename
-from pydub import AudioSegment
+import re
+import wave
 from google.cloud import speech_v1p1beta1 as speech
+from os import chdir
+from os import environ
+from os import getcwd
+from os import remove
+from os.path import basename
+from os.path import dirname
+from os.path import expanduser
+from os.path import isfile
+from os.path import join
+from os.path import splitext
+from pydub import AudioSegment
 from tqdm import tqdm
 
 
@@ -1240,7 +1248,7 @@ def set_google_credentials(google_application_credentials_json):
     environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_application_credentials_json
 
 
-from pydoni.sh import syscmd
+from pydoni.sh import syscmd, FFmpeg
 from pydoni.vb import echo, program_complete
 from pydoni.os import listfiles
 from pydoni.classes import ProgramEnv

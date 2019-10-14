@@ -6,11 +6,13 @@ import subprocess
 from collections import Counter, OrderedDict
 from itertools import chain
 from os import listdir
+from os import remove
 from os.path import basename
 from os.path import isdir
 from os.path import isfile
 from os.path import join
 from os.path import splitext
+from os.path import dirname
 
 
 def syscmd(cmd, encoding=''):
