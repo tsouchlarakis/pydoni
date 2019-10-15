@@ -130,19 +130,19 @@ def user_select_from_list(
     Prompt user to make a selection from a list. Supports comma- and hyphen-separated selection.
 
     Arguments:
-        lst {list} -- list of selections
+        lst {list} -- list of items to select from
 
     Keyword Arguments:
         indent {int} -- indentation level of all items of `lst` (default: {0})
         msg {str} -- custom message to print instead of default (default: {None})
-        num_adj {int} -- numeric adjust for display list (default: {0})
-        allow_range {bool} -- if True, allow user to make multiple  selections (default: {True})
-        return_idx {bool} -- if True, return index of selections in `lst` instead of `lst` items. NOTE: this function prints a list indexed at 1, but if this option is set to True, it will return values indexed at 0 (default: {False})
-        noprint {bool} -- if True, do not print `lst` to console
+        num_adj {int} -- numeric adjust for display list (default: {1})
+        allow_range {bool} -- allow user to make multiple selections using commas and/or hyphens (default: {True})
+        return_idx {bool} -- return index of selections in `lst` instead of `lst` items (default: {False})
+        noprint {bool} -- do not print `lst` to console (default: {False})
 
     Returns:
         {list} -- slice of `lst`
-        {str} -- element of `lst`
+        {str} -- element of `lst` if a single item selected
 
     Example:
         A user may select elements from a list as:
@@ -277,7 +277,8 @@ def user_select_from_list(
     if return_idx:
         return sel[0] if len(sel) == 1 else sel
     else:
-        return [x for i, x in enumerate(lst) if i + num_adj in sel]
+        out = [x for i, x in enumerate(lst) if i + num_adj in sel]
+        return out[0] if len(out) == 1 else out
 
 
 def fmt_seconds(time_in_sec, units='auto', round_digits=4):
