@@ -119,11 +119,13 @@ def assert_len(varlist, varnames=None):
 
 def user_select_from_list(
     # FIXME: do not allow user to enter out of bounds index when return_idx = True
+    # FIXME: do not allow user to enter out of bounds index when noprint = True
     lst,
     indent=0,
     msg=None,
     allow_range=True,
-    return_idx=False
+    return_idx=False,
+    noprint=False
     ):
     """
     Prompt user to make a selection from a list. Supports comma- and hyphen-separated selection.
@@ -136,6 +138,7 @@ def user_select_from_list(
         msg {str} -- custom message to print instead of default (default: {None})
         allow_range {bool} -- if True, allow user to make multiple selections (default: {True})
         return_idx {bool} -- if True, return index of selections in `lst` instead of `lst` items. NOTE: this function prints a list indexed at 1, but if this option is set to True, it will return values indexed at 0 (default: {False})
+        noprint {bool} -- if True, do not print `lst` to console
 
     Returns:
         {list} -- slice of `lst`
@@ -147,13 +150,14 @@ def user_select_from_list(
     """
     
     # Add indent to each element of `lst`
-    if indent > 0:
-        tab = '\t' * indent
-        for i, item in enumerate(lst):
-            print('{}({}) {}'.format(tab, str(i+1), item))
-    else:
-        for i, item in enumerate(lst):
-            print('({}) {}'.format(str(i+1), item))
+    if not noprint:
+        if indent > 0:
+            tab = '\t' * indent
+            for i, item in enumerate(lst):
+                print('{}({}) {}'.format(tab, str(i+1), item))
+        else:
+            for i, item in enumerate(lst):
+                print('({}) {}'.format(str(i+1), item))
     
     if msg is None:
         if allow_range is True:
