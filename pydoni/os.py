@@ -218,12 +218,13 @@ class TMBackup(object):
         """
         pg = Postgres(pg_user=pg_user, pg_dbname=pg_dbname)
         lastdrive, lastdate = self.parse_latestbackup()
-        sql = pg.build_insert(
-            schema='code',
-            table='timemachine',
-            columns=['completed_on', 'backup_drive', 'checked_at'],
-            values=[lastdate, lastdrive, datetime.now()])
-        pg.execute(sql)
+        if lastdrive is not None and lastdate is not None:
+            sql = pg.build_insert(
+                schema='code',
+                table='timemachine',
+                columns=['completed_on', 'backup_drive', 'checked_at'],
+                values=[lastdate, lastdrive, datetime.now()])
+            pg.execute(sql)
 
 
 def listfiles(
