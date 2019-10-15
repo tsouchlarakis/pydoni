@@ -479,7 +479,7 @@ class Postgres(object):
         backup_dir_abspath = expanduser(backup_dir_abspath)
         cmd = 'pg_dump {} > "{}/{}.sql"'.format(
             self.dbname, backup_dir_abspath, self.dbname)
-        out = subprocess.call(cmd, shell=True)
+        out = syscmd(cmd)
 
     def dump_tables(self, backup_dir_abspath, sep=',', coerce_csv=False):
         """
@@ -634,3 +634,4 @@ from pydoni.classes import DoniDt
 from pydoni.os import listfiles
 from pydoni.vb import echo
 from pydoni.db import Postgres
+from pydoni.sh import syscmd
