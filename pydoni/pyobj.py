@@ -118,11 +118,10 @@ def assert_len(varlist, varnames=None):
 
 
 def user_select_from_list(
-    # FIXME: do not allow user to enter out of bounds index when return_idx = True
-    # FIXME: do not allow user to enter out of bounds index when noprint = True
     lst,
     indent=0,
     msg=None,
+    num_adj=0,
     allow_range=True,
     return_idx=False,
     noprint=False
@@ -136,7 +135,8 @@ def user_select_from_list(
     Keyword Arguments:
         indent {int} -- indentation level of all items of `lst` (default: {0})
         msg {str} -- custom message to print instead of default (default: {None})
-        allow_range {bool} -- if True, allow user to make multiple selections (default: {True})
+        num_adj {int} -- numeric adjust for display list (default: {0})
+        allow_range {bool} -- if True, allow user to make multiple  selections (default: {True})
         return_idx {bool} -- if True, return index of selections in `lst` instead of `lst` items. NOTE: this function prints a list indexed at 1, but if this option is set to True, it will return values indexed at 0 (default: {False})
         noprint {bool} -- if True, do not print `lst` to console
 
@@ -149,89 +149,135 @@ def user_select_from_list(
         1-3, 5, 10-15, 29  ->  [1,2,3,5,10,11,12,13,14,15,29]
     """
     
-    # Add indent to each element of `lst`
-    if not noprint:
-        if indent > 0:
-            tab = '\t' * indent
-            for i, item in enumerate(lst):
-                print('{}({}) {}'.format(tab, str(i+1), item))
-        else:
-            for i, item in enumerate(lst):
-                print('({}) {}'.format(str(i+1), item))
-    
-    if msg is None:
-        if allow_range is True:
-            msg = 'Please make a selection (hyphen-separated range ok)'
-        else:
-            msg = 'Please make a single selection'
+    def get_valid_opt(lst, num_adj):
+        valid_opt = []
+        for i, item in enumerate(lst):
+            valid_opt.append(i + num_adj)
+        return valid_opt
 
-    # User must make a valid selection. If selection is invalid, re-run through this while loop.
-    invalid = True
-    while invalid:
-        # Get user input
-        uin_raw = get_input(msg)
+    def print_lst(lst, indent, num_adj):
+        tab = '  ' * indent
+        for i, item in enumerate(lst):
+            print('{}({}) {}'.format(tab, str(i + num_adj), item))
 
-        # Test if user input is valid. User input must consist only of numbers, commas and/or hyphens
-        if not uin_raw.replace('-', '').replace(',', '').replace(' ', '').strip().isdigit():
-            echo('User input must consist only of numbers, commas and/or hyphens', error=True)
-            invalid = True
-            continue
-
-        # User input is range (valid)
-        if allow_range:
-            # Parse user input to individual numerical selections
-            uin = uin_raw.split(',')
-            selection = []
-            for x in uin:
-                x = x.strip()
-                if '-' in x:
-                    selection.append(
-                        list(range(int(x.split('-')[0]), int(x.split('-')[1])+1)))
-                else:
-                    selection.append([int(x)])
-            selection = list(set([item for sublist in selection for item in sublist]))
-            if return_idx:
-                return [x-1 for x in selection]
-            assert all([isinstance(x, int) for x in selection])
-
-            # Test if range is truly within the length of `lst`
-            if selection[len(selection) - 1] > len(lst) or selection[0] < 1:
-                # Range is outside of true length of `lst`
-                echo('Entry must be between {} and {}'.format('1', str(len(lst))), error=True)
-                invalid = True
-                continue
-            
+    def define_msg(msg, allow_range):
+        if msg is None:
+            if allow_range is True:
+                msg = 'Please make a selection (hyphen-separated range ok)'
             else:
-                # Range is valid, slice list at selection
-                val = [lst[i-1] for i in selection]
-                break
-
-        elif re.search(r'^(\d+)$', uin_raw):
-            # User input is single selection (valid)
-            uin = int(uin_raw)
-            
-            if uin < 1 or uin > len(lst):
-                echo('Entry must be between {} and {}'.format('1', str(len(lst))), error=True)
-                invalid = True
-                continue
-
-            if return_idx:
-                return uin - 1
-            else:
-                return lst[uin - 1]
+                msg = 'Please make a single selection'
+        return msg
         
-        else:
-            # User input is invalid (not a single selection or a range selection)
-            echo("Invalid entry. Must match either '\\d+' or '\\d+-\\d+'", error=True)
-            invalid = True
-            continue
-    
-    # If single item selected, return as string not as list
-    if isinstance(val, list):
-        if len(val) == 1:
-            return val[0]
+    def parse_numeric_input(uin_raw, valid_opt, allow_range, silent=False):
+        """
+        Parse user numeric input to list. If allow_range is False, then input
+        must be a single digit. If not, then user may enter input with hyphen(s)
+        and comma(s) to indicate different slices of a list.
 
-    return val
+        For example, from a list of [0, 1, 2, 3, 4, 5] a user might enter
+        '0-2,4', which should be translated as [0, 1, 2, 4].
+
+        Arguments:
+            uin_raw {str} -- user raw character input
+            allow_range {bool} -- allow_range parent funtion flag
+
+        Keyword Arguments:
+            silent {bool} -- suppress error messages and just return False if invalid entry entered
+
+        Returns:
+            {list} if input able to be parsed, {False} otherwise
+        """
+
+        def error_func(msg):
+            echo(msg, error=True)
+            # fn_name='pydoni.pyobj.user_select_from_list.parse_numeric_input',
+
+        # Test that input is valid mix of digits, hyphens and commas only
+        if not re.match(r'^(\d|-|,)+$', uin_raw):
+            if not silent:
+                error_func('Input must consist of digits, hyphens and/or ' \
+                    'commas only')
+            return False
+
+        if allow_range:
+            uin_raw = uin_raw.split(',')
+            out = []
+            
+            for x in uin_raw:
+                if '-' in x:
+                    
+                    start = x.split('-')[0]
+                    if start.strip().isdigit():
+                        start = int(start)
+                    else:
+                        if not silent:
+                            error_func("'Start' component '%s' of hyphen-" \
+                                "separated range unable to be parsed" % start)
+                        return False
+                    
+                    stop = x.split('-')[1]
+                    if stop.strip().isdigit():
+                        stop = int(stop) + 1
+                    else:
+                        if not silent:
+                            error_func("'Stop' component '%s' of hyphen-" \
+                                "separated range unable to be parsed" % stop)
+                        return False
+
+                    if start >= stop:
+                        if not silent:
+                            error_func("Invalid range '%s'. 'Start' "\
+                                "must be >= 'stop'" % x)
+                        return False
+
+                    out.append(list(range(start, stop)))
+
+                elif x.strip().isdigit():
+                    out.append([int(x)])
+
+                else:
+                    if not silent:
+                        error_func("Component '%s' could not in " \
+                            "valid format" % str(x))
+                    return False
+
+            out = list(set([item for sublist in out for item in sublist]))
+
+            oos = []
+            for x in out:
+                if x not in valid_opt:
+                    oos.append(x)
+            if len(oos):
+                if not silent:
+                    error_func("Value{} {} out of valid range {}".format(
+                        's' if len(oos) > 1 else '',
+                        str(oos),
+                        str(valid_opt)))
+                return False
+
+            return out
+
+        else:
+            if uin_raw.strip().isdigit():
+                return int(uin_raw)
+            else:
+                return False
+
+    if not noprint:
+        print_lst(lst, indent, num_adj)    
+
+    valid_opt = get_valid_opt(lst, num_adj)
+    msg = define_msg(msg, allow_range)
+
+    sel = False
+    while sel is False:
+        uin_raw = get_input(msg)
+        sel = parse_numeric_input(uin_raw, valid_opt, allow_range)
+
+    if return_idx:
+        return sel[0] if len(sel) == 1 else sel
+    else:
+        return [x for i, x in enumerate(lst) if i + num_adj in sel]
 
 
 def fmt_seconds(time_in_sec, units='auto', round_digits=4):
@@ -735,6 +781,7 @@ def get_input(msg='Enter input', mode='str', indicate_mode=False):
     elif mode == 'int':
         while not test(uin_raw, 'int'):
             uin_raw = input('Must enter integer value: ')
+        uin_raw = int(uin_raw)
     elif mode == 'float':
         while not test(uin_raw, 'float'):
             uin_raw = input('Must enter float value: ')
