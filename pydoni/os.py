@@ -1,7 +1,18 @@
 import re
 import zipfile
-from os import getcwd, walk, listdir, getcwd, chdir, name as os_name
-from os.path import isdir, isfile, expanduser, join, basename, splitext
+from datetime import datetime
+from os import getcwd
+from os import walk
+from os import listdir
+from os import getcwd
+from os import chdir
+from os import name as os_name
+from os.path import isdir
+from os.path import isfile
+from os.path import expanduser
+from os.path import join
+from os.path import basename
+from os.path import splitext
 
 
 class FinderMacOS(object):
@@ -159,6 +170,60 @@ class FinderMacOS(object):
         if not isfile(self.fpath):
             echo("`self.fpath` '{}' no longer exists!".format(self.fpath),
                 fn_name='FinderMacOS.*', abort=True)
+
+
+class TMBackup(object):
+
+    def __init__(self):
+        pass
+
+    def parse_latestbackup(self):
+        """
+        Get last update and last drive from tmutil latestbackup command.
+
+        Returns:
+            {tuple}
+        """
+        drives = find_drives()
+        out = syscmd('/usr/bin/tmutil latestbackup').decode('utf-8').strip()
+        if out == 'Unable to locate machine directory for host.':
+            return (None, None)
+
+        lastdate = basename(out)
+        lastdate = datetime.strptime(lastdate, '%Y-%m-%d-%H%M%S')
+        lastdate = lastdate.strftime('%Y-%m-%d %H:%M:%S')
+        lastdrive = out.split('/Backups.backupdb')[0]
+
+        return (lastdrive, lastdate)
+
+    def start(self):
+        """
+        Start Time Machine backup.
+        """
+        syscmd('/usr/bin/tmutil startbackup')
+
+    def stop(self):
+        """
+        Stop Time Machine backup.
+        """
+        syscmd('/usr/bin/tmutil stopbackup')
+
+    def log_sql(self, pg_dbname, pg_user):
+        """
+        Log last time machine value in Postgres database.
+
+        Arguments:
+            pg_dbname {str} -- Postgres database name
+            pg_user {str} -- Postgres username
+        """
+        pg = Postgres(pg_user=pg_user, pg_dbname=pg_dbname)
+        lastdrive, lastdate = self.parse_latestbackup()
+        sql = pg.build_insert(
+            schema='code',
+            table='timemachine',
+            columns=['completed_on', 'backup_drive', 'checked_at'],
+            values=[lastdate, lastdrive, datetime.now()])
+        pg.execute(sql)
 
 
 def listfiles(
@@ -399,4 +464,17 @@ def macos_notify(title='', subtitle=None, message='', app_icon=None, content_ima
     syscmd(cmd)
 
 
+def find_drives():
+    """
+    List attached drives.
+
+    Returns:
+        {list}
+    """
+    volumes = listdirs(join('/', 'Volumes'), full_names=True)
+    volumes = [v for v in volumes if basename(v) != 'AndoniHD']
+    return volumes
+
+
+from pydoni.db import Postgres
 from pydoni.sh import syscmd
