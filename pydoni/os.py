@@ -186,15 +186,16 @@ class TMBackup(object):
         """
         drives = find_drives()
         out = syscmd('/usr/bin/tmutil latestbackup').decode('utf-8').strip()
-        if out == 'Unable to locate machine directory for host.':
+        
+        try:
+            lastdate = basename(out)
+            lastdate = datetime.strptime(lastdate, '%Y-%m-%d-%H%M%S')
+            lastdate = lastdate.strftime('%Y-%m-%d %H:%M:%S')
+            lastdrive = out.split('/Backups.backupdb')[0]
+            return (lastdrive, lastdate)
+            
+        except Exception:
             return (None, None)
-
-        lastdate = basename(out)
-        lastdate = datetime.strptime(lastdate, '%Y-%m-%d-%H%M%S')
-        lastdate = lastdate.strftime('%Y-%m-%d %H:%M:%S')
-        lastdrive = out.split('/Backups.backupdb')[0]
-
-        return (lastdrive, lastdate)
 
     def start(self):
         """
