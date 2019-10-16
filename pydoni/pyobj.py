@@ -122,6 +122,7 @@ def user_select_from_list(
     indent=0,
     msg=None,
     num_adj=0,
+    valid_opt=None,
     allow_range=True,
     return_idx=False,
     noprint=False
@@ -136,6 +137,7 @@ def user_select_from_list(
         indent {int} -- indentation level of all items of `lst` (default: {0})
         msg {str} -- custom message to print instead of default (default: {None})
         num_adj {int} -- numeric adjust for display list (default: {1})
+        valid_opt {list} -- list of valid options, defaults to `lst`
         allow_range {bool} -- allow user to make multiple selections using commas and/or hyphens (default: {True})
         return_idx {bool} -- return index of selections in `lst` instead of `lst` items (default: {False})
         noprint {bool} -- do not print `lst` to console (default: {False})
@@ -259,14 +261,14 @@ def user_select_from_list(
 
         else:
             if uin_raw.strip().isdigit():
-                return int(uin_raw)
+                return [int(uin_raw)]
             else:
                 return False
 
     if not noprint:
         print_lst(lst, indent, num_adj)    
 
-    valid_opt = get_valid_opt(lst, num_adj)
+    valid_opt = get_valid_opt(lst, num_adj) if not valid_opt else valid_opt
     msg = define_msg(msg, allow_range)
 
     sel = False
