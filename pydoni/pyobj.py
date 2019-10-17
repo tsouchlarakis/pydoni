@@ -721,6 +721,7 @@ def test(value, dtype):
     """
     
     assert dtype in ['bool', 'date', 'int', 'float', 'str']
+    value = str(value)
 
     try:
         if dtype == 'bool':

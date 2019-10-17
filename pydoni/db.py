@@ -7,7 +7,7 @@ import pymysql
 import datetime
 import subprocess
 import pandas as pd
-from os.path import isfile, expanduser
+from os.path import isfile, isdir, expanduser
 from os import getcwd, chdir
 from sqlalchemy import create_engine, text
 from tqdm import tqdm
