@@ -271,7 +271,7 @@ def print_columns(lst, ncol=2, delay=None):
 
 def program_complete(
     msg          = 'Program complete!',
-    emoji_string = ':thumbs_up:',
+    emoji_string = ':rocket:',
     start_time   = None,
     end_time     = None,
     notify       = False,
