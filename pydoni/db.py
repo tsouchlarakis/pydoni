@@ -477,9 +477,11 @@ class Postgres(object):
             backup_dir_abspath {str} -- absolute path to directory to dump Postgres database to
         """
         backup_dir_abspath = expanduser(backup_dir_abspath)
-        cmd = 'pg_dump {} > "{}/{}.sql"'.format(
+        assert isdir(backup_dir_abspath)
+
+        cmd = '/usr/local/bin/pg_dump {} > "{}/{}.sql"'.format(
             self.dbname, backup_dir_abspath, self.dbname)
-        out = syscmd(cmd)
+        syscmd(cmd)
 
     def dump_tables(self, backup_dir_abspath, sep=',', coerce_csv=False):
         """
