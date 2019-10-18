@@ -64,8 +64,8 @@ class FinderMacOS(object):
         applescript_clear = re.sub(r'"', r'\"', applescript_clear)
         applescript_set = re.sub(r'"', r'\"', applescript_set)
         try:
-            res = syscmd(cmd + ' "' + applescript_clear + '"')
-            res = syscmd(cmd + ' "' + applescript_set + '"')
+            syscmd(cmd + ' "' + applescript_clear + '"')
+            syscmd(cmd + ' "' + applescript_set + '"')
             return True
         except:
             return False
@@ -184,7 +184,6 @@ class TMBackup(object):
         Returns:
             {tuple}
         """
-        drives = find_drives()
         out = syscmd('/usr/bin/tmutil latestbackup').decode('utf-8').strip()
         
         try:
@@ -488,3 +487,4 @@ def find_drives():
 
 from pydoni.db import Postgres
 from pydoni.sh import syscmd
+from pydoni.vb import echo
