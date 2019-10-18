@@ -2,6 +2,8 @@ import contextlib
 import numpy as np
 import re
 import wave
+import googlesearch
+import requests
 from google.cloud import speech_v1p1beta1 as speech
 from os import chdir
 from os import environ
@@ -13,8 +15,11 @@ from os.path import expanduser
 from os.path import isfile
 from os.path import join
 from os.path import splitext
+from os.path import abspath
+from datetime import datetime
 from pydub import AudioSegment
 from tqdm import tqdm
+from titlecase import titlecase
 
 
 class Audio(object):
@@ -628,7 +633,7 @@ class Album(object):
 
         # Establish valid year ranges to check extracted year string against, from year
         # 1800 to current year plus one year
-        valid_years = range(1800, int(datetime.datetime.now().strftime('%Y')) + 1)
+        valid_years = range(1800, int(datetime.now().strftime('%Y')) + 1)
 
         # First check first four characters of directory name for year. Often times
         # directory names will be in the format "YYYY ALBUM_TITLE"
@@ -1248,8 +1253,14 @@ def set_google_credentials(google_application_credentials_json):
     environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_application_credentials_json
 
 
-from pydoni.sh import syscmd, FFmpeg
-from pydoni.vb import echo, program_complete
-from pydoni.os import listfiles
 from pydoni.classes import ProgramEnv
-from pydoni.pyobj import cap_nth_char, replace_nth_char, insert_nth_char
+from pydoni.os import listfiles
+from pydoni.sh import syscmd
+from pydoni.sh import FFmpeg
+from pydoni.sh import EXIF
+from pydoni.pyobj import cap_nth_char
+from pydoni.pyobj import replace_nth_char
+from pydoni.pyobj import insert_nth_char
+from pydoni.pyobj import listmode
+from pydoni.vb import echo
+from pydoni.vb import program_complete
