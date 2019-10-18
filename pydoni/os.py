@@ -406,7 +406,15 @@ def unarchive(fpath, dest_dir):
         zip_ref.extractall(dest_dir)
 
 
-def macos_notify(title='', subtitle=None, message='', app_icon=None, content_image=None, command=None, open_iterm=False):
+def macos_notify(
+    title='',
+    subtitle=None,
+    message='',
+    app_icon=None,
+    content_image=None,
+    command=None,
+    open_iterm=False
+    ):
     """
     Python wrapper for julienXX's terminal-notifier gem found here:
     https://github.com/julienXX/terminal-notifier
@@ -462,7 +470,7 @@ def macos_notify(title='', subtitle=None, message='', app_icon=None, content_ima
         cl_string.append('-execute {!r}'.format(command))
     
     # Build final command and execute
-    cmd = 'terminal-notifier {}'.format(' '.join(cl_string))
+    cmd = '/usr/local/bin/terminal-notifier {}'.format(' '.join(cl_string))
     syscmd(cmd)
 
 
