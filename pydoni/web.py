@@ -3,9 +3,12 @@ import shutil
 import urllib
 from os import chdir, mkdir
 from os.path import isdir, basename
-from bs4 import BeautifulSoup
 from lxml import html
 from tqdm import tqdm
+from requests import get
+from requests.exceptions import RequestException
+from contextlib import closing
+from bs4 import BeautifulSoup
 
 
 def check_network_connection(abort=False):
