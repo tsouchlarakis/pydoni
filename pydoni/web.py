@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup
 from lxml import html
 from tqdm import tqdm
 
+
 def check_network_connection(abort=False):
     """
     Check if connected to internet
@@ -123,6 +124,45 @@ def download_audiobookslab(url, targetdir):
                 pbar.update(1)
     else:
         echo("No audiobooks to download at URL '%s'" % url, abort=True)
+
+
+def simple_get(url):
+    """
+    Attempts to get the content at `url` by making an HTTP GET request.
+    If the content-type of response is some kind of HTML/XML, return the
+    text content, otherwise return None.
+
+    Arguments:
+        url {str} -- url to read
+
+    Returns:
+        {resp.content}
+    """
+    try:
+        with closing(get(url, stream=True)) as resp:
+            if is_good_response(resp):
+                return resp.content
+            else:
+                return None
+    except RequestException as e:
+        echo('Error during requests to {0} : {1}'.format(url, str(e)))
+        return None
+
+
+def is_good_response(resp):
+    """
+    Returns True if the response seems to be HTML, False otherwise.
+
+    Arguments:
+        resp {resp.content} -- get response
+
+    Returns:
+        {bool}
+    """
+    content_type = resp.headers['Content-Type'].lower()
+    return (resp.status_code == 200 
+            and content_type is not None 
+            and content_type.find('html') > -1)
 
 
 from pydoni.sh import syscmd
