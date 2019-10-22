@@ -698,7 +698,8 @@ class Album(object):
             clean_album = re.sub(
                 r'(\[|\()(.*?)(\]|\))|CD\s*\d+|Disc\s*\d+', '', album, flags=re.IGNORECASE).strip()
             query = '{} {} {} album site:wikipedia.org'.format(
-                artist, year, clean_album)
+                artist, year if year is not None else '', clean_album)
+            query = query.replace('  ', ' ')
             wikilink = list(googlesearch.search(
                 query, tld='com', num=1, stop=1, pause=2))
             if len(wikilink):
@@ -716,15 +717,13 @@ class Album(object):
             Returns:
                 {str} -- genre(s) parsed from Wikipedia page
             """
-
-
             # Scrape page for CSS selector
             genre = get_element_by_selector(wikilink, '.category a')
-            if not len(genre) or not isinstance(genre, str):
+            genre = [genre] if isinstance(genre, str) else genre
+            if not len(genre):
                 return None
 
             # Parse multiple genres if present
-            genre = [genre] if isinstance(genre, str) else genre
             genre = [x for x in genre if not re.search(r'\[\d+\]', x)]
             if not len(genre):
                 return None
@@ -1258,9 +1257,12 @@ from pydoni.os import listfiles
 from pydoni.sh import syscmd
 from pydoni.sh import FFmpeg
 from pydoni.sh import EXIF
+from pydoni.sh import mid3v2
 from pydoni.pyobj import cap_nth_char
 from pydoni.pyobj import replace_nth_char
 from pydoni.pyobj import insert_nth_char
 from pydoni.pyobj import listmode
 from pydoni.vb import echo
 from pydoni.vb import program_complete
+from pydoni.web import get_element_by_selector
+from pydoni.web import downloadfile
