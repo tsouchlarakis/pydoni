@@ -81,9 +81,7 @@ def echo(
     msg = click.style(msg, fg=fg, bg=bg, bold=bold, dim=dim, underline=underline,
         blink=blink, reverse=reverse)
 
-    # Add 'ERROR: ' or 'ERROR (fatal): ' or 'WARNING: ' to beginning of string
-    # if abort:
-    #     ew_string = click.style('Error (fatal): ', fg='red')
+    # Add 'Error: ' or 'Warning: ' to beginning of string
     if error:
         ew_string = click.style('Error: ', fg='red')
     elif warn:
