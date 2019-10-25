@@ -3,10 +3,12 @@ import exiftool
 import numpy as np
 import re
 import subprocess
-from collections import Counter, OrderedDict
+from collections import Counter
+from collections import OrderedDict
 from itertools import chain
 from os import listdir
 from os import remove
+from os import system
 from os.path import basename
 from os.path import isdir
 from os.path import isfile
@@ -262,6 +264,17 @@ def split_video_scenes(vfpath, outdname):
         return True
     except:
         return False
+
+
+def osascript(applescript_string):
+    """
+    Execute applescript.
+
+    Arguments:
+        applescript_string {str} - applescript string to execute
+    """
+    cmd = "osascript -e '{}'".format(applescript.replace("'", "\'"))
+    os.system(cmd)
 
 
 class EXIF(object):
