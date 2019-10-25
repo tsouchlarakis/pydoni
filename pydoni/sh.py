@@ -266,15 +266,15 @@ def split_video_scenes(vfpath, outdname):
         return False
 
 
-def osascript(applescript_string):
+def osascript(applescript):
     """
     Execute applescript.
 
     Arguments:
-        applescript_string {str} - applescript string to execute
+        applescript {str} - applescript string to execute
     """
     cmd = "osascript -e '{}'".format(applescript.replace("'", "\'"))
-    os.system(cmd)
+    system(cmd)
 
 
 class EXIF(object):
@@ -911,6 +911,37 @@ class Git(object):
             nothing
         """
         subprocess.call("git pull;", shell=True)
+
+
+class AppleScript(object):
+    """
+    Store Applescript-wrapped functions.
+    """
+
+    def __init__(self):
+        pass
+
+    def execute(self, applescript):
+        """
+        Wrapper for pydoni.sh.osascript
+        """
+        osascript(applescript)
+
+    def new_terminal_tab(self):
+        """
+        Make new Terminal window.
+        """
+        
+        applescript = """
+        tell application "Terminal"
+            activate
+            tell application "System Events" to keystroke "t" using command down
+            repeat while contents of selected tab of window 1 starts with linefeed
+                delay 0.01
+            end repeat
+        end tell"""
+
+        self.execute(applescript)
 
 
 from pydoni.classes import DoniDt
