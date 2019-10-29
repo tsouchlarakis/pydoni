@@ -13,26 +13,6 @@ from sqlalchemy import create_engine, text
 from tqdm import tqdm
 
 
-def connect_odbc(driver, server, db, user, pw):
-    """
-    Establish ODBC database connection.
-    
-    Arguments:
-        driver {str} -- driver name
-        server {str} -- server name
-        db {str} -- database name
-        user {str} -- username
-        pw {str} -- password
-    
-    Returns:
-        [type] -- [description]
-    """
-    con_string = 'Driver={%s};Server=%s;Database=%s;uid=%s;pwd=%s' % \
-        (driver, server, db, user, pw)
-    dbhandle = pyodbc.connect(con_string)
-    return dbhandle
-
-
 class MySQL(object):
     """
     Interact with a MySQL database through Python.
@@ -563,6 +543,26 @@ class Postgres(object):
             val = str(val).replace("'", "''")
             val = "'" + val + "'"
         return val
+
+
+def connect_odbc(driver, server, db, user, pw):
+    """
+    Establish ODBC database connection.
+    
+    Arguments:
+        driver {str} -- driver name
+        server {str} -- server name
+        db {str} -- database name
+        user {str} -- username
+        pw {str} -- password
+    
+    Returns:
+        [type] -- [description]
+    """
+    con_string = 'Driver={%s};Server=%s;Database=%s;uid=%s;pwd=%s' % \
+        (driver, server, db, user, pw)
+    dbhandle = pyodbc.connect(con_string)
+    return dbhandle
 
 
 def colorize_sql(sql):
