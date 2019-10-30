@@ -18,6 +18,9 @@ class Goodreads(object):
     def __init__(self, api_key):
         # self.api_key = 'XRdjRL9pCqTj4pUMyG1jyQ'
         # self.api_secret = '7zqBFszYrh3InYCMLZ2gyZXC1VPad2BELRWLXEU0bI'
+        if not api_key > '':
+            echo('Must enter a valid API key!', abort=True)
+
         self.client = gr.Client(developer_key=api_key)
         self.book = None
         self.bookdata = {}
@@ -76,8 +79,9 @@ class Goodreads(object):
                         self.book['authors']['author']['name']
 
         if 'description' in self.bookdata.keys():
-            self.bookdata['description'] = \
-                html2text(self.bookdata['description']).strip()
+            desc = self.bookdata['description']
+            desc = '' if desc is None else desc
+            self.bookdata['description'] = html2text(desc).strip()
 
         return self.bookdata
 
