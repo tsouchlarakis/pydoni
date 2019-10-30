@@ -1,10 +1,10 @@
-from os.path import splitext
-import omdb
-import re
-import numpy as np
 import goodreads_api_client as gr
+import numpy as np
+import omdb
 import pandas as pd
+import re
 from html2text import html2text
+from os.path import splitext
 
 
 class Goodreads(object):
