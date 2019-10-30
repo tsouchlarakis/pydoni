@@ -511,7 +511,7 @@ class FFmpeg(object):
         
         tmpfile = join(
             dirname(audiofiles[0]),
-            '.tmp.pydoni.audio.FFmpeg.join.txt'
+            '.tmp.pydoni.audio.FFmpeg.join.%s.txt' % systime(stripchars=True)
         )
 
         with open(tmpfile, 'w') as f:
@@ -945,5 +945,9 @@ def osascript(applescript):
 
 
 from pydoni.classes import DoniDt
-from pydoni.pyobj import fmt_seconds, split_at, duplicated
-from pydoni.vb import echo, clickfmt
+from pydoni.pyobj import fmt_seconds
+from pydoni.pyobj import split_at
+from pydoni.pyobj import duplicated
+from pydoni.pyobj import systime
+from pydoni.vb import echo
+from pydoni.vb import clickfmt
