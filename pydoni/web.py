@@ -1,14 +1,148 @@
+import re
 import requests
 import shutil
 import urllib
-from os import chdir, mkdir
-from os.path import isdir, basename
+from bs4 import BeautifulSoup
+from contextlib import closing
 from lxml import html
-from tqdm import tqdm
+from os import chdir
+from os import mkdir
+from os.path import  basename
+from os.path import isdir
+from os.path import join
 from requests import get
 from requests.exceptions import RequestException
-from contextlib import closing
-from bs4 import BeautifulSoup
+from tqdm import tqdm
+
+
+class Goodreads_Scrape(object):
+    """
+    Scrape all available information from page.
+
+    Arguments:
+        url {str} -- goodreads URL to scrape
+    """
+
+    def __init__(self):
+        self.url_base = 'https://www.goodreads.com'
+        self.url_base_search = join(self.url_base, 'search?utf8=✓')
+        self.bookdict = {
+            'title': None,
+            'author': None,
+            'year': None,
+            'pages': None,
+            'genre': None
+        }
+        self.selector_map = {
+            'title': '#bookTitle',
+            'author': '.authorName span',
+            'year': '.row .greyText',
+            'pages': '.row:nth-child(1)',
+            'genre': '.elementList'
+        }
+
+    def build_query(self, search_string):
+        """
+        Build goodreads search query to be appended to base URL.
+
+        Arguments:
+            search_string {str} -- string to search for, as if user were typing in the search box
+        """
+        return '&q=%s&search_type=books' % search_string.replace(' ', '+')
+
+    def get_top_result(self, search_string):
+        """
+        Execute Goodreads search and get the top result.
+
+        Arguments:
+            search_string {str} -- string to search for, as if user were typing in the search box 
+
+        Returns:
+            {str} -- URL of top search result
+        """
+        query = self.build_query(search_string)
+        url = self.url_base_search + query
+        html = simple_get(url)
+        soup = BeautifulSoup(html, 'html.parser')
+        res = soup.findAll('a', {'class': 'bookTitle'})
+        hrefs = []
+        
+        for x in res:
+            if 'href' in x.attrs.keys():
+                hrefs.append(x['href'])
+        
+        return self.url_base + hrefs[0]
+
+    def scrape_book_page(self, url):
+        """
+        Scrape webpage HTML and assign all values to `self.bookdata`.
+
+        Arguments:
+            url {str} -- Goodreads book URL to scrape
+        """
+        html = simple_get(url)
+        soup = BeautifulSoup(html, 'html.parser')
+        items = [k for k, v in self.bookdict.items()]
+        
+        for item in items:
+            self.bookdict[item] = self.__getbookattr__(soup, item)
+        
+        return self.bookdict
+
+    def __getbookattr__(self, soup, attr):
+        """
+        Given `soup`, get book attribute by attribute name.
+
+        Arguments:
+            soup {bs4} -- goodreads soup object for book page
+            attr {str} -- attribute name to scrape
+        """
+
+        assert attr in self.selector_map.keys()
+        selector = self.selector_map[attr]
+        match = soup.select(selector)
+
+        if len(match):
+            if attr == 'title':
+                booktitles = [item.text for item in match]
+                title = booktitles[0]
+                title = re.sub(r'\s+', ' ', title)
+                title = title.replace(':', '_').replace('’', "'")
+                return title
+            
+            elif attr == 'author':
+                author = [item.text for item in match][0]
+                author = re.sub(r'\s+', ' ', author)
+                return author
+
+            elif attr == 'year':
+                years = []
+                for item in match:
+                    try:
+                        text = item.text
+                        text = re.sub(r'\s+', ' ', text).strip()
+                        m = re.search(r'published \d{4}', text).group(0)
+                        years.append(m.replace('published', '').strip())
+                    except:
+                        pass
+
+                if len(years):
+                    return years[0]
+
+            elif attr == 'pages':
+                pages = [item.text for item in match]
+                pages = pages[0]
+                pages = re.search(r'\d+ pages', pages).group(0)
+                return pages.replace('pages', '').strip()
+
+            elif attr == 'genre':
+                genres = [item.text.strip() for item in match]
+                genres = [re.sub(r'(\d),(\d)', r'\1\2', x) for x in genres]
+                genres = [re.sub(r'\d+ users', '', x) for x in genres]
+                genres = [re.sub('\s+', ' ', x).strip() for x in genres]
+                return ';'.join(genres)
+
+        return None
 
 
 def check_network_connection(abort=False):
