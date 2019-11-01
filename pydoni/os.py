@@ -437,7 +437,8 @@ def macos_notify(
     assert message > ''
 
     # Check that terminal-notifier is installed
-    tnv = syscmd('which terminal-notifier').decode().strip()
+    # tnv = syscmd('which terminal-notifier')#.decode().strip()
+    tnv = '/usr/local/bin/terminal-notifier'
     if not isfile(tnv):
         echo("terminal-notifier is not installed! Please install it per instructions at https://github.com/julienXX/terminal-notifier", abort=True)
 
