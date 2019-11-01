@@ -668,7 +668,9 @@ class AppleScript(object):
         Arguments:
             applescript {str} -- applescript string to execute
         """
-        osascript(applescript)
+        out = osascript(applescript)
+        if 'error' in out:
+            raise Exception(str(out))
 
     def new_terminal_tab(self):
         """
@@ -966,8 +968,10 @@ def osascript(applescript):
         applescript {str} - applescript string to execute
     """
     cmd = "osascript -e '{}'".format(applescript.replace("'", "\'"))
-    system(cmd)
-
+    out = syscmd(cmd)
+    if isinstance(out, bytes):
+        out = out.decode('utf-8')
+    return out
 
 from pydoni.classes import DoniDt
 from pydoni.pyobj import fmt_seconds
