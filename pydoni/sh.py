@@ -664,6 +664,9 @@ class AppleScript(object):
     def execute(self, applescript):
         """
         Wrapper for pydoni.sh.osascript
+
+        Arguments:
+            applescript {str} -- applescript string to execute
         """
         osascript(applescript)
 
@@ -680,6 +683,28 @@ class AppleScript(object):
                 delay 0.01
             end repeat
         end tell"""
+
+        self.execute(applescript)
+
+    def execute_shell_script_in_new_tab(self, shell_script):
+        """
+        Create a new Terminal tab, then execute given shell scripts.
+
+        Arguments:
+            shell_script {str} -- shell script string to execute in default shell
+        """
+
+        applescript = """
+        tell application "Terminal"
+            activate
+            tell application "System Events" to keystroke "t" using command down
+            repeat while contents of selected tab of window 1 starts with linefeed
+                delay 0.01
+            end repeat
+            do script "{}" in window 1
+        end tell
+        """.format(shell_script.replace('"', '\\"'))
+        applescript = applescript.replace('\\\\"', '\"')
 
         self.execute(applescript)
 
