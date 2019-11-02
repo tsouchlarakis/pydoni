@@ -497,7 +497,8 @@ def make_meme(
     msg_pos='bottom',
     msg_outline_color='black',
     msg_outline_width=3,
-    font_path='/System/Library/Fonts/HelveticaNeue.ttc',
+    # font_path='/System/Library/Fonts/HelveticaNeue.ttc',
+    font_path='/Library/Fonts/Arial Black.ttf',
     font_size=200,
     repel_from_edge=0.0
     ):
