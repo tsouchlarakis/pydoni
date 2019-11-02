@@ -1,4 +1,5 @@
 import time
+import re
 import click
 from emoji import emojize
 from tqdm import trange
@@ -344,7 +345,7 @@ def program_complete(
         echo(msg)
 
 
-def stabilize_postfix(key, max_len, fillchar):
+def stabilize_postfix(key, max_len=20, fillchar='•', side='right'):
     """
     Create "stabilized" postfix (of consistent length) to be fed into
     a tqdm progress bar. This ensures that the postfix is always of
@@ -354,17 +355,32 @@ def stabilize_postfix(key, max_len, fillchar):
 
     Arguments:
         key {str} -- string to set as postfix
-        max_len {int} -- length of postfix
-        fillchar {str} -- character to fill any spaces on the left with
+
+    Keyword Arguments:
+        max_len {int} -- length of postfix (default: {20})
+        fillchar {str} -- character to fill any spaces on the left with (default: {'•'})
+        side {str} -- which side of postfix substring to keep, one of ['left', 'right'] (default: {'right'})
 
     Returns:
         {str}
     """
-    postfix = key[-max_len:].rjust(max_len, fillchar)
+    assert side in ['left', 'right']
+
+    if side == 'left':
+        postfix = key[0:max_len].ljust(max_len, fillchar)
+    elif side == 'right':
+        postfix = key[-max_len:].rjust(max_len, fillchar)
+
     m = re.match(r'^ +', postfix)
     if m:
         leading_spaces = m.group(0)
         postfix = re.sub(r'^ +', fillchar * len(leading_spaces), postfix)
+
+    m = re.match(r' +$', postfix)
+    if m:
+        trailing_spaces = m.group(0)
+        postfix = re.sub(r'^ +', fillchar * len(trailing_spaces), postfix)
+
     return postfix
 
 
