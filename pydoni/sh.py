@@ -836,7 +836,7 @@ def stat(fname):
         ChangeDate = parse_datestring(fname, res[6].replace('Change:', '').strip()))
 
 
-def mid3v2(fpath, attr_name, attr_value, quiet=True):
+def mid3v2(fpath, attr_name, attr_value):
     """
     Use mid3v2 to add or overwrite a metadata attribute to a file.
     
@@ -844,9 +844,6 @@ def mid3v2(fpath, attr_name, attr_value, quiet=True):
         fpath {str} -- path to file
         attr_name {str} -- name of attribute to assign value to using mid3v2, one of ['artist', 'album', 'song', 'comment', 'picture', 'genre', 'year', 'date', 'track']
         attr_value {str or int} -- value to assign to attribute `attr_name`
-    
-    Keyword Arguments:
-        quiet {bool} -- if True, do not print any output to STDOUT (default: {True})
     
     Returns:
         {bool} -- if True, successfully run. If False, failed
@@ -856,21 +853,9 @@ def mid3v2(fpath, attr_name, attr_value, quiet=True):
     valid = ['artist', 'album', 'song', 'comment', 'picture', 'genre', 'year', 'date', 'track']
     assert attr_name in valid
 
-    # Build command
-    cmd = 'mid3v2 --{}="{}" "{}"'.format(attr_name, attr_value, fpath)
+    cmd = '/usr/local/bin/mid3v2 --{}="{}" "{}"'.format(attr_name, attr_value, fpath)
+    syscmd(cmd)
 
-    # Execute command
-    try:
-        if quiet:
-            out = syscmd(cmd)
-            del out
-        else:
-            syscmd(cmd)
-        return True
-    except Exception as e:
-        echo('failed', error=True, error_msg=str(e), fn_name='mid3v2')
-        return False
-    
 
 def convert_audible(fpath, fmt, activation_bytes):
     """
