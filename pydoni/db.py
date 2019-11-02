@@ -605,7 +605,7 @@ def colorize_sql(sql):
     return ' '.join(csql2)
 
 
-def progrun_update(name, started, ended, args):
+def progrun_update(name, started, ended, args, res=None):
     """
     Update code.progrun with program run information.
 
@@ -624,8 +624,8 @@ def progrun_update(name, started, ended, args):
             pg.build_insert(
                 schema='code',
                 table='progrun',
-                columns=['name', 'started', 'ended', 'args'],
-                values=[name, started, ended, args],
+                columns=['name', 'started', 'ended', 'args', 'res'],
+                values=[name, started, ended, args, res],
                 validate=True))
     except Exception as e:
         echo("Unable to update Postgres database for program '%s'" % prog,
