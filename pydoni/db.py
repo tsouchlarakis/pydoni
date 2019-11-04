@@ -605,7 +605,7 @@ def colorize_sql(sql):
     return ' '.join(csql2)
 
 
-def progrun_update(name, started, ended, args, res=None):
+def progrun_update(name, started, ended, args, res={}):
     """
     Update code.progrun with program run information.
 
@@ -614,6 +614,9 @@ def progrun_update(name, started, ended, args, res=None):
         started {datetime} -- timestamp of program start time
         ended {datetime} -- timestamp of program end time
         args {str} -- string of dictionary (str(dict(...))) containing program arguments
+
+    Keyword Arguments:
+        res {dict} -- optional dictionary containing result summary (default: {{}})
 
     Returns:
         nothing
