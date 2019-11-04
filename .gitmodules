@@ -4,6 +4,3 @@
 [submodule "pydoni/apps"]
 	path = pydoni/apps
 	url = https://github.com/tsouchlarakis/pydoni-apps
-[submodule "pydoni/apps/pydoni-cli"]
-    path = pydoni/apps
-    url = https://github.com/tsouchlarakis/pydoni-cli
