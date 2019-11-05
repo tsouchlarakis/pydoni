@@ -12,6 +12,7 @@ def echo(
     indent       = 0,
     sleep        = 0,
     timestamp    = False,
+    success      = False,
     warn         = False,
     error        = False,
     error_msg    = None,
@@ -47,10 +48,11 @@ def echo(
         indent       {int}  -- indentation level of message printed to console
         sleep        {int}  -- number of seconds to pause program after printing message
         timestamp    {bool} -- if True, print datetimestamp preceding message
-        warn         {bool} -- if True, print 'WARNING: ' in yellow preceding message
-        error        {bool} -- if True, print 'ERROR: ' in red preceding message
+        success      {bool} -- if True, print 'Success: ' in green preceding message
+        warn         {bool} -- if True, print 'Warning: ' in yellow preceding message
+        error        {bool} -- if True, print 'Error: ' in red preceding message
         error_msg    {str}  -- python error message. Intended for use in try/except. Pass in `str(e)` here.
-        abort        {bool} -- if True, print 'ERROR (fatal): ' in red preceding message AND exit program.
+        abort        {bool} -- if True, raise Exception with `msg` as error message.
         fn_name      {str}  -- name of function, if any, that echo() was called from. Will include function in printed message. Useful for debugging. Only applied if one or more of `warn`, `error` or `abort` are set to True
         fg           {str}  -- color string indicator color of text. One of [None, 'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
         bg           {str}  -- color string indicator color of background of text. One of [None, 'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
@@ -82,11 +84,13 @@ def echo(
     msg = click.style(msg, fg=fg, bg=bg, bold=bold, dim=dim, underline=underline,
         blink=blink, reverse=reverse)
 
-    # Add 'Error: ' or 'Warning: ' to beginning of string
+    # Add preceding colored string for specified keyword args
     if error:
         ew_string = click.style('Error: ', fg='red')
     elif warn:
         ew_string = click.style('Warning: ', fg='yellow')
+    elif success:
+        ew_string = click.style('Success: ', fg='green')
     else:
         ew_string = ''
 
