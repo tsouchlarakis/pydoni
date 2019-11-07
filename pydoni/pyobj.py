@@ -891,9 +891,9 @@ def get_input_inq(msg='Enter input', mode='str', indicate_mode=False):
     elif mode == 'float':
         answer = float(answer)
     elif mode == 'bool':
-        if answer in ['y', 'yes']:
+        if answer.lower() in ['y', 'yes', 'true']:
             answer = True
-        elif answer in ['n', 'no']:
+        elif answer.lower() in ['n', 'no', 'false']:
             answer = False
     elif mode in ['file', 'filev', 'dir', 'dirv']:
         answer = expanduser(answer)
