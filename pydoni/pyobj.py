@@ -1,12 +1,13 @@
 import click
 import colr
-import datetime
 import itertools
 import matplotlib
 import numpy as np
 import pylab
 import re
+import PyInquirer as inq
 from collections import OrderedDict
+from datetime import datetime
 from os.path import expanduser
 from os.path import isdir
 from os.path import isfile
@@ -63,9 +64,9 @@ def systime(stripchars=False):
         {str}
     """
     if stripchars:
-        return datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        return datetime.now().strftime("%Y%m%d_%H%M%S")
     else:
-        return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
 def sysdate(stripchars=False):
@@ -79,9 +80,9 @@ def sysdate(stripchars=False):
         str
     """
     if stripchars:
-        return datetime.datetime.now().strftime("%Y%m%d")
+        return datetime.now().strftime("%Y%m%d")
     else:
-        return datetime.datetime.now().strftime("%Y-%m-%d")
+        return datetime.now().strftime("%Y-%m-%d")
 
 
 def assert_len(varlist, varnames=None):
@@ -714,31 +715,51 @@ def test(value, dtype):
 
     Arguments:
         value {str} -- value to test
-        dtype {str} -- one of ['bool', 'date', 'int', 'float', 'str']
+        dtype {str} -- one of ['bool', 'date', 'int', 'float', 'str', 'file', 'filev', 'dir', 'dirv']
 
     Returns:
         {bool}
     """
     
-    assert dtype in ['bool', 'date', 'int', 'float', 'str']
+    assert dtype in ['bool', 'date', 'int', 'float', 'str', 'file', 'filev', 'dir', 'dirv']
+    
     value = str(value)
 
     try:
+        
         if dtype == 'bool':
             if value.lower() in ['true', 'false', 'y', 'yes', 'n', 'no']:
                 return True
             else:
                 return False
+        
         elif dtype == 'date':
-            test = datetime.strptime(value, '%Y-%m-%d')
+            testval = datetime.strptime(value, '%Y-%m-%d')
+        
         elif dtype == 'int':
-            test = int(value)
+            testval = int(value)
+        
         elif dtype == 'float':
-            test = float(value)
+            testval = float(value)
+        
         elif dtype == 'str':
-            test = str(value)
+            testval = str(value)
+        
+        elif dtype in ['file', 'filev']:
+            if isfile(expanduser(value)):
+                return True
+            else:
+                return False
+        
+        elif dtype in ['dir', 'dirv']:
+            if isdir(expanduser(value)):
+                return True
+            else:
+                return False
+
         return True
-    except:
+
+    except Exception as e:
         return False
 
 
@@ -799,6 +820,85 @@ def get_input(msg='Enter input', mode='str', indicate_mode=False):
                 uin_raw = input('Must enter existing directory: ')
 
     return uin_raw
+
+
+def get_input_inq(msg='Enter input', mode='str', indicate_mode=False):
+    """
+    Get user input for single line using PyInquirer module.
+
+    Keyword Arguments:
+        msg {str} -- message to print to console (default: {'Enter input'})
+        mode {str} -- apply filter to user input, one of ['bool', 'date', 'int', 'float', 'str', 'file', 'filev', 'dir', 'dirv']. 'filev' and 'dirv' options are 'file'/'dir' with an added layer of validation, to ensure the file/dir exists (default: {'str'})
+        indicate_mode {bool} -- if True, print type of anticipated datatype with message
+
+    Returns:
+        {str}
+    """
+    assert mode in ['str', 'bool', 'date', 'int', 'float', 'file', 'filev', 'dir', 'dirv']
+
+    def define_validator(mode):
+        """
+        Define 'InqValidator' class based on 'mode'.
+
+        Arguments:
+            mode {str} -- 'mode' parameter passed into parent
+
+        Returns:
+            {InqValidator}
+        """
+
+        testfunc = lambda value: test(value, mode)
+
+        class InqValidator(inq.Validator):
+            def validate(self, document):
+                if not testfunc(document.text):
+                    raise inq.ValidationError(
+                        message="Please enter a valid value of type '%s'" % mode,
+                        cursor_position=len(document.text))
+
+        return InqValidator
+
+    add_colon = lambda x: x + ': '
+    add_clarification = lambda x, clar: x + ' ' + clar
+
+    # Add suffix based on `mode`
+    msg = re.sub(r': *$', '', msg).strip()
+    if mode == 'bool':
+        msg = add_clarification(msg, '(y/n)')
+    elif mode == 'date':
+        msg = add_clarification(msg, '(YYYY-MM-DD)')
+    if indicate_mode:
+        msg = add_clarification(msg, '{%s}' % mode)
+    msg = add_colon(msg)
+
+    # Prompt with PyInquirer, validate if 'mode' is specified
+    question = {
+        'type': 'input',
+        'name': 'TMP',
+        'message': msg
+    }
+
+    if mode in ['bool', 'date', 'int', 'float', 'file', 'filev', 'dir', 'dirv']:
+        validator = define_validator(mode)
+        question['validate'] = validator
+
+    question = [question]
+    answer = inq.prompt(question)['TMP']
+
+    # Alter datatype of value to return
+    if mode == 'int':
+        answer = int(answer)
+    elif mode == 'float':
+        answer = float(answer)
+    elif mode == 'bool':
+        if answer in ['y', 'yes']:
+            answer = True
+        elif answer in ['n', 'no']:
+            answer = False
+    elif mode in ['file', 'filev', 'dir', 'dirv']:
+        answer = expanduser(answer)
+
+    return answer
 
 
 def extract_colorpalette(palette_name, n=None, mode='hex'):
