@@ -377,7 +377,7 @@ def replace_nth_char(string, n, replacement):
     
     Arguments:
         string {str} -- string to consider
-        n {int} -- position to capitalize letter in `string`
+        n {int} -- position to replace character in `string`
         replacement {str} or {int} -- string or integer to replace nth char with
     
     Returns:
@@ -394,7 +394,7 @@ def insert_nth_char(string, n, char):
     
     Arguments:
         string {str} -- string to consider
-        n {int} -- position to capitalize letter in `string`
+        n {int} -- position to insert character in `string`
         char {str} or {int} -- string or integer to insert at nth position
     
     Returns:
