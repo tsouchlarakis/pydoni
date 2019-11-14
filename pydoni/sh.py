@@ -9,6 +9,7 @@ from itertools import chain
 from os import listdir
 from os import remove
 from os import system
+from os import rename
 from os.path import basename
 from os.path import isdir
 from os.path import isfile
@@ -507,22 +508,41 @@ class FFmpeg(object):
         assert isinstance(audiofiles, list)
         assert len(audiofiles) > 1
 
+        replace_strings = {
+            "'": 'SINGLEQUOTE'
+        }
+
         # cmd = 'ffmpeg -i "concat:{}" -acodec copy "{}"'.format('|'.join(audiofiles), targetfile)
         
         tmpfile = join(
             dirname(audiofiles[0]),
-            '.tmp.pydoni.audio.FFmpeg.join.%s.txt' % systime(stripchars=True)
-        )
+            '.tmp.pydoni.audio.FFmpeg.join.%s.txt' % systime(stripchars=True))
 
-        with open(tmpfile, 'w') as f:
-            for fname in audiofiles:
-                f.write("file '%s'\n" % fname)
-            f.write('')
+        fname_map = {}
 
-        cmd = 'ffmpeg -f concat -safe 0 -i "%s" -c copy "%s"' % (tmpfile, targetfile)
+        f = open(tmpfile, 'w')
+        for fname in audiofiles:
+
+            newfname = fname
+            for key, val in replace_strings.items():
+                newfname = newfname.replace(key, val)
+
+            fname_map[fname] = newfname
+            rename(fname, newfname)
+            f.write("file '%s'\n" % newfname)
+
+        f.close()
+
+        cmd = 'ffmpeg -f concat -safe 0 -i "{}" -c copy "{}"'.format(
+            tmpfile, targetfile)
         syscmd(cmd)
+
+        for f, nf in fname_map.items():
+            rename(nf, f)
+        
         if isfile(tmpfile):
             remove(tmpfile)
+        
         return True
 
     def split(self, audiofile, segment_time):
