@@ -631,7 +631,7 @@ def progrun_update(name, started, ended, args, res={}):
                 values=[name, started, ended, args, res],
                 validate=True))
     except Exception as e:
-        echo("Unable to update Postgres database for program '%s'" % prog,
+        echo("Unable to update Postgres database for program '%s'" % name,
             warn=True, fn_name='pydoni.db.progrun_update', error_msg=str(e))
 
 
