@@ -316,11 +316,6 @@ def listdirs(path='.', pattern=None, full_names=False, recursive=False):
         {list} -- list of directories
     """
 
-    # Check if specified path exists
-    if not isdir(path):
-        echo("Path '{}' does not exist".format(path), fn_name='listdirs', error=True)
-        return None
-
     # Change to specified directory and record original directory to change back to at the end
     wd = getcwd()
     chdir(path)
