@@ -7,7 +7,7 @@ from html2text import html2text
 from os.path import splitext
 
 
-class Goodreads(object):
+class Goodreads:
     """
     Extract Goodreads data for a title.
 
@@ -16,10 +16,19 @@ class Goodreads(object):
     """
 
     def __init__(self, api_key):
+        
+        modobjname = '.'.join([self.__module__, self.__class__.__name__])
+        self.logger = pydoni.logger_setup(modobjname, level='WARNING')
+        
         # self.api_key = 'XRdjRL9pCqTj4pUMyG1jyQ'
         # self.api_secret = '7zqBFszYrh3InYCMLZ2gyZXC1VPad2BELRWLXEU0bI'
+        
         if not api_key > '':
-            echo('Must enter a valid API key!', abort=True)
+            self.logger.error('Must enter a valid API key!', exc_info=True)
+            raise Exception
+            # ----- 2019-12-19 19:44:35 ----- RESUME HERE
+            print('')
+            pydoni.vb.echo('Must enter a valid API key!', abort=True)
 
         self.client = gr.Client(developer_key=api_key)
         self.book = None
@@ -52,7 +61,7 @@ class Goodreads(object):
         """
 
         if self.book is None:
-            echo("Must run 'search_id()' or 'search_title()' first!", abort=True)
+            pydoni.vb.echo("Must run 'search_id()' or 'search_title()' first!", abort=True)
 
         items = [
             'id',
@@ -90,7 +99,7 @@ class Goodreads(object):
         Render `self.bookdata` dictionary as dataframe
         """
         if not len(self.bookdata):
-            echo('Must run `extract_all()` method first to populate `self.bookdata` dictionary!', abort=True)
+            pydoni.vb.echo('Must run `extract_all()` method first to populate `self.bookdata` dictionary!', abort=True)
 
         self.bookdf = pd.DataFrame(self.bookdata, index=0)
         return self.bookdf
@@ -172,7 +181,7 @@ class Movie(object):
                 self.omdb_populated = True
                 # del self.title, self.year, self.ext
         except:
-            echo('OMDB API query failed for {}!'.format(self.fname), error=True, abort=False)
+            pydoni.vb.echo('OMDB API query failed for {}!'.format(self.fname), error=True, abort=False)
             self.omdb_populated = False  # Query unsuccessful
     
     def parse_ratings(self):
@@ -329,4 +338,5 @@ class Movie(object):
                 setattr(self, key, replacement)
 
 
-from pydoni.vb import echo
+import pydoni
+import pydoni.vb

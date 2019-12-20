@@ -62,7 +62,7 @@ def echo(
         blink        {bool} -- if True, print message with blink effect
         reverse      {bool} -- if True, print message with reverse effect (foreground/background reversed).
         return_str   {bool} -- if True, return string instead of printing (default: {False})
-        notify       {bool} -- if True, invoke `macos_notify()`. Notification customizations can be altered in `notification` parameter.
+        notify       {bool} -- if True, invoke `pydoni.os.macos_notify()`. Notification customizations can be altered in `notification` parameter.
         notification {dict} -- customize macOS notification. Requires that `notify` set to True
             title         {str}  -- title of notification
             subtitle      {str}  -- subtitle of notification
@@ -144,7 +144,7 @@ def echo(
 
         notification['message'] = msg_raw if notification['message'] is None else notification['message']
 
-        macos_notify(
+        pydoni.os.macos_notify(
             title         = notification['title'],
             subtitle      = notification['subtitle'],
             message       = notification['message'],
@@ -224,7 +224,7 @@ def verbose_header(string, time_in_sec=None, round_digits=2):
     # If time in seconds is given, augment title to incorporate estimated time
     if isinstance(time_in_sec, int) or isinstance(time_in_sec, float):
         # Get estimated time as dictionary
-        esttime = fmt_seconds(time_in_sec=time_in_sec, units='auto', round_digits=round_digits)
+        esttime = pydoni.pyobj.fmt_seconds(time_in_sec=time_in_sec, units='auto', round_digits=round_digits)
         title = '{} {} Est. time {}'.format(
             title,
             click.style('->', fg='white', bold=True),
@@ -298,7 +298,7 @@ def program_complete(
         emoji_string {str} -- name of emoji to print if any (default: {':thumbs_up:'})
         start_time {float} -- start time of program, output of time.time() (default: {None})
         end_time {float} -- end time of program, output of time.time() (default: {None})
-        notify {bool} -- if True, notify user with macos_notify() (default: {False})
+        notify {bool} -- if True, notify user with pydoni.os.macos_notify() (default: {False})
         notification {dict} -- customize macOS notification. Requires that `notify` set to True
             title         {str}  -- title of notification
             subtitle      {str}  -- subtitle of notification
@@ -329,7 +329,7 @@ def program_complete(
     if start_time is not None and end_time is not None:
         assert isinstance(start_time, float)
         assert isinstance(end_time, float)
-        diff = fmt_seconds(end_time - start_time, units='auto', round_digits=2)
+        diff = pydoni.pyobj.fmt_seconds(end_time - start_time, units='auto', round_digits=2)
         msg = msg + ' Elapsed time: {}'.format(
             click.style('{} {}'.format(
                 diff['value'],
@@ -402,5 +402,4 @@ def line_messages(messages):
         trange(1, desc=str(m), position=i, bar_format='{desc}')
 
 
-from pydoni.pyobj import fmt_seconds
-from pydoni.os import macos_notify
+import pydoni
