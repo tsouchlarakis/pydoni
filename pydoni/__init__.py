@@ -4,21 +4,26 @@ import sys
 modloglev = 'INFO'
 
 
-def what_is_my_name(with_modname=True):
+def what_is_my_name(classname=None, with_modname=True):
     """
-    Return name of function that calls this function.
+    Return name of function that calls this function. If called from a
+    classmethod, include classname before classmethod in output string.
 
     :param with_modname {bool} -- append module name to beginning of function name (True)
     :return: {str}
     """
-    work = inspect.stack()[1][3]
+    lst = []
+    funcname = inspect.stack()[1][3]
 
     if with_modname:
-        frm = inspect.stack()[1]
-        mod = inspect.getmodule(frm[0])
-        work = '.'.join([mod.__name__, work])
-    
-    return work
+        modulename = inspect.getmodule(inspect.stack()[1][0]).__name__
+        lst += [modulename]
+
+    if isinstance(classname, str):
+        lst += [classname]
+
+    lst += [funcname]
+    return '.'.join(lst)
 
 def logger_setup(name, level=modloglev):
     """
