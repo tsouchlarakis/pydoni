@@ -1,4 +1,6 @@
-def logger_setup(name, level='WARNING'):
+modloglev = 'WARNING'
+
+def logger_setup(name, level=logger_level_module):
     """
     Define an identical logger object for all pydoni submodules.
 
