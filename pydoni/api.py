@@ -1,34 +1,32 @@
 import goodreads_api_client as gr
 import numpy as np
 import omdb
+import os
 import pandas as pd
 import re
+import sys
 from html2text import html2text
-from os.path import splitext
 
 
 class Goodreads:
     """
     Extract Goodreads data for a title.
 
-    Arguments:
-        api_key {str} -- Goodreads API key string
+    :param api_key {str} -- Goodreads API key string
     """
 
     def __init__(self, api_key):
         
         modobjname = '.'.join([self.__module__, self.__class__.__name__])
-        self.logger = pydoni.logger_setup(modobjname, level='WARNING')
+        self.logger = pydoni.logger_setup(modobjname, level=pydoni.modloglev)
         
         # self.api_key = 'XRdjRL9pCqTj4pUMyG1jyQ'
         # self.api_secret = '7zqBFszYrh3InYCMLZ2gyZXC1VPad2BELRWLXEU0bI'
         
         if not api_key > '':
-            self.logger.error('Must enter a valid API key!', exc_info=True)
-            raise Exception
-            # ----- 2019-12-19 19:44:35 ----- RESUME HERE
-            print('')
-            pydoni.vb.echo('Must enter a valid API key!', abort=True)
+            errmsg = 'Must enter a valid API key!'
+            self.logger.critical(errmsg, exc_info=True)
+            raise Exception(errmsg)
 
         self.client = gr.Client(developer_key=api_key)
         self.book = None
@@ -61,7 +59,9 @@ class Goodreads:
         """
 
         if self.book is None:
-            pydoni.vb.echo("Must run 'search_id()' or 'search_title()' first!", abort=True)
+            errmsg = "Must run 'search_id()' or 'search_title()' first!"
+            self.logger.error(errmsg)
+            raise Exception(errmsg)
 
         items = [
             'id',
@@ -99,26 +99,36 @@ class Goodreads:
         Render `self.bookdata` dictionary as dataframe
         """
         if not len(self.bookdata):
-            pydoni.vb.echo('Must run `extract_all()` method first to populate `self.bookdata` dictionary!', abort=True)
+            errmsg = 'Must run `extract_all()` method first to populate ' \
+            '`self.bookdata` dictionary!'
+            self.logger.error(errmsg)
+            raise Exception(errmsg)
 
         self.bookdf = pd.DataFrame(self.bookdata, index=0)
         return self.bookdf
 
 
-class Movie(object):
+class Movie:
     """
     Operate on a movie file.
 
-    Arguments:
-        fname {str} -- path to audio file
+    :param fname {str} -- path to movie file
     """
     
     def __init__(self, fname):
-        self.fname          = fname
-        self.title          = self.extract_from_fname(attr='title')
-        self.year           = self.extract_from_fname(attr='year')
-        self.ext            = self.extract_from_fname(attr='ext')
-        self.omdb_populated = False  # Will be set to True if self.query_omdb() is successful
+  
+        assert os.path.isfile(fname)
+
+        modobjname = '.'.join([self.__module__, self.__class__.__name__])
+        self.logger = pydoni.logger_setup(modobjname, level=pydoni.modloglev)
+
+        self.fname = fname
+        self.title = self.extract_from_fname(attr='title')
+        self.year  = self.extract_from_fname(attr='year')
+        self.ext   = self.extract_from_fname(attr='ext')
+        
+        # Will be set to True if self.query_omdb() is successful
+        self.omdb_populated = False
 
         # Placeholder attributes that are filled in by class methods
         self.ratings     = None
@@ -152,13 +162,13 @@ class Movie(object):
         assert re.match(rgx_movie, self.fname)
 
         # Extract attribute
-        movie = splitext(fname)[0]
+        movie = os.path.splitext(fname)[0]
         if attr == 'title':
             return re.sub(rgx_movie, r'\1', movie).strip()
         elif attr == 'year':
             return re.sub(rgx_movie, r'\2', movie).strip()
         elif attr == 'ext':
-            return splitext(fname)[1]
+            return os.path.splitext(fname)[1]
         
     def query_omdb(self):
         """
@@ -180,8 +190,10 @@ class Movie(object):
                 self.clean_omdb_response()
                 self.omdb_populated = True
                 # del self.title, self.year, self.ext
-        except:
-            pydoni.vb.echo('OMDB API query failed for {}!'.format(self.fname), error=True, abort=False)
+        except Exception as e:
+            errmsg = 'OMDB API query failed for {}!'.format(self.fname)
+            self.logger.error(errmsg)
+            self.logger.error("Original erorr message: %s" % e.message)
             self.omdb_populated = False  # Query unsuccessful
     
     def parse_ratings(self):
