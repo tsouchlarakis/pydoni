@@ -404,14 +404,13 @@ def unarchive(fpath, dest_dir):
 
 
 def macos_notify(
-    title='',
-    subtitle=None,
-    message='',
-    app_icon=None,
-    content_image=None,
-    command=None,
-    open_iterm=False
-    ):
+        title='',
+        subtitle=None,
+        message='',
+        app_icon=None,
+        content_image=None,
+        command=None,
+        open_iterm=False):
     """
     Python wrapper for julienXX's terminal-notifier gem found here:
     https://github.com/julienXX/terminal-notifier
