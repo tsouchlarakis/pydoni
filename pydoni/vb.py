@@ -8,35 +8,35 @@ from datetime import datetime
 
 
 def echo(
-    msg,
-    indent       = 0,
-    sleep        = 0,
-    timestamp    = False,
-    success      = False,
-    warn         = False,
-    error        = False,
-    error_msg    = None,
-    abort        = False,
-    fn_name      = None,
-    fg           = None,
-    bg           = None,
-    bold         = None,
-    dim          = None,
-    underline    = None,
-    blink        = None,
-    reverse      = None,
-    return_str   = False,
-    notify       = False,
-    notification = dict(
-        title         = '',
-        subtitle      = None,
-        message       = None,
-        app_icon      = None,
-        content_image = None,
-        command       = None,
-        open_iterm    = False
-        )
-    ):
+        msg,
+        indent       = 0,
+        sleep        = 0,
+        timestamp    = False,
+        success      = False,
+        warn         = False,
+        error        = False,
+        error_msg    = None,
+        abort        = False,
+        fn_name      = None,
+        fg           = None,
+        bg           = None,
+        bold         = None,
+        dim          = None,
+        underline    = None,
+        blink        = None,
+        reverse      = None,
+        return_str   = False,
+        notify       = False,
+        notification = dict(
+            title         = '',
+            subtitle      = None,
+            message       = None,
+            app_icon      = None,
+            content_image = None,
+            command       = None,
+            open_iterm    = False
+            )
+        ):
     """
     Update stdout with custom message and many custom parameters including indentation,
     timestamp, warning/error message, text styles, and more!
@@ -273,20 +273,21 @@ def print_columns(lst, ncol=2, delay=None):
 
 
 def program_complete(
-    msg          = 'Program complete!',
-    emoji_string = ':rocket:',
-    start_time   = None,
-    end_time     = None,
-    notify       = False,
-    notification = dict(
-        title         = '',
-        subtitle      = None,
-        message       = None,
-        app_icon      = None,
-        content_image = None,
-        command       = None,
-        open_iterm    = False
-    )
+        msg          = 'Program complete!',
+        emoji_string = ':rocket:',
+        start_time   = None,
+        end_time     = None,
+        notify       = False,
+        notification = dict(
+            title         = '',
+            subtitle      = None,
+            message       = None,
+            app_icon      = None,
+            content_image = None,
+            command       = None,
+            open_iterm    = False
+        ),
+        use_stdout = False
     ):
     """
     Print to STDOUT indicating program was completed. Optionally include the elapsed program
@@ -306,10 +307,13 @@ def program_complete(
             content_image {str}  -- path to content image to display within notification
             command       {str}  -- BASH string to execute on notification click
             open_iterm    {bool} -- if True, sets `command` to "open /Applications/iTerm.app" to open iTerm application on notification click.
+        use_stdout {bool} -- print to STDOUT instead of using logger (False)
 
     Returns:
         nothing
     """
+
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
 
     # Save original message before any editing is done if the message will be used in a
     # macOS notification
@@ -334,8 +338,7 @@ def program_complete(
             click.style('{} {}'.format(
                 diff['value'],
                 diff['units']),
-                fg='yellow', bold=True)
-        )
+                fg='yellow', bold=True))
 
         # Add to msg_raw to include in notification
         if notify:
@@ -344,9 +347,12 @@ def program_complete(
     # Print message and notify if specified
     if notify:
         notification['message'] = msg_raw
-        echo(msg, notify=True, notification=notification)
-    else:
+        pydoni.os.macos_notify(**notification)
+    
+    if use_stdout:
         echo(msg)
+
+    logger.info(msg)
 
 
 def stabilize_postfix(key, max_len=20, fillchar='•', side='right'):
@@ -403,3 +409,4 @@ def line_messages(messages):
 
 
 import pydoni
+import pydoni.os
