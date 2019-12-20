@@ -1,6 +1,26 @@
-modloglev = 'WARNING'
+import inspect
+import sys
 
-def logger_setup(name, level=logger_level_module):
+modloglev = 'INFO'
+
+
+def what_is_my_name(with_modname=True):
+    """
+    Return name of function that calls this function.
+
+    :param with_modname {bool} -- append module name to beginning of function name (True)
+    :return: {str}
+    """
+    work = inspect.stack()[1][3]
+
+    if with_modname:
+        frm = inspect.stack()[1]
+        mod = inspect.getmodule(frm[0])
+        work = '.'.join([mod.__name__, work])
+    
+    return work
+
+def logger_setup(name, level=modloglev):
     """
     Define an identical logger object for all pydoni submodules.
 

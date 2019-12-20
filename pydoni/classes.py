@@ -11,6 +11,7 @@ from os.path import basename
 from os.path import dirname
 from os.path import expanduser
 from os.path import join
+from os.path import isdir
 from tqdm import tqdm
 
 
