@@ -1,11 +1,5 @@
-import time
-import re
-import click
-from emoji import emojize
-from tqdm import trange
-from os.path import expanduser
-from datetime import datetime
-
+import pydoni
+import pydoni.os
 
 def echo(
         msg,
@@ -35,47 +29,74 @@ def echo(
             content_image = None,
             command       = None,
             open_iterm    = False
-            )
-        ):
+            )):
     """
     Update stdout with custom message and many custom parameters including indentation,
     timestamp, warning/error message, text styles, and more!
 
-    Arguments:
-        msg {str} -- message to print to console
-    
-    Keyword Arguments:
-        indent       {int}  -- indentation level of message printed to console
-        sleep        {int}  -- number of seconds to pause program after printing message
-        timestamp    {bool} -- if True, print datetimestamp preceding message
-        success      {bool} -- if True, print 'Success: ' in green preceding message
-        warn         {bool} -- if True, print 'Warning: ' in yellow preceding message
-        error        {bool} -- if True, print 'Error: ' in red preceding message
-        error_msg    {str}  -- python error message. Intended for use in try/except. Pass in `str(e)` here.
-        abort        {bool} -- if True, raise Exception with `msg` as error message.
-        fn_name      {str}  -- name of function, if any, that echo() was called from. Will include function in printed message. Useful for debugging. Only applied if one or more of `warn`, `error` or `abort` are set to True
-        fg           {str}  -- color string indicator color of text. One of [None, 'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
-        bg           {str}  -- color string indicator color of background of text. One of [None, 'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
-        bold         {bool} -- if True, print message with bold effect
-        dim          {bool} -- if True, print message with dim effect
-        underline    {bool} -- if True, print message with underline effect
-        blink        {bool} -- if True, print message with blink effect
-        reverse      {bool} -- if True, print message with reverse effect (foreground/background reversed).
-        return_str   {bool} -- if True, return string instead of printing (default: {False})
-        notify       {bool} -- if True, invoke `pydoni.os.macos_notify()`. Notification customizations can be altered in `notification` parameter.
-        notification {dict} -- customize macOS notification. Requires that `notify` set to True
-            title         {str}  -- title of notification
-            subtitle      {str}  -- subtitle of notification
-            app_icon      {str}  -- path to app icon image to display on left side of notification
-            content_image {str}  -- path to content image to display within notification
-            command       {str}  -- bASH string to execute on notification click
-            open_iterm    {bool} -- if True, sets `command` to "open /Applications/iTerm.app" to open iTerm application on notification click.
-    
-    Returns:
-        nothing
-    """
+    :param msg: message to print to console
+    :type msg: str
 
-    # Save original message before any editing is done if the message will be used in a 
+    :param indent: indentation level of message printed to console
+    :type indent: int
+    :param sleep: number of seconds to pause program after printing message
+    :type sleep: int
+    :param timestamp: print datetimestamp preceding message
+    :type timestamp: bool
+    :param success: print 'Success: ' in green preceding message
+    :type success: bool
+    :param warn: print 'Warning: ' in yellow preceding message
+    :type warn: bool
+    :param error: print 'Error: ' in red preceding message
+    :type error: bool
+    :param error_msg: python error message. Intended for use in try/except.
+                      Pass in `str(e)` here.
+    :type error_msg: str
+    :param abort: raise Exception with `msg` as error message.
+    :type abort: bool
+    :param fn_name: name of function, if any, that echo() was called from. Will
+                    include function in printed message. Useful for debugging. Only
+                    applied if one or more of `warn`, `error` or `abort` are set to True
+    :type fn_name: str
+    :param fg: color string indicator color of text. One of [None, 'black', 'red',
+               'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
+    :type fg: str
+    :param bg: color string indicator color of background of text. One of [None,
+               'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
+    :type bg: str
+    :param bold: print message with bold effect
+    :type bold: bool
+    :param dim: print message with dim effect
+    :type dim: bool
+    :param underline: print message with underline effect
+    :type underline: bool
+    :param blink: print message with blink effect
+    :type blink: bool
+    :param reverse: print message with reverse effect (foreground/background reversed).
+    :type reverse: bool
+    :param return_str: return string instead of printing
+    :type return_str: bool
+    :param notify: invoke `pydoni.os.macos_notify()`. Notification customizations can
+                   be altered in `notification` parameter.
+    :type notify: bool
+    :param notification: customize macOS notification. Requires that `notify` set to True
+    :type notification: dict
+        title: title of notification
+        subtitle: subtitle of notification
+        app_icon: path to app icon image to display on left side of notification
+        content_image: path to content image to display within notification
+        command: BASH string to execute on notification click
+        open_iterm: sets `command` to "open /Applications/iTerm.app" to open
+                    iTerm application on notification click.
+    """
+    import click
+    import time
+    from datetime import datetime
+
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
+
+    # Save original message before any editing is done if the message will be used in a
     # macOS notification
     if notify:
         msg_raw = msg
@@ -107,14 +128,14 @@ def echo(
 
     # Add timestamp if specified
     ts_string = click.style(datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' ', fg='cyan') if timestamp else ''
-    
+
     # Construct message
     msg_out = ts_string + fnn_string + idt_string + ew_string + msg
 
     # Print message to STDOUT
     if not abort and not return_str:
         click.echo(msg_out)
-    
+
     # If `error_msg` is specified, print after `msg`
     if error_msg and not abort:
         print(error_msg)
@@ -139,7 +160,7 @@ def echo(
                 if k in ['app_icon', 'content_image']:
                     if isinstance(v, str):
                         if '~' in v:
-                            v = expanduser(v)
+                            v = os.path.expanduser(v)
                 notification[k] = v
 
         notification['message'] = msg_raw if notification['message'] is None else notification['message']
@@ -151,13 +172,12 @@ def echo(
             app_icon      = notification['app_icon'],
             content_image = notification['content_image'],
             command       = notification['command'],
-            open_iterm    = notification['open_iterm']
-        )
-    
+            open_iterm    = notification['open_iterm'])
+
     # Pause script execution if specified
     if sleep > 0:
         time.sleep(sleep)
-    
+
     # Exit program if specified
     if abort:
         raise Exception(msg)
@@ -166,107 +186,69 @@ def echo(
         return msg_out
 
 
-def clickfmt(string, fmt):
-    """
-    Create frequently-used `click` formating styles.
-    
-    Arguments:
-        string {str} -- text string
-        fmt {str} -- format type, one of ['numeric', 'filename', 'filepath', 'url', 'date', 'arrow', 'green', 'red', 'yellow', 'cyan']
-    
-    Returns:
-        {str}
-    """
-    if fmt == 'numeric':
-        return click.style(string, fg='yellow', bold=True)
-    elif fmt == 'filename':
-        return click.style(string, fg='magenta', bold=True)
-    elif fmt == 'filepath' or fmt == 'url':
-        return click.style(string, fg='cyan', bold=True)
-    elif fmt == 'date':
-        return click.style(string, fg='blue', bold=True)
-    elif fmt == 'arrow':
-        return click.style(string, fg='white', bold=True)
-    elif fmt == 'green':
-        return click.style(string, fg='green', bold=True)
-    elif fmt == 'red':
-        return click.style(string, fg='red', bold=True)
-    elif fmt == 'yellow':
-        return click.style(string, fg='yellow', bold=True)
-    elif fmt == 'white':
-        return click.style(string, fg='white', bold=True)
-    elif fmt == 'cyan':
-        return click.style(string, fg='cyan', bold=True)
-    elif fmt == 'blue':
-        return click.style(string, fg='blue', bold=True)
-    else:
-        echo("Invalid 'fmt' parameter", error=True, abort=False)
-
-
 def verbose_header(string, time_in_sec=None, round_digits=2):
     """
     Print STDOUT verbose section header and optionally print estimated time.
-    
-    Arguments:
-        string {str} -- header text
 
-    Keyword Arguments:
-        time_in_sec  {int} -- time in seconds that code section will take (default: None)
-        round_digits {int} -- round estimated time to this many digits (default: 2)
-    
-    Returns:
-        nothing
+    :param string: header text
+    :type string: str
+    :param time_in_sec: time in seconds that code section will take
+    :type time_in_sec: int
+    :param round_digits: round estimated time to this many digits
+    :type round_digits: int
     """
+    import click
 
-    # Format string as title
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
+
     title = click.style(string, fg='white', bold=True)
 
     # If time in seconds is given, augment title to incorporate estimated time
     if isinstance(time_in_sec, int) or isinstance(time_in_sec, float):
         # Get estimated time as dictionary
-        esttime = pydoni.pyobj.fmt_seconds(time_in_sec=time_in_sec, units='auto', round_digits=round_digits)
+        esttime = pydoni.fmt_seconds(time_in_sec=time_in_sec, units='auto', round_digits=round_digits)
         title = '{} {} Est. time {}'.format(
             title,
             click.style('->', fg='white', bold=True),
             click.style(str(esttime['value']) + ' ' + esttime['units'], fg='yellow', bold=True))
-    
-    # Print message
-    echo(title)
+
+    pydoni.vb.echo(title)
 
 
 def print_columns(lst, ncol=2, delay=None):
     """
     Print a list as side-by-side columns.
-    
-    Arguments:
-        lst   {list} -- list to print to screen
 
-    Keyword Arguments:
-        ncol  {int} -- number of columns to print to screen (default: 2)
-        delay {int} or {float} -- if specified, delay this many seconds after each line is printed (default: None)
-    
-    Returns:
-        nothing
+    :param lst: list to print to screen
+    :type lst: list
+    :param ncol: number of columns to print to screen
+    :type ncol: int
+    :param delay: delay this many seconds after each line is printed
+    :type delay: int or float
     """
-    
+
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
+
     def chunks(lst, chunk_size):
         """
         Split a list into a list of lists.
-        
-        Arguments:
-            lst {list} -- list to split
-            chunk_size {int} -- size of chunks
-        
-        Returns:
-            {list}
+
+        :param lst: list to split
+        :type lst: list
+        :param chunk_size: size of chunks
+        :type chunk_size: int
         """
         for i in range(0, len(lst), chunk_size):
             yield lst[i:i + chunk_size]
 
     lstlst = list(chunks(lst, ncol))
     col_width = max(len(word) for row in lstlst for word in row) + 2
+
     for row in lstlst:
         print(''.join(word.ljust(col_width) for word in row))
+
         if delay is not None:
             if delay > 0:
                 time.sleep(delay)
@@ -287,33 +269,38 @@ def program_complete(
             command       = None,
             open_iterm    = False
         ),
-        use_stdout = False
-    ):
+        use_stdout = False):
     """
     Print to STDOUT indicating program was completed. Optionally include the elapsed program
     time. Optionally send a macOS notification or a notification email indicating program
     completion.
-    
-    Keyword Arguments:
-        msg {str} -- custom message to print instead of default (default: {'Program complete!'})
-        emoji_string {str} -- name of emoji to print if any (default: {':thumbs_up:'})
-        start_time {float} -- start time of program, output of time.time() (default: {None})
-        end_time {float} -- end time of program, output of time.time() (default: {None})
-        notify {bool} -- if True, notify user with pydoni.os.macos_notify() (default: {False})
-        notification {dict} -- customize macOS notification. Requires that `notify` set to True
-            title         {str}  -- title of notification
-            subtitle      {str}  -- subtitle of notification
-            app_icon      {str}  -- path to app icon image to display on left side of notification
-            content_image {str}  -- path to content image to display within notification
-            command       {str}  -- BASH string to execute on notification click
-            open_iterm    {bool} -- if True, sets `command` to "open /Applications/iTerm.app" to open iTerm application on notification click.
-        use_stdout {bool} -- print to STDOUT instead of using logger (False)
 
-    Returns:
-        nothing
+    :param msg: custom message to print instead of default
+    :type msg: str
+    :param emoji_string: name of emoji to print if any
+    :type emoji_string: str
+    :param start_time: start time of program, output of time.time()
+    :type start_time: float
+    :param end_time: end time of program, output of time.time()
+    :type end_time: float
+    :param notify: notify user with pydoni.os.macos_notify()
+    :type notify: bool
+    :param notification: customize macOS notification. Requires that `notify` set to True
+    :type notification: dict
+        title: title of notification
+        subtitle: subtitle of notification
+        app_icon: path to app icon image to display on left side of notification
+        content_image: path to content image to display within notification
+        command: BASH string to execute on notification click
+        open_iterm: sets `command` to "open /Applications/iTerm.app" to open iTerm application on notification click.
+    :param use_stdout: print to STDOUT instead of using logger (False)
+    :type use_stdout: bool
     """
+    import click
+    from emoji import emojize
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
 
     # Save original message before any editing is done if the message will be used in a
     # macOS notification
@@ -333,7 +320,7 @@ def program_complete(
     if start_time is not None and end_time is not None:
         assert isinstance(start_time, float)
         assert isinstance(end_time, float)
-        diff = pydoni.pyobj.fmt_seconds(end_time - start_time, units='auto', round_digits=2)
+        diff = pydoni.fmt_seconds(end_time - start_time, units='auto', round_digits=2)
         msg = msg + ' Elapsed time: {}'.format(
             click.style('{} {}'.format(
                 diff['value'],
@@ -348,11 +335,11 @@ def program_complete(
     if notify:
         notification['message'] = msg_raw
         pydoni.os.macos_notify(**notification)
-    
-    if use_stdout:
-        echo(msg)
 
-    logger.info(msg)
+    if use_stdout:
+        pydoni.vb.echo(msg)
+
+    pydoni.vb.echo(msg)
 
 
 def stabilize_postfix(key, max_len=20, fillchar='•', side='right'):
@@ -363,18 +350,21 @@ def stabilize_postfix(key, max_len=20, fillchar='•', side='right'):
     rather than moving left to right when keys of length smaller
     than `max_len` are encountered.
 
-    Arguments:
-        key {str} -- string to set as postfix
+        :param key: string to set as postfix
+        :type key: str
 
-    Keyword Arguments:
-        max_len {int} -- length of postfix (default: {20})
-        fillchar {str} -- character to fill any spaces on the left with (default: {'•'})
-        side {str} -- which side of postfix substring to keep, one of ['left', 'right'] (default: {'right'})
-
-    Returns:
-        {str}
+        :param max_len: length of postfix
+        :type max_len: int
+        :param fillchar: character to fill any spaces on the left with
+        :type fillchar: str
+        :param side: which side of postfix substring to keep, one of ['left', 'right']
+        :type side: str
     """
+    import re
     assert side in ['left', 'right']
+
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
 
     if side == 'left':
         postfix = key[0:max_len].ljust(max_len, fillchar)
@@ -398,12 +388,14 @@ def line_messages(messages):
     """
     Print messages below TQDM progress bar.
 
-    Arguments:
-        messages {list} -- list of messages to print, each on its own line
-
-    Returns:
-        nothing
+        :param messages: list of messages to print, each on its own line
+        :type messages: list
     """
+    from tqdm import trange
+
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
+
     for i, m in enumerate(messages, 1):
         trange(1, desc=str(m), position=i, bar_format='{desc}')
 
