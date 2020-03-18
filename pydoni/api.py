@@ -1,30 +1,23 @@
-import goodreads_api_client as gr
-import numpy as np
-import omdb
-import os
-import pandas as pd
-import re
-import sys
-from html2text import html2text
+import pydoni
 
-
-class Goodreads:
+class Goodreads(object):
     """
     Extract Goodreads data for a title.
 
-    :param api_key {str} -- Goodreads API key string
+    :param api_key: Goodreads API key string
+    :type api_key: str
 
     Notes:
-    self.api_key = 'XRdjRL9pCqTj4pUMyG1jyQ'
-    self.api_secret = '7zqBFszYrh3InYCMLZ2gyZXC1VPad2BELRWLXEU0bI'
+        self.api_key = 'XRdjRL9pCqTj4pUMyG1jyQ'
+        self.api_secret = '7zqBFszYrh3InYCMLZ2gyZXC1VPad2BELRWLXEU0bI'
     """
 
     def __init__(self, api_key):
+
+        import goodreads_api_client as gr
         
         self.logger = pydoni.logger_setup(
-            name=pydoni.what_is_my_name(
-                classname=self.__class__.__name__,
-                with_modname=True),
+            name=pydoni.what_is_my_name(classname=self.__class__.__name__, with_modname=True),
             level=pydoni.modloglev)
         
         if not api_key > '':
@@ -41,7 +34,10 @@ class Goodreads:
         """
         Search the Goodreads API for a book by its ID.
 
-        :param id {str} -- Goodreads ID string
+        :param id: Goodreads ID string
+        :type id: str
+        :return: book name
+        :rtype: str
         """
         self.logger.info("Searching for ID: '%s'" % str(id))
         self.book = self.client.Book.show(id)
@@ -57,7 +53,10 @@ class Goodreads:
         """
         Search the Goodreads API for a book by its title.
 
-        :param title {str} -- Goodreads title string
+        :param title: Goodreads title string
+        :type title: str
+        :return: book name
+        :rtype: str
         """
         self.logger.info("Searching for title: '%s'" % str(title))
         self.book = self.client.Book.title(title)
@@ -72,7 +71,13 @@ class Goodreads:
     def extract_all(self):
         """
         Return a dictionary with pre-defined keys of interest.
+
+        :return: book data in dictionary with items: id, title, publication_year,
+                 num_pages, language_code, country_code, description, average_rating,
+                 url, ratings_count, text_reviews_count, 
+        :rtype: dict
         """
+        from html2text import html2text
 
         if self.book is None:
             errmsg = "Must run 'search_id()' or 'search_title()' first!"
@@ -125,7 +130,12 @@ class Goodreads:
     def as_data_frame(self):
         """
         Render `self.bookdata` dictionary as dataframe
+
+        :return: book data as data frame
+        :rtype: pd.DataFrame
         """
+        import pandas as pd
+
         if not len(self.bookdata):
             errmsg = 'Must run `extract_all()` method first to populate ' \
             '`self.bookdata` dictionary!'
@@ -134,42 +144,44 @@ class Goodreads:
 
         self.bookdf = pd.DataFrame(self.bookdata, index=0)
         self.logger.info('Coerced `self.bookdata` dictionary to dataframe')
+
         return self.bookdf
 
 
-class Movie:
+class Movie(object):
     """
     Operate on a movie file.
 
-    :param fname {str} -- path to movie file
+    :param fname: path to movie file
+    :type fname: str
     """
     
     def __init__(self, fname):
+
+        import os
   
         assert os.path.isfile(fname)
 
         self.logger = pydoni.logger_setup(
-            name=pydoni.what_is_my_name(
-                classname=self.__class__.__name__,
-                with_modname=True),
+            name=pydoni.what_is_my_name(classname=self.__class__.__name__, with_modname=True),
             level=pydoni.modloglev)
 
         self.fname = fname
         self.title = self.extract_from_fname(attr='title')
-        self.year  = self.extract_from_fname(attr='year')
-        self.ext   = self.extract_from_fname(attr='ext')
+        self.year = self.extract_from_fname(attr='year')
+        self.ext = self.extract_from_fname(attr='ext')
         
         # Will be set to True if self.query_omdb() is successful
         self.omdb_populated = False
 
         # Placeholder attributes that are filled in by class methods
-        self.ratings     = None
+        self.ratings = None
         self.rating_imdb = None
         self.rating_imdb = None
-        self.rating_mc   = None
-        self.rating_rt   = None
+        self.rating_mc = None
+        self.rating_rt = None
         self.imdb_rating = None
-        self.metascore   = None
+        self.metascore = None
     
     def extract_from_fname(self, attr=['title', 'year', 'ext']):
         """
@@ -182,6 +194,8 @@ class Movie:
         :desc attribute to extract, one of ['title', 'year', 'ext']
         :return: {str}
         """
+        import re, os
+
         assert attr in ['title', 'year', 'ext']
 
         # Get filename
@@ -209,6 +223,8 @@ class Movie:
         """
         Query OMDB database from movie title and movie year.
         """
+        import omdb
+
         try:
             met = omdb.get(title=self.title, year=self.year, fullplot=False, tomatoes=False)
             met = None if not len(met) else met
@@ -239,6 +255,8 @@ class Movie:
         :param none
         :return: nothing
         """
+
+        import numpy as np
         
         # Check that `self` has `ratings` attribute
         # Iterate over each type of rating (imdb, rt, mc) and assign to its own attribute
@@ -295,7 +313,8 @@ class Movie:
             """
             Attempt to convert a value to type int.
 
-            :param value {<any>} -- value to convert
+            :param value {<> value to convert
+            :type value: any
             :return: nothing
             """
             if isinstance(value, int):
@@ -315,7 +334,8 @@ class Movie:
             """
             Attempt to convert a value to type datetime.
 
-            :param value {<any>} -- value to convert
+            :param value {<> value to convert
+            :type value: any
             :return: nothing
             """
             if not isinstance(value, str):
@@ -329,7 +349,8 @@ class Movie:
             """
             Attempt to convert a value to type bool.
 
-            :param value {<any>} -- value to convert
+            :param value {<> value to convert
+            :type value: any
             :return: nothing
             """
             if isinstance(value, str):
@@ -369,8 +390,10 @@ class Movie:
         """
         Scan all attributes for `value` and replace with `replacement` if found.
     
-        :param value {<any>} -- value to search for
-        :param replacement {<any>} -- replace `value` with this variable value if found
+        :param value {<> value to search for
+        :type value: any
+        :param replacement {<> replace `value` with this variable value if found
+        :type replacement: any
         :return: nothing
         """
         for key, val in self.__dict__.items():
@@ -378,8 +401,3 @@ class Movie:
                 setattr(self, key, replacement)
                 self.logger.info("Replaced `self` attribute value '{}' with '{}'".format(
                     str(key), str(replacementm)))
-
-
-
-import pydoni
-import pydoni.vb
