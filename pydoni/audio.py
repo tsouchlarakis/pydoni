@@ -1,34 +1,35 @@
-import contextlib
-import googlesearch
-import numpy as np
-import os
-import sys
-import re
-import requests
-import wave
-from google.cloud import speech_v1p1beta1 as speech
-from datetime import datetime
-from pydub import AudioSegment
-from tqdm import tqdm
-from titlecase import titlecase
-
+import pydoni
 
 class Audio:
     """
     Operate on an audio file.
 
-    :param audiofile {str} -- path to audio file
+    :param audiofile: path to audio file
+    :type audiofile: str
     """
 
     def __init__(self, audiofile):
 
-        assert os.path.isfile(audiofile)
+        import os
 
-        # Set filename and extension
+        self.logger = pydoni.logger_setup(
+            name=pydoni.what_is_my_name(classname=self.__class__.__name__, with_modname=True),
+            level=pydoni.modloglev)
+
         self.audiofile = audiofile
         self.ext = os.path.splitext(self.audiofile)[1]
+        self.sound = None
+        self.duration = None
 
-        # Read audio file as AudioSegement
+        self.logger.logvars(locals())
+
+    def audio_segment(self):
+        """
+        Wrapper for `pydub.AudioSegment_from*()`. Create an audio file segment from local file.
+        """
+
+        from pydub import AudioSegment
+
         if self.ext.lower() == '.mp3':
             self.sound = AudioSegment.from_mp3(self.audiofile)
         elif self.ext.lower() == '.wav':
@@ -36,66 +37,90 @@ class Audio:
         else:
             self.sound = AudioSegment.from_file(self.audiofile)
 
-        # Get duration of audio segment
         try:
             if self.ext.lower() != '.wav':
                 self.convert(dest_fmt='wav')
                 self.duration = get_duration(os.path.splitext(self.audiofile)[0] + '.wav')
             else:
                 self.duration = self.get_duration()
+
+            self.logger.logvars(locals())
+
         except Exception as e:
-            echo('Unable to get audio duration!', warn=True, fn_name='pydoni.Audio.__init__', error_msg=str(e))
-            self.duration = None
+            self.logger.exception(e)
+            self.logger.error('Unable to get audio duration!')
 
     def split(self, segment_time):
         """
         Wrapper for pydoni.audio.split_audiofile().
+
+        :param segment_time: time to split audiofile at (in seconds)
+        :type segment_time: int
+        :return: list of split filenames
+        :rtype: list
         """
-        return split_audiofile(self.audiofile, segment_time)
+        self.logger.logvars(locals())
+        return pydoni.audio.split_audiofile(self.audiofile, segment_time)
 
     def get_duration(self):
         """
         Wrapper for pydoni.audio.get_duration().
+
+        :return: duration of audiofile in seconds
+        :rtype: float
         """
-        return get_duration(self.audiofile)
+        self.logger.logvars(locals())
+        return pydoni.audio.get_duration(self.audiofile)
 
     def compress(self, outfile=None):
         """
         Export audio file at low bitrate (92kbps) as an mp3.
 
-        :param audiofile {str} -- path to audiofile to compress
-        :param outfile {str} -- path to output file to write. If None, replace `audiofile` on disk (default: {None})
-        :return:
+        :param audiofile: path to audiofile to compress
+        :type audiofile: str
+        :param outfile: path to output file to write. If None, replace `audiofile` on disk
+        :type outfile: str
         """
+
+        wavfile = os.path.splitext(self.audiofile)[0] + '.wav'
         if outfile is None:
             outfile = os.path.splitext(self.audiofile)[0] + '.mp3'
-        wavfile = os.path.splitext(self.audiofile)[0] + '.wav'
+
         self.sound.export(outfile, bitrate='32k')
+        
         if os.path.isfile(wavfile):
             os.remove(wavfile)
+
+        self.logger.logvars(locals())
 
     def set_channels(self, num_channels):
         """
         Wrapper for pydub.AudioSegment.set_channels().
 
-        :param num_channels {int} -- number of channels to convert audio segment to using pydub.AudioSegment.set_channels() (default: {None})
-        :return:
+        :param num_channels: number of channels to convert audio segment to using `pydub.AudioSegment.set_channels()`
+        :type num_channels: int
         """
+        self.logger.logvars(locals())
         self.sound = self.sound.set_channels(num_channels)
 
     def convert(self, dest_fmt, num_channels=None):
         """
         Convert an audio file to destination format and write with identical filename with `pydub`.
 
-        :param dest_fmt {str} -- desired output format, one of ['mp3', 'wav']
-        :param update_self {bool} -- if True, set `self.fname` and `self.ext` to converted file and file format after conversion (default: {True})
-            num_channels {int} -- number of channels to convert audio segment to using pydub.AudioSegment.set_channels() (default: {None})
-        :return:
+        :param dest_fmt: desired output format, one of ['mp3', 'wav']
+        :type dest_fmt: str
+        :param update_self: set `self.fname` and `self.ext` to converted file and file format after conversion
+        :type update_self: bool
+        :param num_channels: number of channels to convert audio segment to using `pydub.AudioSegment.set_channels()`
+        :type num_channels: int
         """
+
+        self.logger.logvars(locals())
 
         dest_fmt = dest_fmt.replace('.', '')
         assert dest_fmt in ['mp3', 'wav']
         assert self.ext != dest_fmt
+        
         outfile = os.path.splitext(self.audiofile)[0] + '.' + dest_fmt
         assert not os.path.isfile(outfile)
 
@@ -107,23 +132,47 @@ class Audio:
 
     def transcribe(self, method='gcs', gcs_split_threshold=55, apply_correction=True, verbose=True):
         """
-        Wrapper for pydoni.audio.transcribe().
+        Wrapper for `pydoni.audio.transcribe()`.
+        Transcribe audio file in .wav format using method of choice.
+
+        :param audiofile: audio file to transcribe
+        :type audiofile: str
+        :param method: transcription method, as of 2019-12-20 12:24:54 only 'gcs' is supported
+        :type method: str
+        :param gcs_split_threshold: maximum audio clip size in seconds, if clip exceeds this length it will be split using 
+        :type gcs_split_threshold: intclass method `split()`
+        :param apply_correction: if True, call apply_transcription_corrections() after transcript created
+        :type apply_correction: bool
+        :param progress print tqdm progress bar
+        :return: transcription string
+        :rtype: str
         """
-        return transcribe(
+
+        self.logger.logvars(locals())
+        
+        return pydoni.audio.transcribe(
             audiofile=self.audiofile,
             gcs_split_threshold=gcs_split_threshold,
             apply_correction=apply_correction,
             verbose=verbose)
 
 
-class Song:
+class Song(object):
     """
     Gather metadata attributes of an .mp3 file
 
-    :param fname {str} -- path to .mp3 file
+    :param fname: path to .mp3 file
+    :type fname: str
     """
 
     def __init__(self, fname):
+
+        import os
+        import re
+
+        self.logger = pydoni.logger_setup(
+            name=pydoni.what_is_my_name(classname=self.__class__.__name__, with_modname=True),
+            level=pydoni.modloglev)
 
         # File parameters
         self.fname = fname
@@ -134,7 +183,7 @@ class Song:
         self.fname_rgx2 = r'^(\d+)\s*-?\s*(.*?)(\.mp3)$' # "01 - Hound Dog.mp3" OR "01 Hound Dog.mp3"
 
         # Run `exiftool` on music file
-        self.exif = pydoni.sh.EXIF(fname).run(wrapper='doni')
+        self.exif = pydoni.sh.EXIF(fname).extract()
 
         # Extract song-specific data
         self.title     = self.__get_song_title__()
@@ -158,10 +207,11 @@ class Song:
             2: 'Ideal and current values are the same, no change written'
         }
 
+
     def __get_song_image__(self):
         """
         Get the image EXIF metadata.
-        :return: {str}
+        :return: str
         """
         if 'picture' in self.exif.keys():
             return self.exif['picture']
@@ -171,7 +221,7 @@ class Song:
     def __get_song_disc_raw__(self):
         """
         Get the raw disc EXIF metadata if it exists. Most likely it will not exist.
-        :return: {str}
+        :return: str
         """
 
         if 'part_of_set' in self.exif.keys():
@@ -187,8 +237,11 @@ class Song:
         the disc would be parsed as '2'. If not present, attempt to parse from directory
         name, as sometimes directory names contain 'CD 1' or 'Disc 2'. If not in either of
         those places, return nothing.
-        :return: {int}
+        
+        :return: int
         """
+
+        import re
 
         if disc_raw is None:
             return 1
@@ -211,8 +264,12 @@ class Song:
         """
         Get the raw track information in the EXIF metadata. If unavailable, attempt
         to parse from song filename.
-        :return: {str}
+        
+        :return: str
         """
+
+        import re
+
         if 'track' in self.exif.keys():
             # Some track information in EXIF. Get as much as possible. Might be
             # the numerator and denominator (best case), could be just numerator
@@ -247,7 +304,8 @@ class Song:
         Return the track index given the raw track metadata. Format will generally be a
         single digit, or two digits, separated by a forward slash. Ex: '5', '9', '2/12'.
         Extract the 5, 9 and 2 respectively and convert to int.
-        :return: {int} or {None}
+        
+        :return: int or None
         """
         if track_raw is None:
             return None
@@ -266,8 +324,11 @@ class Song:
     def __get_song_year__(self):
         """
         Parse the year from the directory (album) name.
-        :return: {int} or {None}
+        :return: int or None
         """
+
+        import re
+
         if re.match(r'(.*?)\((\d{4})\)', self.dname):
             year = re.sub(r'(.*?)(\(\[)(\d{4})(\)\])(.*)', r'\3', self.dname)
             year = int(year) if year.isdigit() else None
@@ -284,8 +345,11 @@ class Song:
     def __get_song_title__(self):
         """
         Attempt to parse song title from raw filename.
-        :return: {str} or {None}
+        :return: str or None
         """
+
+        import re
+        from titlecase import titlecase
 
         # First check regex, then filename
         if 'title' in self.exif.keys():
@@ -308,8 +372,11 @@ class Song:
     def __get_song_artist__(self):
         """
         Attempt to parse song artist from raw filename.
-        :return: {str} or {None}
+        :return: str or None
         """
+
+        import re
+        from titlecase import titlecase
 
         # First check EXIF metadata
         if 'artist' in self.exif.keys():
@@ -333,8 +400,10 @@ class Song:
     def __get_song_album__(self):
         """
         Get EXIF album value and apply any corrections.
-        :return: {str}
+        :return: str
         """
+
+        import os
 
         if 'album' in self.exif.keys():
             val = self.exif['album']
@@ -351,7 +420,7 @@ class Song:
     def __get_song_genre__(self):
         """
         Get song genre from EXIF metadata
-        :return: {str}
+        :return: str
         """
         if 'genre' in self.exif.keys():
             val = self.exif['genre']
@@ -366,13 +435,17 @@ class Song:
         Apply general cleaning methods to any of the EXIF metadata attributes: artist,
         title, album, genre.
 
-        :param val {str} -- value to clean
-        :return: {str}
+        :param val: value to clean
+        :type val: str
+        :return: str
         """
+
+        import re
+        from titlecase import titlecase
 
         # Keep words that are all uppercase, generally acronyms. Titlecase will
         # convert all letters besides the first to lowercase
-        keep_capital = [i for i, item in enumerate(val.split(' ')) if
+        keep_capital = [i for i, item in enumerate(val.split(' ')) if \
                         item == item.upper() and re.match('[A-Z]+', item)]
         x = titlecase(val).split()  # Apply titlecase, then...
         if len(keep_capital):  # Keep words that are all capital that will be mutated by titlecase
@@ -384,35 +457,40 @@ class Song:
         # Replace so that these tags are enclosed in square brackets [] instead of
         # parenthesis () as they generally are.
         x = ' '.join(item for item in x)
-        x = re.sub(r'\((Alternative|Alternate|Bonus) (Take|Track|Song)\)',
-                   '[#]', x, flags=re.IGNORECASE)
-        x = re.sub(r'\((Alternative|Alt|Version|ft|feat|featuring|with|Soundtrack|Remastered|Remaster|Remasterd|Remix|Unreleased)(.*)\)',
-                   r'[\1\2]', x, flags=re.IGNORECASE)
-        x = re.sub(r'\((.*?)(Alternative|Alt|Version|Unreleased)\)',
-                   r'[\1\2]', x, flags=re.IGNORECASE)
-        x = re.sub(r'\((\d{4}) (Remaster|Remastered|Remastrd|Remix)\)',
-                   r'[\1 \2]', x, flags=re.IGNORECASE)
-        x = re.sub(
-            r'\((Remaster|Remastered|Remix) (\d{4})\)', r'\[\2 \1\]', x, flags=re.IGNORECASE)
-        x = re.sub(r'\(Live\)', '[Live]', x, flags=re.IGNORECASE)
-        x = re.sub(r'\] \[', '][', x)
+        
+        # Regex replace (case insensitive)
+        rgx_replacements = [
+            (r'\] \[', ']['),
+            (r' +', ' '),
+            (r'\((Alternative|Alternate|Bonus) (Take|Track|Song)\)', '[#]'),
+            (r'\((Alternative|Alt|Version|ft|feat|featuring|with|Soundtrack|Remastered|Remaster|Remasterd|Remix|Unreleased)(.*)\)', r'[\1\2]'),
+            (r'\((.*?)(Alternative|Alt|Version|Unreleased)\)', r'[\1\2]'),
+            (r'\((\d{4}) (Remaster|Remastered|Remastrd|Remix)\)', r'[\1 \2]'),
+            (r'\((Remaster|Remastered|Remix) (\d{4})\)', r'\[\2 \1\]'),
+            (r'\(Live\)', '[Live]')
+        ]
+        for rgx, repl in rgx_replacements:
+            x = re.sub(rgx, repl, x, flags=re.IGNORECASE)
 
         # General string cleaning primarily for song titles
-        x = re.sub(r' +', ' ', x)
-        x = x.replace('(#)', '[#]')
-        x = x.replace('(*)', '[#]')
-        x = x.replace('[*]', '[#]')
-        x = x.replace("O'Er", "O'er")
-        x = x.replace("'N'", "'n'")
-        x = x.replace('[Ft', '[ft.')
-        x = x.replace('[Ft.', '[ft.')
-        x = x.replace('[Feat', '[ft.')
-        x = x.replace('[Feat.', '[ft.')
-        x = x.replace('[Featuring', '[ft.')
-        x = x.replace('[Featuring.', '[ft.')
-        x = x.replace('W / ', 'w/')
-        x = x.replace('.mp3', '')
-        x = x.replace('_', ' ')
+        replacements = [
+            ('(#)', '[#]'),
+            ('(*)', '[#]'),
+            ('[*]', '[#]'),
+            ("O'Er", "O'er"),
+            ("'N'", "'n'"),
+            ('[Ft', '[ft.'),
+            ('[Ft.', '[ft.'),
+            ('[Feat', '[ft.'),
+            ('[Feat.', '[ft.'),
+            ('[Featuring', '[ft.'),
+            ('[Featuring.', '[ft.'),
+            ('W / ', 'w/'),
+            ('.mp3', ''),
+            ('_', ' ')
+        ]
+        for string, repl in replacements:
+            x = x.replace(string, repl)
 
         return x
 
@@ -420,28 +498,39 @@ class Song:
         """
         Set song metadata field using mid3v2.
 
-        :param attr_name {str} -- name of attribute to set, must be one of ['artist', 'album', 'song', 'comment', 'picture', 'genre', 'year', 'date', 'track']
-            attr_value {value} -- value of attribute to set
-        :return: {bool} or {str} -- True if successful, error message as string if unsuccessful
+        :param attr_name: name of attribute to set, must be one of ['artist', 'album', 'song',
+                          'comment', 'picture', 'genre', 'year', 'date', 'track']
+        :type attr_name: str
+        :param attr_value: value of attribute to set
+        :type attr_value: any
+        :return: bool or: True if successful
+        :type or: str
         """
 
-        try:
-            pydoni.sh.mid3v2(self.fname, attr_name=attr_name, attr_value=attr_value)
-            return True
-        except Exception as e:
-            return  str(e)
+        pydoni.sh.mid3v2(self.fname, attr_name=attr_name, attr_value=attr_value)
+        return True
 
 
-class Album:
+class Album(object):
     """
     An Album datatype that will retrieve the relevant metadata attributes of an album by
     considering the metadata of all songs within the album.
 
-    :param dpath {str} -- path to directory containing album of music files
-    :param valid_ext {list} -- list of valid music file extensions
+    :param dpath: path to directory containing album of music files
+    :type dpath: str
+    :param valid_ext: list of valid music file extensions
+    :type valid_ext: list
     """
 
     def __init__(self, dpath, valid_ext=['.mp3', '.flac']):
+
+        import os
+        import re
+        from titlecase import titlecase
+
+        self.logger = pydoni.logger_setup(
+            name=pydoni.what_is_my_name(classname=self.__class__.__name__, with_modname=True),
+            level=pydoni.modloglev)
 
         os.chdir(dpath)
 
@@ -453,17 +542,17 @@ class Album:
         # Loop over each song file and get album attributes:
         # album artist, album title, album year, album genre, number of tracks on disc
         albuminfo = dict(
-            artist    = [],
-            title     = [],
-            year      = [],
-            genre     = [],
-            songs     = [],
-            has_image = []
+            artist=[],
+            title=[],
+            year=[],
+            genre=[],
+            songs=[],
+            has_image=[]
         )
         songinfo = dict(
-            title                = [],
-            song_disc_idxs       = [],
-            song_class_instances = []
+            title=[],
+            song_disc_idxs=[],
+            song_class_instances=[]
         )
         track_raw_vals = []
         for fname in self.fnames:
@@ -490,14 +579,14 @@ class Album:
             # If multiple artists found in album, assume compilation album, and do
             # not alter artist
             if len(list(set(albuminfo['artist']))) == 1:
-                self.artist = pydoni.pyobj.listmode(albuminfo['artist'])
+                self.artist = pydoni.listmode(albuminfo['artist'])
             else:
                 self.artist = albuminfo['artist']
 
             # Get most frequently-occurring year, genre and album title
-            self.year  = pydoni.pyobj.listmode(albuminfo['year'])
-            self.genre = pydoni.pyobj.listmode(albuminfo['genre'])
-            self.title = pydoni.pyobj.listmode(albuminfo['title'])
+            self.year  = pydoni.listmode(albuminfo['year'])
+            self.genre = pydoni.listmode(albuminfo['genre'])
+            self.title = pydoni.listmode(albuminfo['title'])
 
             # If any songs have an image, set image indicator to True
             self.has_image = True if any(albuminfo['has_image']) else False
@@ -513,7 +602,7 @@ class Album:
     def __get_discs_in_album__(self, song_disc_idxs):
         """
         Get the number of discs in album.
-        :return: {int}
+        :return: int
         """
 
         # Get first from song disc indices
@@ -543,8 +632,9 @@ class Album:
         metadata for total number of tracks. If not present, assume the total number
         of tracks on disc is equal to the total number of music files in directory.
 
-        :param trackraw_vals {list} -- list of trackraw values
-        :return: {int}
+        :param trackraw_vals: list of trackraw values
+        :type trackraw_vals: list
+        :return: int
         """
         if all([x is None for x in track_raw_vals]):
             return None
@@ -575,8 +665,10 @@ class Album:
     def __get_year_from_dname__(self):
         """
         Attempt to extract album year from directory name.
-        :return: {int} or {None}
+        :return: int or None
         """
+
+        from datetime import datetime
 
         # Establish valid year ranges to check extracted year string against, from year
         # 1800 to current year plus one year
@@ -621,19 +713,30 @@ class Album:
         doesn't exist and genre is still unable to be found, return original genre. Also
         scrape image from same Wikipedia page.
 
-        :param get_genre {bool} -- if True, attempt to retrieve Wikipedia album genre (default: {True})
-        :param image_outfile {str} -- path to desired image outfile from Wikipedia (default: {None})
-        :return: {str} -- genre string scraped from Wikipedia, may be comma-separated for multiple genres
+        :param get_genre: if True, attempt to retrieve Wikipedia album genre
+        :type get_genre: bool
+        :param image_outfile: path to desired image outfile from Wikipedia
+        :type image_outfile: str
+        :return: genre string scraped from Wikipedia, may be comma-separated for multiple genres
+        :rtype: str
         """
+
+        import requests
 
         def search_google_for_album_wikipage(artist, year, album):
             """
             Search Wikipedia for album URL.
 
-            :param artist {str} -- album artist
-            :param album {str} -- album title
-            :return: {str} -- URL to Wikipedia page
+            :param artist: album artist
+            :type artist: str
+            :param album: album title
+            :type album: str
+            :return: URL to Wikipedia page
+            :rtype: str
             """
+
+            import googlesearch
+
             clean_album = re.sub(
                 r'(\[|\()(.*?)(\]|\))|CD\s*\d+|Disc\s*\d+', '', album, flags=re.IGNORECASE).strip()
             query = '{} {} {} album site:wikipedia.org'.format(
@@ -650,9 +753,12 @@ class Album:
             """
             Parse Wikipedia page HTML for album genre.
 
-            :param wikilink {str} -- link to Wikipedia page to scrape and
-            :return: {str} -- genre(s) parsed from Wikipedia page
+            :param wikilink: link to Wikipedia page to scrape and
+            :type wikilink: str
+            :return: genre(s) parsed from Wikipedia page
+            :rtype: str
             """
+
             # Scrape page for CSS selector
             genre = pydoni.web.get_element_by_selector(wikilink, '.category a')
             genre = [genre] if isinstance(genre, str) else genre
@@ -672,8 +778,10 @@ class Album:
             """
             Parse Wikipedia page HTML for album image.
 
-            :param wikilink {str} -- link to Wikipedia page to scrape
-            :param overwrite {bool} -- if True, overwrite `outfile` if it exists (default: {True})
+            :param wikilink: link to Wikipedia page to scrape
+            :type wikilink: str
+            :param overwrite: if True, overwrite `outfile` if it exists
+            :type overwrite: bool
 
             :return:
             """
@@ -703,8 +811,9 @@ class Album:
                 Check if downloaded file is >1kb. Sometimes an image will be downloaded that is not
                 a real image file.
 
-                :param album_artwork_file {str} -- downloaded image file
-                :return: {bool}
+                :param album_artwork_file: downloaded image file
+                :type album_artwork_file: str
+                :return: bool
                 """
                 try:
                     if os.path.isfile(album_artwork_file):
@@ -766,15 +875,24 @@ def transcribe(
     """
     Transcribe audio file in .wav format using method of choice.
 
-    :param audiofile {str} -- audio file to transcribe
-    :param method {str} -- transcription method, as of 2019-12-20 12:24:54 only 'gcs' is supported ('gcs')
-    :param gcs_split_threshold {int} -- maximum audio clip size in seconds, if clip exceeds this length it will be split using class method `split()` (55)
-    :param apply_correction {bool} -- if True, call apply_transcription_corrections() after transcript created (True)
-    :param progress print tqdm progress bar (True)
-    :return: {str} -- transcription string
+    :param audiofile: audio file to transcribe
+    :type audiofile: str
+    :param method: transcription method, as of 2019-12-20 12:24:54 only 'gcs' is supported
+    :type method: str
+    :param gcs_split_threshold: maximum audio clip size in seconds, if clip exceeds this length it will be split using 
+    :type gcs_split_threshold: intclass method `split()`
+    :param apply_correction: if True, call apply_transcription_corrections() after transcript created
+    :type apply_correction: bool
+    :param progress print tqdm progress bar
+    :return: transcription string
+    :rtype: str
     """
 
     assert method in ['gcs']
+
+    import numpy as np
+    from google.cloud import speech_v1p1beta1
+    from tqdm import tqdm
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
 
@@ -917,16 +1035,20 @@ def apply_transcription_corrections(transcript):
     """
     Apply any and all corrections to output of transcribe().
 
-    :param transcript {str} -- transcript string to apply corrections to
-    :return: {str} -- transcript string with corrections
+    :param transcript: transcript string to apply corrections to
+    :type transcript: str
+    :return: transcript string with corrections
+    :rtype: str
     """
 
     def smart_dictation(transcript):
         """
         Apply corrections to spoken keywords like 'comma', 'period' or 'quote'/'unquote'.
 
-        :param transcript {str} -- transcript string
-        :return: {str} -- transcript string
+        :param transcript: transcript string
+        :type transcript: str
+        :return: transcript string
+        :rtype: str
         """
         dictation_map = {
             r'(\b|\s)(comma)(\s|\b)'            : r',\3',
@@ -964,44 +1086,48 @@ def apply_transcription_corrections(transcript):
             3. Capitalize word and concatenate letters following keyphrase 'make letter'.
             4. Capitalie letter following '?'.
 
-        :param transcript {str} -- transcript string
-        :return: {str} -- transcript string
+        :param transcript: transcript string
+        :type transcript: str
+        :return: transcript string
+        :rtype: str
         """
 
         # Capitalize first letter of each sentence, split by newline character
         val = transcript
-        val = '\n'.join([pydoni.pyobj.cap_nth_char(x, 0) for x in val.split('\n')])
+        val = '\n'.join([pydoni.cap_nth_char(x, 0) for x in val.split('\n')])
 
         # Capitalize word following keyphrase 'make capital'
         cap_idx = [m.start()+len('make capital')+1 for m in re.finditer('make capital', val)]
         if len(cap_idx):
             for idx in cap_idx:
-                val = pydoni.pyobj.cap_nth_char(val, idx)
+                val = pydoni.cap_nth_char(val, idx)
             val = val.replace('make capital ', '')
 
         # Capitalize and concatenate letters following keyphrase 'make letter'. Ex: 'make letter a' -> 'A'
         letter_idx = [m.start()+len('make letter')+1 for m in re.finditer('make letter', val)]
         if len(letter_idx):
             for idx in letter_idx:
-                val = pydoni.pyobj.cap_nth_char(val, idx)
-                val = pydoni.pyobj.replace_nth_char(val, idx+1, '.')
+                val = pydoni.cap_nth_char(val, idx)
+                val = pydoni.replace_nth_char(val, idx+1, '.')
                 if idx == letter_idx[len(letter_idx)-1]:
-                    val = pydoni.pyobj.insert_nth_char(val, idx+2, ' ')
+                    val = pydoni.insert_nth_char(val, idx+2, ' ')
             val = val.replace('make letter ', '')
 
         # Capitalize letter following '?'
         if '? ' in val:
             q_idx = [m.start()+len('? ') for m in re.finditer(r'\? ', val)]
             for idx in q_idx:
-                val = pydoni.pyobj.cap_nth_char(val, idx)
+                val = pydoni.cap_nth_char(val, idx)
         return val
 
     def excess_spaces(transcript):
         """
         Replace extra spaces with a single space.
 
-        :param transcript {str} -- transcript string
-        :return: {str} -- transcript string
+        :param transcript: transcript string
+        :type transcript: str
+        :return: transcript string
+        :rtype: str
         """
         return re.sub(r' +', ' ', transcript)
 
@@ -1009,8 +1135,10 @@ def apply_transcription_corrections(transcript):
         """
         Apply manual corrections to transcription.
 
-        :param transcript {str} -- transcript string
-        :return: {str} -- transcript string
+        :param transcript: transcript string
+        :type transcript: str
+        :return: transcript string
+        :rtype: str
         """
 
         # Regex word replacements
@@ -1039,17 +1167,13 @@ def apply_transcription_corrections(transcript):
         return transcript
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
-    logger.info('Applying transcription corrections')
 
     # Apply all correction methods
     transcript = smart_dictation(transcript)
-    logger.info('Applied smart dictation')
     transcript = smart_capitalize(transcript)
-    logger.info('Applied smart capitalize')
     transcript = excess_spaces(transcript)
-    logger.info('Applied excess spaces')
     transcript = manual_corrections(transcript)
-    logger.info('Applied manual corrections')
+    logger.info('Applied transcription corrections')
 
     return transcript
 
@@ -1058,15 +1182,19 @@ def join_audiofiles_pydub(audiofiles, targetfile, silence_between):
     """
     Join multiple audio files into a single audio file using pydub.
 
-    :param audiofiles {list} -- list of audio filenames to join together
-    :param silence_between {int} -- milliseconds of silence to insert between clips (default: {0})
+    :param audiofiles: list of audio filenames to join together
+    :type audiofiles: list
+    :param silence_between: milliseconds of silence to insert between clips
+    :type silence_between: int
     """
+    
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
 
     for file in audiofiles:
         ext = os.path.splitext(file)[1].lower()
         assert ext in ['.mp3', '.wav']
 
-    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
 
     # Create sound object, initialize with 1ms of silence
     sound = AudioSegment.silent(duration=1)
@@ -1096,10 +1224,14 @@ def join_audiofiles(audiofiles, targetfile, method=None, silence_between=0):
     """
     Join multiple audio files into a single audio file.
 
-    :param audiofiles {list} -- list of audio filenames to join together
-    :param targetfile {str} -- name of file to create from joined audio files
-    :param method {str} -- method to join audiofiles, one of ['ffmpeg', 'pydub']. If None, method is automatically determined
-    :param silence_between {int} -- milliseconds of silence to insert between clips (default: {0})
+    :param audiofiles: list of audio filenames to join together
+    :type audiofiles: list
+    :param targetfile: name of file to create from joined audio files
+    :type targetfile: str
+    :param method: method to join audiofiles, one of ['ffmpeg', 'pydub']. If None, method is automatically 
+    :type method: strdetermined
+    :param silence_between: milliseconds of silence to insert between clips
+    :type silence_between: int
     """
 
     assert isinstance(silence_between, int)
@@ -1107,6 +1239,7 @@ def join_audiofiles(audiofiles, targetfile, method=None, silence_between=0):
     assert len(audiofiles) > 1
     
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
 
     for fname in audiofiles:
         assert os.path.isfile(fname)
@@ -1130,20 +1263,26 @@ def join_audiofiles(audiofiles, targetfile, method=None, silence_between=0):
 def split_audiofile(audiofile, segment_time):
     """
     Split audio file into segments of given length using ffmpeg.
+    TODO: Add equal_parts parameter, to split file into 2, 3, ... equal parts
 
-    :param audiofile {str} -- path to audio file to split
-    :param segment_time {int} -- length of split audio clips in seconds to split audio file into if length is too long
-    :return: {list} -- list of split filenames
+    :param audiofile: path to audio file to split
+    :type audiofile: str
+    :param segment_time: length of split audio clips in seconds to split audio file into if length is too long
+    :type segment_time: int
+    :return: list of split filenames
+    :rtype: list
     """
 
     assert os.path.isfile(audiofile)
     assert isinstance(segment_time, int)
+
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    
     wd = os.getcwd()
-    logger.debug('`wd` = %s' % wd)
 
     # Split audio file with FFmpeg
     logger.info('Splitting audiofile with FFmpeg')
-    pydoni.sh.FFmpeg().split(audiofile, segment_time=55)
+    pydoni.sh.FFmpeg().split(audiofile, segment_time=segment_time)
 
     # Return resulting files under `fnames_split` attribute
     dname = os.path.dirname(audiofile)
@@ -1158,7 +1297,7 @@ def split_audiofile(audiofile, segment_time):
         splitfiles = [os.path.join(dname, x) for x in splitfiles]
 
     logger.info("Split into files: '%s'" % str(splitfiles))
-    logger.debug('`len(splitfiles)` = %s' % str(len(splitfiles)))
+    logger.logvars(locals())
 
     os.chdir(wd)
     return splitfiles
@@ -1168,9 +1307,14 @@ def get_duration(audiofile):
     """
     Get the duration of a WAV audio file.
 
-    :param audiofile {str} -- path to audio file to get duration of
-    :return: {float} -- duration of audio file in seconds
+    :param audiofile: path to audio file to get duration of
+    :type audiofile: str
+    :return: duration of audio file in seconds
+    :rtype: float
     """
+
+    import contextlib
+    import wave
 
     assert os.path.splitext(audiofile)[1].lower() == '.wav'
 
@@ -1193,23 +1337,14 @@ def set_google_credentials(google_application_credentials_json):
     """
     Set environment variable as path to Google credentials JSON file.
 
-    :param google_application_credentials_json {str} -- path to google application credentials file
-    :return:
+    :param google_application_credentials_json: path to google application credentials file
+    :type google_application_credentials_json: str
     """
+    
     assert(os.path.isfile(google_application_credentials_json))
+    
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_application_credentials_json
+    
     logger.info("Google application credentials set as file '%s'" % \
         google_application_credentials_json)
-
-
-import pydoni
-import pydoni.classes
-import pydoni.os
-import pydoni.pyobj
-import pydoni.sh
-import pydoni.vb
-import pydoni.web
-
-from pydoni.vb import echo
-from pydoni.vb import program_complete
