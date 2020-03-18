@@ -1,18 +1,6 @@
-import click
-import datetime
-import numpy as np
-import re
-import shutil
-from os import chdir
-from os import environ
-from os import listdir
-from os import mkdir
-from os.path import basename
-from os.path import dirname
-from os.path import expanduser
-from os.path import join
-from os.path import isdir
-from tqdm import tqdm
+import pydoni
+import pydoni.os
+import pydoni.web
 
 
 class Attribute(object):
@@ -22,15 +10,17 @@ class Attribute(object):
     """
 
     def __init__(self):
-        pass
+        self.logger = pydoni.logger_setup(
+            name=pydoni.what_is_my_name(classname=self.__class__.__name__, with_modname=True),
+            level=pydoni.modloglev)
 
     def __flatten__(self):
         """
         Combine all subattributes of an Attribute. If all lists, flatten to single
         list. If all strings, join into a list.
 
-        Returns:
-            {list}
+        :return: flattened list
+        :rtype: list
         """
         
         dct = self.__dict__
@@ -41,8 +31,9 @@ class Attribute(object):
             return [v for k, v in dct.items()]
 
         elif len(is_list) > 1:
-            print('ERROR: Unable to flatten, varying datatypes (list, string, ...)')
-            return None
+            error_msg = 'Unable to flatten, varying datatypes (list, string, ...'
+            self.logger.error(error_msg)
+            raise Exception(error_msg)
 
         else:
             # Flatten list of lists
@@ -54,120 +45,174 @@ class ProgramEnv(object):
     """
     Create, maintain, and erase a temporary program directory for a Python program.
 
-    Arguments:
-        path {str}  -- path to desired program environment directory
-        overwrite {bool} -- if True, remove `path` directory if already exists
+    :param path: path to desired program environment directory
+    :type path: str
+    :param overwrite: remove `path` directory if already exists
+    :type overwrite: bool
     """
 
     def __init__(self, path, overwrite=False):
         
+        import os
+        import shutil
+        import click
+
+        self.logger = pydoni.logger_setup(
+            name=pydoni.what_is_my_name(classname=self.__class__.__name__, with_modname=True),
+            level=pydoni.modloglev)
+
         # Assign program environment path
         self.path = path
-        if self.path == expanduser('~'):
-            echo('Path cannot be home directory', abort=True)
-        elif self.path == '/':
-            echo('Path cannot be root directory', abort=True)
+        if self.path == os.path.expanduser('~') or self.path == '/':
+            error_msg = 'Path cannot be home or root directory'
+            self.logger.fatal(error_msg)
+            raise Exception(error_msg)
         
         # self.focus is the current working file, if specified
         self.focus = None
         
         # Overwrite existing directory if specified and directory exists
-        if isdir(self.path):
+        if os.path.isdir(self.path):
             if overwrite:
                 shutil.rmtree(self.path)
             else:
-                if not click.confirm("Specified path {} already exists and 'overwrite' set to False. Continue with this path anyway?".format(self.path)):
-                    echo('Must answer affirmatively!', abort=True)
+                msg = "Specified path {} already exists and 'overwrite'".format(self.path) +\
+                " set to False. Continue with this path anyway?"
+                if not click.confirm():
+                    error_msg = 'Must answer affirmatively!'
+                    self.logger.fatal(error_msg)
+                    raise Exception(error_msg)
         
         # Create program environment
-        if not isdir(self.path):
-            mkdir(self.path)
+        if not os.path.isdir(self.path):
+            os.mkdir(self.path)
     
     def copyfile(self, fname, set_focus=False):
         """
         Copy a file into the program environment.
     
-        Arguments:
-            fname {str} -- filename to copy
-            set_focus {bool} -- if True, set the focus to the newly copied file
+        :param fname: filename to copy
+        :type fname: str
+        :param set_focus: set the focus to the newly copied file
+        :type set_focus: bool
         
-        Returns:
-            nothing
+        :rtype: nothing
         """
-        env_dest = join(self.path, basename(fname))
+        env_dest = os.path.join(self.path, os.path.basename(fname))
         shutil.copyfile(fname, env_dest)
+        self.logger.info("Copied file '%s' to '%s'" % (fname, env_dest))
         if set_focus:
             self.focus = env_dest
+            self.logger.info("Environment focus set to '%s'" % env_dest)
     
-    def listfiles(self, path='.', pattern=None, full_names=False, recursive=False, ignore_case=True, include_hidden_files=False):
+    def listfiles(
+            self,
+            path='.',
+            pattern=None,
+            full_names=False,
+            recursive=False,
+            ignore_case=True,
+            include_hidden_files=False):
         """
         List files at given path.
-        SEE `pydoni.listfiles()` FOR DETAILED DOCUMENTATION OF ARGUMENTS AND THEIR DATATYPES.
+        SEE `pydoni.os.listfiles()` FOR DETAILED DOCUMENTATION OF ARGUMENTS
+        AND THEIR DATATYPES.
         """
-        return listfiles(path=path, pattern=pattern, full_names=full_names,
-            recursive=recursive, ignore_case=ignore_case,
+        fnames = pydoni.os.listfiles(
+            path=path,
+            pattern=pattern,
+            full_names=full_names,
+            recursive=recursive,
+            ignore_case=ignore_case,
             include_hidden_files=include_hidden_files)
+        self.logger.info("Listed files at '%s', files found: %s" %  \
+            (os.getcwd(), str(len(fnames))))
+        return fnames
     
-    def listdirs(self, path='.', pattern=None, full_names=False, recursive=False):
+    def listdirs(
+            self,
+            path='.',
+            pattern=None,
+            full_names=False,
+            recursive=False):
         """
         List directories at given path.
-        SEE `pydoni.listdirs()` FOR DETAILED DOCUMENTATION OF ARGUMENTS AND THEIR DATATYPES.
+        SEE `pydoni.os.listdirs()` FOR DETAILED DOCUMENTATION OF ARGUMENTS AND THEIR DATATYPES.
         """
-        return listdirs(path=path, pattern=pattern, full_names=full_names, recursive=recursive)
+        dnames = pydoni.os.listdirs(
+            path=path,
+            pattern=pattern,
+            full_names=full_names,
+            recursive=recursive)
+        self.logger.info("Listed dirs at '%s', dirs found: %s" %  \
+            (os.getcwd(), str(len(dnames))))
+        return dnames
     
     def downloadfile(self, url, destfile):
         """
         Download file from the web to a local file in Environment.
     
-        Arguments:
-            url {str} -- target URL to retrieve file from
-            destfile {str} -- target filename
+        :param url: target URL to retrieve file from
+        :type url: str
+        :param destfile: target filename
+        :type destfile: str
         
-        Returns:
-            {str}
+        :rtype: {str}
         """
-        downloadfile(url=url, destfile=destfile)
+        pydoni.web.downloadfile(url=url, destfile=destfile)
+        self.logger.info("Downloaded url '%s' to file '%s'" % (url, destfile))
     
 
     def unarchive(self, fpath, dest_dir):
         """
         Unpack a .zip archive.
     
-        Arguments:
-            fpath {str} -- path to zip archive file
-            dest_dir {str} -- path to destination extract directory
+        :param fpath: path to zip archive file
+        :type fpath: str
+        :param dest_dir: path to destination extract directory
+        :type dest_dir: str
         
-        Returns:
-            nothing
+        :rtype: nothing
         """
-        unarchive(fpath=fpath, dest_dir=dest_dir)
+        pydoni.os.unarchive(fpath=fpath, dest_dir=dest_dir)
+        self.logger.info("Unarchived file '%s' to dir '%s'" % (fpath, dest_dir))
 
     def delete_env(self):
         """
         Remove environment from filesystem.
         """
-        if isdir(self.path):
-            chdir(dirname(self.path))
+        if os.path.isdir(self.path):
+            self.logger.info("Deleting environment at '%s'" % self.path)
+            os.chdir(os.path.dirname(self.path))
             shutil.rmtree(self.path)
+            self.logger.info('Environment deleted')
+        else:
+            self.logger.warn("Could not find environment '%s' on filesystem, skipping" % self.path)
 
 
 class DoniDt(object):
     """
     Custom date/datetime handling. Delete miliseconds by default.
 
-    Arguments:
-        val {<any>} -- value to consider for date/datetime handling, cast initially as string.
-        apply_tz {bool}  -- if True, apply timezone value if present
+    :param val >: value to consider for date/datetime handling, cast initially as string.
+    :type val: any
+    apply_tz {bool}  -- apply timezone value if present
             Ex: '2019-05-13 10:29:53-7:00' -> '2019-05-13 03:29:53'
     """
 
     def __init__(self, val, apply_tz=True):
-        
+
+        import os, re, datetime
+    
+        self.logger = pydoni.logger_setup(
+            name=pydoni.what_is_my_name(classname=self.__class__.__name__, with_modname=True),
+            level=pydoni.modloglev)
+
         self.val = str(val)
         sep = r'\.|\/|-|_|\:'
         
-        # Assign regex expressions to match date, datetime, datetime w/ time zone, and
-        # datetime w/ milliseconds
+        # Assign regex expressions to match date, datetime,
+        # datetime w/ time zone, and datetime w/ milliseconds
         rgx = Attribute()
         rgx.d = r'(?P<year>\d{4})(%s)(?P<month>\d{2})(%s)(?P<day>\d{2})' % (sep, sep)
         rgx.dt = r'%s(\s+)(?P<hours>\d{2})(%s)(?P<minutes>\d{2})(%s)(?P<seconds>\d{2})' % (rgx.d, sep, sep)
@@ -182,40 +227,40 @@ class DoniDt(object):
         """
         Test if input string is exactly a date or datetime value.
         
-        Arguments:
-            none
+        none
 
-        Returns:
-            {bool}
+        :rtype: {bool}
         """
+        import re
+
         m = [bool(re.search(pattern, self.val)) for pattern in \
             ['^' + x + '$' for x in  self.rgx.__flatten__()]]
-        return any(m)
+        out = any(m)
+        self.logger.info("Value '%s' is%s exactly a date or datetime value" % \
+            (str(self.val), ' not' if not out else ''))
+        return out
     
     def contains(self):
         """
         Test if input string contains a date or datetime value.
-
-        Arguments:
-            none
-        
-        Returns:
-            {bool}
+        :rtype: {bool}
         """
         m = [bool(re.search(pattern, self.val)) for pattern in self.rgx.__flatten__()]
-        return any(m)
+        out = any(m)
+        self.logger.info("Value '%s' does%s contain a date or datetime value" % \
+            (str(self.val), ' not' if not out else ''))
+        return out
     
     def extract_first(self, apply_tz=True):
         """
-        Given a string with a date or datetime value, extract the FIRST datetime value as string.
+        Given a string with a date or datetime value, extract the
+        FIRST datetime value as string.
 
-        Arguments:
-            none
-    
-        Arguments:
-            apply_tz {bool} -- if True, apply timezone value if present
-                Ex: '2019-05-13 10:29:53-7:00' -> '2019-05-13 03:29:53'
+        :param apply_tz: apply timezone value if present
+        :type apply_tz: bool
+            Ex: '2019-05-13 10:29:53-7:00' -> '2019-05-13 03:29:53'
         """
+        import datetime
 
         # Strip whitespace from value
         val = self.val.strip()
@@ -223,6 +268,8 @@ class DoniDt(object):
         # Only extract first dt value if any date/datetime value has been matched in string
         m = self.match
         if not self.match:
+            self.logger.warn("Value '%s' does not match defined " % str(val) + \
+                "date/datetime regex patterns. Returning initial value")
             return val
 
         # Extract date/datetime value based on value type
@@ -235,7 +282,10 @@ class DoniDt(object):
                 m.group('hours'), m.group('minutes'), m.group('seconds'))
             
             # Build timezone string
-            tz = '{}{} --{}'.format(m.group('tz_sign'), m.group('tz_hours'), m.group('tz_minutes'))
+            tz = '{}{} --{}'.format(
+                m.group('tz_sign'),
+                m.group('tz_hours'),
+                m.group('tz_minutes'))
             
             if apply_tz:
                 tz = tz.split(':')[0]
@@ -243,8 +293,7 @@ class DoniDt(object):
                 try:
                     tz = int(tz)
                 except:
-                    echo("Invalid timezone (no coercible to integer) '{}'".format(tz),
-                        error=True, fn_name='DoniDt.extract_first')
+                    self.logger.error("Invalid timezone (not coercible to integer) '%s'" % tz)
                     self.dtype = 'dt'
                     return dt
                 
@@ -274,13 +323,10 @@ class DoniDt(object):
     def detect_dtype(self):
         """
         Get datatype as one of 'd', 'dt', 'dt_tz', and return regex match object.
-
-        Arguments:
-            none
-        
-        Returns:
-            {str}
+        :rtype: {str}
         """
+        import re
+
         if re.search(self.rgx.dt_tz, self.val):
             return ('dt_tz', re.search(self.rgx.dt_tz, self.val))
         elif re.search(self.rgx.dt, self.val):
@@ -289,10 +335,3 @@ class DoniDt(object):
             return ('d', re.search(self.rgx.d, self.val))
         else:
             return (None, None)
-
-
-from pydoni.os import listdirs
-from pydoni.os import listfiles
-from pydoni.os import unarchive
-from pydoni.vb import echo
-from pydoni.web import downloadfile
