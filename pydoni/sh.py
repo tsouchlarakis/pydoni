@@ -1,85 +1,67 @@
-import datetime
-import exiftool
-import numpy as np
-import re
-import subprocess
-from collections import Counter
-from collections import OrderedDict
-from itertools import chain
-from os import listdir
-from os import remove
-from os import system
-from os import rename
-from os.path import basename
-from os.path import isdir
-from os.path import isfile
-from os.path import join
-from os.path import splitext
-from os.path import dirname
+import pydoni
 
 
 class EXIF(object):
     """
-    Extract and handle EXIF metadata from file.
-    
-    Arguments:
-        fname {str} or {list} -- filename or list of filenames to initiate EXIF class on
+    Extract and operate on EXIF metadata from a media file or multiple files. Wrapper for
+    `exiftool` by Phil Harvey system command.
+
+    :param fname: full path to target filename or list of filenames
+    :type fname: str, list
     """
 
-    def __init__(self, fname):
-        assert isinstance(fname, list) or isinstance(fname, str)
-        self.fname = fname
-        if isinstance(self.fname, list):
-            if len(self.fname) > 1:
-                self.batch = True
-            else:
-                self.batch = False
-        else:
-            self.batch = False
-        if self.batch:
-            self.num_files = len(self.fname)
-        else:
-            self.num_files = 1
+    def __init__(self, fpath):
 
-    def run(self, wrapper='doni', attr_name=None, dedup=True, verbose=False):
-        """
-        Run Exiftool using either Doni algorithm or PyExifTool package on either a single file
-        or a batch of files.
-        
-        Arguments:
-            wrapper {str} -- wrapper name of exiftool program to run, one of ['doni', 'pyexiftool']
-            verbose {bool} -- if True, messages are printed to STDOUT
-        
-        Returns:
-            {dict}
-        """
-        if wrapper == 'doni':
-            self.exif = self.exiftool(
-                attr_name=attr_name, dedup=dedup, verbose=verbose)
-            return self.exif
+        import os
+        import subprocess
+        import pydoni
+        import pydoni.sh
 
-        elif wrapper == 'pyexiftool':
-            with exiftool.ExifTool() as et:
-                if isinstance(self.fname, list):
-                    self.exif = et.get_metadata_batch(self.fname)
-                else:
-                    self.exif = et.get_metadata(self.fname)
-            return self.exif
+        self.fpath = pydoni.ensurelist(fpath)
+        self.fpath = [os.path.abspath(f) for f in self.fpath]
+        for f in self.fpath:
+            assert os.path.isfile(f)
 
-    def exiftool(self, attr_name=None, dedup=True, verbose=False):
+        self.is_batch = len(self.fpath) > 1
+        self.bin = pydoni.sh.find_binary('exiftool')
+
+        assert os.path.isfile(self.bin)
+
+        self.logger = pydoni.logger_setup(
+            name=pydoni.what_is_my_name(classname=self.__class__.__name__, with_modname=True),
+            level=pydoni.modloglev)
+
+        self.logger.var('self.fpath', self.fpath)
+        self.logger.var('self.is_batch', self.is_batch)
+        self.logger.var('self.bin', self.bin)
+
+        self.logger.info('EXIF class initialized for file{}: {}'.format(
+            's' if self.is_batch else '', str(self.fpath)))
+
+    def extract(self, method='doni', clean=True):
         """
-        Run `exiftool` on a file and fetch output.
-        
-        Arguments:
-            rmtags {str} or {list} -- name(s) of tags to remove with `exiftool`
-            dedup {bool} -- if True, names of EXIF attributes will be checked for duplicate names. If any are found, a suffix is appended. Suffixes may be "_2", "_3", ...
-            attr_name {str} or {list} -- filter output exif dictionary by attribute name(s)
-        
-        Returns:
-            dict
+        Extract EXIF metadata from file or files.
+
+        :param method: method for metadata extraction, one of 'doni' or 'pyexiftool'
+        :type method: str
+        :param clean: apply EXIF.clean() to EXIF output
+        :type clean: bool
+        :return: EXIF metadata
+        :rtype: dict
         """
 
-        def break_into_commandline_batches(fnames, char_limit):
+        import re
+        import os
+        from xml.etree import ElementTree
+        from collections import defaultdict
+        import subprocess
+
+        assert method in ['doni', 'pyexiftool']
+
+        self.logger.var('self.method', method)
+        self.logger.var('self.clean', clean)
+
+        def split_cl_filenames(files, char_limit, bin_path):
             """
             Determine at which point to split list of filenames to comply with command-line
             character limit, and split list of filenames into list of lists, where each sublist
@@ -87,384 +69,403 @@ class EXIF(object):
             for that batch will be under the maximum command-line character limit. Files must
             be broken into batches if there are too many to fit on in command-line command,
             because the `exiftool` syntax is as follows:
+
             exiftool filename_1 filename_2 filename_3 ... filename_n
+
             With too many files, the raw length of the call to `exiftool` might be over the
             character limit.
-            
-            Arguments:
-                fnames {str} or {list} -- path to file(s)
-                char_limit {int} -- character limit of operating system's command-line character limit
-            
-            Returns:
-                dictionary of lists
+
+            :param files: path to file or files to run exiftool on
+            :type files: list
+            :param char_limit: character limit of operating system's command-line character limit
+            :type char_limit: int
+            :param bin_path: path to exiftool binary
+            :type bin_path: str
+            :return: list of filenames to run exiftool on
+            :rtype: list
             """
 
-            # Initialize process
-            split_fname = []
+            self.logger.var('files', files)
+            self.logger.var('char_limit', char_limit)
+            self.logger.var('bin_path', bin_path)
+
+            split_idx = []
             count = 0
 
             # Get character length of each filename
-            str_lengths = [len(x) for x in self.fname]
+            str_lengths = [len(x) for x in files]
 
             # Get indices to split at depending on character limit
             for i in range(len(str_lengths)):
                 # Account for two double quotes and a space
                 val = str_lengths[i] + 3
                 count = count + val
-                if count > char_limit - len('exiftool '):
-                    split_fname.append(i)
+                if count > char_limit - len(bin_path + ' '):
+                    split_idx.append(i)
                     count = 0
 
             # Split list of filenames into list of lists at the indices gotten in
             # the previous step
-            fname_batches = split_at(self.fname, split_fname)
+            return pydoni.split_at(files, split_idx)
 
-            # Convert list of lists to dictionary with 'batch_${i}' as each key name
-            fname_batches_dict = OrderedDict()
-            for i, lst in enumerate(fname_batches):
-                fname_batches_dict['batch_' + str(i)] = lst
-
-            return fname_batches_dict
-
-        def parse_raw_exiftool_output(res, fnames, attr_name, dedup):
+        def etree_to_dict(t):
             """
-            Parse raw exiftool output string, coerce to a dictionary.
-            
-            Arguments:
-                res {str} -- raw exiftool output string
-            
-            Returns:
-                {dict}
+            Convert XML ElementTree to dictionary.
+
+            Source: https://stackoverflow.com/questions/7684333/converting-xml-to-dictionary-using-elementtree
+
+            :param t: XML ElementTree
+            :type t: ElementTree
+            :return: dictionary
+            :rtype: dict
             """
 
-            # Convert string result to list
-            res = res.split('\n')
+            self.logger.var('t', t)
 
-            # Get split locations in each result list. When you call `exiftool` with multiple
-            # files, the result will be delimited by '========' for each file
-            split_loc = [i for i, x in enumerate(
-                res) if x.startswith('========')]
-            for i in split_loc:  # Assign split locations to nan
-                res[i] = np.nan
-            # This will leave nan elements as own lists
-            res = split_at(res, split_loc)
+            d = {t.tag: {} if t.attrib else None}
+            children = list(t)
 
-            # Clean result by removing empty strings where '========' used to be
-            res = [x for x in res if len(x) > 0]
-            res = [x[1:len(x)] for x in res]
+            if children:
+                dd = defaultdict(list)
+                for dc in map(etree_to_dict, children):
+                    for k, v in dc.items():
+                        dd[k].append(v)
+                d = {t.tag: {k: v[0] if len(v) == 1 else v
+                             for k, v in dd.items()}}
 
-            # Parse Exiftool output: extract keys, extract values, zip each into dictionary
+            if t.attrib:
+                d[t.tag].update(('@' + k, v)
+                                for k, v in t.attrib.items())
+
+            if t.text:
+                text = t.text.strip()
+                if children or t.attrib:
+                    if text:
+                      d[t.tag]['#text'] = text
+                else:
+                    d[t.tag] = text
+
+            return d
+
+        def unnest_http_keynames(d):
+            """
+            Iterate over dictionary and test for key:value pairs where `value` is a
+            dictionary with a key name in format "{http://...}". Iterate down until the
+            terminal value is retrieved, then return that value to the original key name `key`
+
+            :param d: dictionary to iterate over
+            :type d: dict
+            :returns: dictionary with simplified key:value pairs
+            :rtype: dict
+            """
+            self.logger.var('d', d)
+
+            tmpd = {}
+
+            for k, v in d.items():
+
+                while isinstance(v, dict) and len(v) == 1:
+                    key = list(v.keys())[0]
+                    if re.search(r'\{http:\/\/.*\}', key):
+                        v = v[key]
+                    else:
+                        break
+
+                tmpd[k] = v
+
+            return tmpd
+
+
+        self.logger.info("Running with method: " + method)
+
+        if method == 'doni':
+
+            num_files = len(self.fpath) if self.is_batch else 1
+            self.logger.info("Extracting EXIF for files: " + str(num_files))
+
+            self.logger.info("Exiftool binary found: " + self.bin)
+
+            char_limit = int(pydoni.syscmd("getconf ARG_MAX")) - 25000
+            self.logger.info("Using char limit: " + str(char_limit))
+
+            file_batches = split_cl_filenames(self.fpath, char_limit, self.bin)
+            self.logger.info("Batches to run: " + str(len(file_batches)))
+
+            commands = []
+            for batch in file_batches:
+                cmd = self.bin + ' -xmlFormat ' + ' '.join(['"' + f + '"' for f in batch]) + ' ' + '2>/dev/null'
+                commands.append(cmd)
+
             exifd = {}
-            for i, exif_result in enumerate(res):
-                # Extract keys and values
-                keys = [re.sub(
-                    r'^(.*?)(:)(.*)$', r'\1', x).strip().replace(' ', '_').lower() for x in exif_result]
-                vals = [re.sub(r'^(.*?)(:)(.*)$', r'\3', x).strip()
-                        for x in exif_result]
 
-                # Remove final element if it's an empty string. This is a result of parsing the
-                # exiftool output string in the previous step
-                if keys[len(keys)-1] == '':
-                    keys = keys[0:len(keys)-1]
-                if vals[len(vals)-1] == '':
-                    vals = vals[0:len(vals)-1]
-                assert len(keys) == len(vals)
 
-                # Filter result if specified
-                if attr_name is not None:
-                    attr_name = [attr_name] if isinstance(
-                        attr_name, str) else attr_name
-                    vals = [x for i, x in enumerate(
-                        vals) if keys[i] in attr_name]
-                    keys = [x for x in keys if x in attr_name]
+            for i, cmd in enumerate(commands):
 
-                # Zip into dictionary and append to `exifd` master dictionary
-                d = dict(zip(keys, vals))
-                exifd[fnames[i]] = d
+                self.logger.info("Running batch %s of %s. Total files: %s" % \
+                    (str(i+1), str(len(file_batches)), str(len(file_batches[i]))))
 
-                # Mark any duplicate keys with a _\d suffix to ensure no duplicate keys
-                if dedup:
-                    for fname, d in exifd.items():
-                        keys = [k for k, v in d.items()]
-                        vals = [v for k, v in d.items()]
-                        if any(duplicated(keys)):
-                            # so we have: {'name':3, 'state':1, 'city':1, 'zip':2}
-                            counts = Counter(keys)
-                            for s, num in counts.items():
-                                if num > 1:  # ignore strings that only appear once
-                                    # suffix starts at 1 and increases by 1 each time
-                                    for suffix in range(1, num + 1):
-                                        # replace each appearance of s
-                                        keys[keys.index(s)] = s + \
-                                            '_' + str(suffix)
-                        exifd[fname] = dict(zip(keys, vals))
+                try:
+                    # xmlstring = pydoni.syscmd(cmd).decode('utf-8')
+                    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
+                    xmlstring, err = proc.communicate()
+                    xmlstring = xmlstring.decode('utf-8')
+                except Exception as e:
+                    self.logger.exception("Failed in executing `exiftool` system command")
+                    raise e
 
-            # If only run on one file, do not format dictionary with key as filename,
-            # since there is only a single file. Simply return the exif metadata portion
-            # of the resulting dictionary
-            if len(exifd) == 1:
-                return exifd[list(exifd.keys())[0]]
+                try:
+                    root = ElementTree.fromstring(xmlstring)
+                    elist = etree_to_dict(root)
+                    elist = elist['{http://www.w3.org/1999/02/22-rdf-syntax-ns#}RDF']
+                    elist = elist['{http://www.w3.org/1999/02/22-rdf-syntax-ns#}Description']
+                    if isinstance(elist, dict):
+                        elist = [elist]
+
+                except Exception as e:
+                    self.logger.info("Failed in coercing ElementTree to dictionary")
+                    raise e
+
+                for d in elist:
+                    tmpd = {}
+
+                    # Clean dictionary keys in format @{http://...}KeyName
+                    for k, v in d.items():
+                        new_key = re.sub(r'@?\{.*\}', '', k)
+                        tmpd[new_key] = v
+
+                    # Unnest nested dictionary elements with "http://..." as the keys
+                    tmpd = unnest_http_keynames(tmpd)
+
+                    fnamekey = os.path.join(tmpd['Directory'], tmpd['FileName'])
+                    exifd[fnamekey] = tmpd
+
+                del elist
+
+            self.logger.info("Successfully extracted EXIF metadata for named file(s)")
+
+            if clean:
+                return self.clean(exifd)
             else:
                 return exifd
 
-        # Check if `exiftool` is installed
-        ep = syscmd('which /usr/local/bin/exiftool').decode().strip()
-        if not isfile(ep):
-            echo("exiftool is not installed! Please install it per instructions with `brew install exiftool`", abort=True)
+        elif method == 'pyexiftool':
 
-        if verbose:
-            echo('Number of files detected           : %s' %
-                self.num_files, timestamp=True, fn_name='exiftool')
-            est_time = fmt_seconds(0.06079523*len(self.fname), round_digits=0)
-            echo('Expected program time              : %s %s' % (
-                est_time['value'], est_time['units']), timestamp=True, fn_name='exiftool')
+            import exiftool
 
-        char_limit = int(syscmd("getconf ARG_MAX")) - 25000
-        if verbose:
-            echo('Using command-line character limit : %s' % str(char_limit),
-                timestamp=True, fn_name="EXIF.run(..., wrapper='doni')")
+            with exiftool.ExifTool() as et:
 
-        # Cast filenames as list if not already
-        if not isinstance(self.fname, list):
-            self.fname = [self.fname]
+                if self.is_batch:
+                    exifd = et.get_metadata_batch(self.fpath)
+                else:
+                    exifd = et.get_metadata(self.fpath)
 
-        # Break files into batches based on command-line character limit
-        fname_batches = dict(
-            break_into_commandline_batches(self.fname, char_limit))
+            return exifd
 
-        if verbose:
-            echo('Number of batches to run           : %s' % str(len(fname_batches)),
-                timestamp=True, fn_name="EXIF.run(..., wrapper='doni')")
-            echo('Running exiftool...', timestamp=True,
-                fn_name="EXIF.run(..., wrapper='doni')")
-
-        exifmaster = {}
-        for batch_name, batch_files in fname_batches.items():
-            # Iterate over batches and append results to master dictionary
-
-            # Obtain exiftool result
-            cmd = '/usr/local/bin/exiftool ' + \
-                ' '.join('"' + item + '"' for item in batch_files)
-            res = subprocess.run(cmd, stdout=subprocess.PIPE, shell=True)
-            res = str(res.stdout.decode('utf-8', errors='backslashreplace'))
-
-            # Parse exiftool output to dictionary
-            exifd = parse_raw_exiftool_output(
-                res, batch_files, attr_name, dedup)
-
-            if verbose:
-                batch_idx = batch_name.split('_')[1]
-                echo('Batch {} of {} complete (size: {} files)'.format(
-                    str(int(batch_idx)+1).rjust(2, '0'),
-                    str(len(fname_batches)).rjust(2, '0'),
-                    str(len(batch_files))
-                ), indent=1, timestamp=True, fn_name="EXIF.run(..., wrapper='doni')")
-
-            # exifmaster[batch_name] = exifd
-            exifmaster.update(exifd)
-
-        return exifmaster
-
-    def set_exif(self, tags, values, verbose=False):
+    def write(self, tags, values):
         """
-        Overwrite EXIF attributes on a file or list of files.
-        
-        Arguments:
-            tags {str} or {list} -- names of tags to overwrite
-            values {str} or {list} -- values to set to `tags`
-        
-        Returns:
-            nothing
+        Write EXIF attribute(s) on a file or list of files.
+
+        :param tags: tag names to write to
+        :type tags: str, list
+        :param values: desired tag values
+        :type values: str, list
+        :return: True
+        :rtype: bool
         """
 
-        # Get list of files and ensure tags and values are identical length
-        target_files = [self.fname] if isinstance(self.fname, str) else self.fname
+        import pydoni
+        import pydoni.sh
+
+        self.logger.var('tags', tags)
+        self.logger.var('values', values)
+
         tags = [tags] if isinstance(tags, str) else tags
         values = [values] if isinstance(values, str) or isinstance(values, int) else values
         assert len(tags) == len(values)
-        
-        # Check format of tags. Must be TagName, not tag_name
-        if any(['-' in str(x) for x in tags]):
-            echo("Invalid tag format. Proper tag format is 'TagName', not 'tag_name'",
-                abort=True, fn_name='EXIF.set_exif')
 
-        if verbose:
-            if len(target_files) == 1:
-                echo('Preparing to overwrite %s EXIF attributes for 1 file' % str(len(tags)), timestamp=True, fn_name='EXIF.set_exif')
-            else:
-                echo('Preparing to overwrite %s EXIF attributes for %s files' % \
-                    (str(len(tags)), len(target_files)),
-                    timestamp=True, fn_name='EXIF.set_exif')
+        self._is_valid_tag_name(tags)
 
-        # Iterate over each file, and for each file iterate over each tag and
-        # assign value to EXIF attribute
-        for target_file in target_files:
-            if verbose:
-                echo("Altering EXIF for '%s'" % target_file,
-                    timestamp=True, fn_name='EXIF.set_exif')
-            for i in range(len(tags)):
-                cmd = 'exiftool -overwrite_original -{}="{}" "{}"'.format(
-                    tags[i], values[i], target_file)
-                res = syscmd(cmd, encoding='utf-8')
-                if 'nothing to do' in res.lower():
-                    if verbose:
-                        echo("Tag %s is invalid!" % tags[i], timestamp=True,
-                            fn_name='EXIF.set_exif', indent=1, error=True)
+        self.logger.info("Files to write EXIF metadata to: " + str(len(files)))
+        self.logger.info("Tags to write: " + str(tags))
+        self.logger.info("Values to write: " + str(values))
+
+        for file in files:
+            self.logger.info("File: " + file)
+
+            for tag, value in zip(tags, values):
+
+                default_cmd = '{} -overwrite_original -{}="{}" "{}"'.format(
+                    self.bin, tag, str(value), file)
+
+                if tag == 'Keywords':
+                    # Must be written in format:
+                    # exiftool -keywords=one -keywords=two -keywords=three FILE
+                    # Otherwise, comma-separated keywords will be written as a single string
+                    if isinstance(value, str):
+                        if ',' in value:
+                            value = value.split(', ')
+
+                    if isinstance(value, list):
+                        if len(value) > 1:
+                            kwd_cmd = ' '.join(['-keywords="' + str(x) + '"' for x in value])
+
+                    if 'kwd_cmd' in locals():
+                        cmd = '{} -overwrite_original {} "{}"'.format(
+                            self.bin, kwd_cmd, file)
                     else:
-                        echo("Tag %s is invalid for file '%s'!" % (tags[i], target_file), error=True)
+                        cmd = default_cmd
+
                 else:
-                    if verbose:
-                        echo("Set attribute '%s' to value '%s'" % (tags[i], str(values[i])),
-                            timestamp=True, fn_name='EXIF.set_exif', indent=1)
+                    cmd = default_cmd
 
-    def remove_exif(self, tags, verbose=False):
+                try:
+                    self.logger.var('cmd', cmd)
+                    res = pydoni.syscmd(cmd, encoding='utf-8')
+                    self.logger.var('res', res)
+
+                    if self._is_valid_tag_message(res):
+                        self.logger.info("Success. Tag: %s | Value: %s" % (tag, str(value)))
+                    else:
+                        self.logger.info("Failed. Tag: %s | Value: %s" % (tag, str(value)))
+
+                except Exception as e:
+                    self.logger.exception("Failed. Tag: %s | Value: %s" % (tag, str(value)))
+                    raise e
+
+        return True
+
+    def remove(self, tags):
         """
-        Remove EXIF attributes from a file or list of files.
-        
-        Arguments:
-            tags {str} or {list} -- name(s) of tags to remove with `exiftool`
-        
-        Returns:
-            nothing
+        Remove EXIF attribute from a file or list of files.
+
+        :param tags: tag names to remove
+        :type tags: str, list
+        :return: True
+        :rtype: bool
         """
 
-        # Get list of files and ensure tags and values are identical length
-        target_files = [self.fname] if isinstance(self.fname, str) else self.fname
+        self.logger.var('tags', tags)
+
         tags = [tags] if isinstance(tags, str) else tags
-        
-        # Check format of tags. Must be TagName, not tag_name
-        if any(['-' in str(x) for x in tags]):
-            echo("Invalid tag format. Proper tag format is 'TagName', not 'tag_name'",
-                abort=True, fn_name='EXIF.remove_exif')
 
-        if verbose:
-            if len(target_files) == 1:
-                echo('Preparing to overwrite %s EXIF attributes for 1 file' % str(len(tags)), timestamp=True, fn_name='EXIF.remove_exif')
-            else:
-                echo('Preparing to overwrite %s EXIF attributes for %s files' % \
-                    (str(len(tags)), len(target_files)),
-                    timestamp=True, fn_name='EXIF.remove_exif')
+        self._is_valid_tag_name(tags)
 
-        # Iterate over each file, and for each file iterate over each tag and
-        # assign remove EXIF attribute
-        for target_file in target_files:
-            if verbose:
-                echo("Altering EXIF for '%s'" % target_file,
-                    timestamp=True, fn_name='EXIF.remove_exif')
-            for i in range(len(tags)):
-                cmd = 'exiftool -overwrite_original -{}= "{}"'.format(
-                    tags[i], target_file)
-                res = syscmd(cmd, encoding='utf-8')
-                if 'nothing to do' in res.lower():
-                    if verbose:
-                        echo("Tag %s is invalid!" % tags[i], timestamp=True,
-                            fn_name='EXIF.remove_exif', indent=1, error=True)
+        self.logger.info("Files to remove EXIF metadata from: " + str(len(files)))
+        self.logger.info("Tags to remove: " + str(tags))
+
+        for file in files:
+            self.logger.info("File: " + file)
+
+            for tag in tags:
+                cmd = '{} -overwrite_original -{}= "{}"'.format(self.bin, tag, file)
+
+                try:
+                    self.logger.var('cmd', cmd)
+                    res = pydoni.syscmd(cmd, encoding='utf-8')
+                    self.logger.var('res', res)
+
+                    if self._is_valid_tag_message(res):
+                        self.logger.info("Success. Tag: %s" % tag)
                     else:
-                        echo("Tag %s is invalid for file '%s'!" % (tags[i], target_file), error=True)
+                        self.logger.error("ExifTool Error. Tag: %s" % tag)
+                        self.logger.debug('ExifTool output: %s' % str(res))
+
+                except Exception as e:
+                    self.logger.exception("Failed. Tag: %s" % tag)
+                    raise e
+
+    def clean(self, exifd):
+        """
+        Attempt to coerce EXIF values to Python data structures where possible. Try to coerce
+        numerical values to Python int or float datatypes, dates to Python datetime values,
+        and so on.
+
+        Examples:
+            '+7' -> 7
+            '-7' -> -7
+            '2018:02:29 01:28:10' -> '2018-02-29 01:28:10'
+            '11.11' -> 11.11
+
+        :param exifd: dictionary of extracted EXIF metadata
+        :type exifd: dict
+        :return: dictionary with cleaned values where possible
+        :type: dict
+        """
+
+        self.logger.var('exifd', exifd)
+
+        def detect_dtype(val):
+            """
+            Detect datatype of value.
+
+            :param val: value to test
+            :type val: any
+            :return: one of ['bool', 'float', 'int', 'date', 'datetime', 'str']
+            :rtype: str
+            """
+
+            self.logger.var('val', val)
+
+            for dtype in ['bool', 'float', 'int', 'datetime', 'date', 'str']:
+                if dtype == 'str':
+                    return dtype
                 else:
-                    if verbose:
-                        echo("Removed attribute '%s'" % tags[i],
-                            timestamp=True, fn_name='EXIF.remove_exif', indent=1)
+                    if pydoni.test(val, dtype):
+                        return dtype
 
-    def rename_keys(self, key_dict):
+            return 'str'
+
+        newexifd = {}
+        for file, d in exifd.items():
+            newexifd[file] = {}
+
+            for k, v in d.items():
+                dtype = detect_dtype(v)
+                if dtype in ['bool', 'date', 'datetime', 'int', 'float']:
+                    coerced_value = pydoni.test(v, dtype, return_coerced_value=True)
+                    if v != coerced_value:
+                        newexifd[file][k] = coerced_value
+                        continue
+
+                newexifd[file][k] = v
+
+        return newexifd
+
+    def _is_valid_tag_name(self, tags):
         """
-        Rename exif dictionary keys.
-        
-        Arguments:
-            key_dict (dict): dictionary of key: value pairs where 'key' is current exif key name, and 'value' is desired key name
-        
-        Returns:
-            {dict}
+        Check EXIF tag names for illegal characters.
 
-        Example:
-            key_dict={'file_name': 'fname'} will result in the original key 'file_name' being
-            renamed to 'fname'.
+        :param tags: list of tag names to validate
+        :type tags: list
+        :return: True
+        :rtype: bool
         """
-        for k, v in key_dict.items():
-            if k in self.exif.keys():
-                self.exif[v] = self.exif.pop(k)
-        return self.exif
+        self.logger.var('tags', tags)
 
-    def coerce(self, key, val, fmt=['int', 'date', 'float'], onerror=['raise', 'null', 'revert']):
+        illegal_chars = ['-', '_']
+        for tag in tags:
+            for char in illegal_chars:
+                if char in tag:
+                    self.logger.error("Illegal char '%s' in tag name '%s'" % (char, tag))
+                    assert char not in tag
+
+        return True
+
+    def _is_valid_tag_message(self, tagmsg):
         """
-        Attempt to coerce a dictionary value to specified type or format.
-        
-        Arguments:
-            key {str} -- name of EXIF key
-            fmt {str} -- format to coerce to, one of ['int', 'date', 'float']
-            onerror {str} -- determine behavior if a value cannot be coerced
-                - raise: raise an error (stop the program)
-                - null: return None
-                - revert: return original value
-        Example:
-            fmt='int':
-                '+7' -> 7
-                '-7' -> -7
-        Example:
-            fmt='date':
-                '2018:02:29 01:28:10' -> ''2018-02-29 01:28:10''
-        Example:
-            fmt='float':
-                '11.11' -> 11.11
+        Determine if EXIF write was successful based on tag message.
+
+        :param tagmsg: output tag message
+        :type tagmsg: str
+        :return: True if successful, False otherwise
+        :rtype: bool
         """
+        self.logger.var('tagmsg', tagmsg)
 
-        def evalutate_error(val, onerror, e="Unable to coerce value"):
-            """
-            Handle error in any specified way, as described in parent function's docstring.
-
-            Arguments:
-                val {<any>} -- value to return if set to 'revert' mode
-                onerror {str} -- dictate behavior of function, one of ['raise', 'null', 'revert']
-
-            Keyword Arguments:
-                e {str} -- error string to raise if run in 'raise' mode
-
-            Returns:
-                {str} -- if onerror='raise' -> error string
-                {None} -- if onerror=None
-                {${val}} -- if onerror='revert' -> original value
-            """
-            if onerror == 'raise':
-                raise e
-            elif onerror == 'null':
-                return None
-            elif onerror == 'revert':
-                return val
-
-        # Start by casting value as string
-        if hasattr(self, 'exif'):
-            val = str(self.exif[key])
+        if 'nothing to do' in tagmsg.lower():
+            return False
         else:
-            val = val
-
-        # Coerce value
-        if fmt == 'int':
-            # Coerce value to integer
-            val = val.replace('+', '') if re.match(r'^\+', val) else val
-            val = val.replace(',', '') if ',' in val else val
-            try:
-                val = int(val)
-            except Exception as e:
-                val = evalutate_error(val, onerror, e)
-
-        elif fmt == 'date':
-            # Coerce value to date
-            if DoniDt(val).is_exact():
-                val = DoniDt(val).extract_first(apply_tz=True)
-            else:
-                val = evalutate_error(val, onerror,
-                                      e="Unable to coerce value '{}' to type '{}'".format(val, fmt))
-
-        elif fmt == 'float':
-            # Coerce value to float
-            val = val.replace('+', '') if re.match(r'^\+\d+', val) else val
-            val = val.replace(',', '') if ',' in val else val
-            try:
-                val = float(val)
-            except Exception as e:
-                val = evalutate_error(val, onerror, e)
-
-        return val
+            return True
 
 
 class FFmpeg(object):
@@ -473,209 +474,307 @@ class FFmpeg(object):
     """
 
     def __init__(self):
-        pass
+    
+        import os
+        import pydoni
+        import pydoni.sh
 
-    def compress(self, f, outfile=None):
+        self.bin = pydoni.sh.find_binary('ffmpeg')
+        assert os.path.isfile(self.bin)
+
+        self.logger = pydoni.logger_setup(
+            name=pydoni.what_is_my_name(classname=self.__class__.__name__, with_modname=True),
+            level=pydoni.modloglev)
+
+        self.logger.logvars(locals())
+
+    def compress(self, file, outfile=None):
         """
-        Arguments:
-            f {str} or {list} -- file or files to compress
+        Compress audiofile on system by exporting it at 32K.
 
-        Keyword Arguments:
-            outfile {str} -- output file (default: {splitext(x)[0] + '-COMPRESSED' + splitext(x)[1]})
-
-        Returns:
-            nothing
+        :param file: paths to file or files to compress
+        :type file: str, list
+        :param outfile: paths to file or files to write to. If specified, must be same length
+                        as `file`. If None (default), outfile name will be generated for each file.
+        :type outfile: str, list or None
         """
-        if isinstance(f, str):
-            f = [f]
-        for x in f:
-            outfile = splitext(x)[0] + '-COMPRESSED' + splitext(x)[1] if outfile is None else outfile
-            cmd = 'ffmpeg -i "{}" -map 0:a:0 -b:a 32k "{}"'.format(x, outfile)
-            syscmd(cmd)
 
-    def join(self, audiofiles, targetfile):
+        import os
+
+        self.logger.logvars(locals())
+
+        files = pydoni.ensurelist(file)
+        for f in files:
+            if not os.path.isfile(f):
+                logger.error("File does not exist: " + f)
+                assert os.path.isfile(f)
+
+        if outfile is not None:
+            outfiles = [outfile] if isinstance(outfile, str) else outfile
+            if len(files) != len(outfiles):
+                logger.error("Specified input and output filepaths are of different lengths")
+                assert len(files) == len(outfiles)
+
+
+        for i, f in enumerate(files):
+
+            if outfile is None:
+                tmpoutfile = os.path.splitext(f)[0] + '-COMPRESSED' + os.path.splitext(f)[1]
+            else:
+                tmpoutfile = outfiles[i]
+
+            try:
+                cmd = '{} -i "{}" -map 0:a:0 -b:a 32k "{}"'.format(self.bin, f, outfile)
+                logger.debug(cmd)
+                pydoni.syscmd(cmd)
+                logger.info("Compressed '%s' to '%s'" % (f, tmpoutfile))
+            except Exception as e:
+                if os.path.isfile(outfile):
+                    os.remove(outfile)
+
+                logger.exception('Failed to run FFMpeg to compress audiofile')
+                raise e
+
+    def join(self, audiofiles, outfile):
         """
-        Join multiple audio files into a single audio file using a direct call to ffmpeg.
+        Join multiple audio files into a single audio file using a direct call to FFMpeg.
 
-        Arguments:
-            audiofiles {list} -- list of audio filenames to join together
-            targetfile {str} -- name of file to create from joined audio files
-
-        Returns:
-            nothing
+        :param audiofiles: list of audio filenames to join together
+        :type audiofiles: list
+        :param outfile: name of file to create from joined audio files
+        :type outfile: str
         """
+
+        import os
+
+        self.logger.logvars(locals())
 
         assert isinstance(audiofiles, list)
         assert len(audiofiles) > 1
 
+        fname_map = {}
         replace_strings = {
             "'": 'SINGLEQUOTE'
         }
+        self.logger.var('replace_strings', replace_strings)
 
-        # cmd = 'ffmpeg -i "concat:{}" -acodec copy "{}"'.format('|'.join(audiofiles), targetfile)
-        
-        tmpfile = join(
-            dirname(audiofiles[0]),
-            '.tmp.pydoni.audio.FFmpeg.join.%s.txt' % systime(stripchars=True))
+        audiofiles = [os.path.abspath(f) for f in audiofiles]
+        self.logger.var('audiofiles', audiofiles)
 
-        fname_map = {}
+        tmpfile = os.path.join(
+            os.path.dirname(audiofiles[0]),
+            '.tmp.pydoni.audio.FFmpeg.join.%s.txt' % pydoni.systime(stripchars=True))
+        self.logger.var('tmpfile', tmpfile)
 
-        f = open(tmpfile, 'w')
-        for fname in audiofiles:
+        with open(tmpfile, 'w') as f:
+            for fname in audiofiles:
+                newfname = fname
+                for key, val in replace_strings.items():
+                    newfname = newfname.replace(key, val)
 
-            newfname = fname
-            for key, val in replace_strings.items():
-                newfname = newfname.replace(key, val)
+                fname_map[fname] = newfname
+                os.rename(fname, newfname)
+                f.write("file '%s'\n" % newfname)
 
-            fname_map[fname] = newfname
-            rename(fname, newfname)
-            f.write("file '%s'\n" % newfname)
+        self.logger.var('fname_map', fname_map)
+        # Old command 2020-01-30 15:59:04
+        # cmd = 'ffmpeg -i "concat:{}" -acodec copy "{}"'.format('|'.join(audiofiles), outfile)
 
-        f.close()
-
-        cmd = 'ffmpeg -f concat -safe 0 -i "{}" -c copy "{}"'.format(
-            tmpfile, targetfile)
-        syscmd(cmd)
+        cmd = '{} -f concat -safe 0 -i "{}" -c copy "{}"'.format(self.bin, tmpfile, outfile)
+        self.logger.var('cmd', cmd)
+        pydoni.syscmd(cmd)
 
         for f, nf in fname_map.items():
-            rename(nf, f)
-        
-        if isfile(tmpfile):
-            remove(tmpfile)
-        
-        return True
+            os.rename(nf, f)
+
+        if os.path.isfile(tmpfile):
+            os.remove(tmpfile)
 
     def split(self, audiofile, segment_time):
         """
         Split audiofile into `segment_time` second size chunks.
 
-        Arguments:
-            audiofile {str} -- audiofile to split
-            segment_time {int} -- desired number of seconds of each chunk
-
-        Returns:
-            nothing
+        :param audiofile: audiofile to split
+        :type audiofile: str
+        :param segment_time: desired number of seconds of each chunk
+        :type segment_time: int
         """
-        # Split audio file with ffmpeg
-        cmd = 'ffmpeg -i "{}" -f segment -segment_time {} -c copy "{}-ffmpeg-%03d{}"'.format(
+
+        import os
+
+        audiofile = os.path.abspath(audiofile)
+        cmd = '{} -i "{}" -f segment -segment_time {} -c copy "{}-ffmpeg-%03d{}"'.format(
+            self.bin,
             audiofile,
             segment_time,
-            splitext(audiofile)[0],
-            splitext(audiofile)[1])
-        syscmd(cmd)
+            os.path.splitext(audiofile)[0],
+            os.path.splitext(audiofile)[1])
+
+        self.logger.logvars(locals())
+
+        pydoni.syscmd(cmd)
 
     def m4a_to_mp3(self, m4a_file):
         """
         Use ffmpeg to convert a .m4a file to .mp3.
 
-        Arguments:
-            m4a_file {str} -- path to file to convert to .mp3
-
-        Returns:
-            nothing
+        :param m4a_file: path to file to convert to .mp3
+        :type m4a_file: str
         """
-        cmd = 'ffmpeg -i "{}" -codec:v copy -codec:a libmp3lame -q:a 2 "{}.mp3"'.format(
-            m4a_file, splitext(m4a_file)[0])
-        syscmd(cmd)
+        m4a_file = os.path.abspath(m4a_file)
+        cmd = '{} -i "{}" -codec:v copy -codec:a libmp3lame -q:a 2 "{}.mp3"'.format(
+            self.bin, m4a_file, os.path.splitext(m4a_file)[0])
+
+        self.logger.logvars(locals())
+
+        pydoni.syscmd(cmd)
+
+    def to_gif(self, moviefile, giffile=None, fps=10):
+        """
+        Convert movie file to gif.
+
+        :param moviefile: path to movie file
+        :type moviefile: str
+        :param giffile: path to output gif file. If None, then use same name as `moviefile`
+                        but substitute extension for '.gif'
+        :type giffile: str, None
+        :param fps: desired frames per second of output gif
+        :type fps: int
+        """
+
+        import os
+
+        outfile = giffile if giffile is not None else os.path.splitext(moviefile)[0] + '.gif'
+        moviefile = os.path.abspath(moviefile)
+        cmd = '{} -i "{}" -r {} "{}"'.format(self.bin, moviefile, str(fps), outfile)
+
+        self.logger.logvars(locals())
+        pydoni.syscmd(cmd)
 
 
 class Git(object):
     """
     House git command line function python wrappers.
     """
+    import os
 
     def __init__(self):
-        pass
+        self.logger = pydoni.logger_setup(
+            name=pydoni.what_is_my_name(classname=self.__class__.__name__, with_modname=True),
+            level=pydoni.modloglev)
 
-    def is_git_repo(self):
+    def is_git_repo(self, dir=os.getcwd()):
         """
         Determine whether current dir is a git repository.
 
-        Returns:
-            {bool}
+        :param dir: directory to check if git repo
+        :type dir: str
+        :return: bool
         """
-        if '.git' in listdir():
-            return True
-        else:
-            return False
 
-    def status(self):
+        import os
+
+        self.logger.logvars(locals())
+
+        owd = os.getcwd()
+        if dir != owd:
+            os.chdir(dir)
+
+        is_repo = True if '.git' in os.listdir() else False
+        self.logger.info("'%s' is%s a git repo" % (dir, '' if is_repo else ' not'))
+
+        if dir != owd:
+            os.chdir(owd)
+
+        return is_repo
+
+    def status(self, dir=os.getcwd()):
         """
         Return boolean based on output of 'git status' command. Return True if working tree is
         up to date and does not require commit, False if commit is required.
-    
-        Returns:
-            {bool}
+
+        :return: bool
         """
-        out = syscmd('git status').decode()
+
+        import os
+
+        owd = os.getcwd()
+        if dir != owd:
+            os.chdir(dir)
+
+        self.logger.logvars(locals())
+
+        out = pydoni.syscmd('git status').decode()
         working_tree_clean = "On branch masterYour branch is up to date with 'origin/master'.nothing to commit, working tree clean"
         not_git_repo = 'fatal: not a git repository (or any of the parent directories): .git'
+
+        if dir != owd:
+            os.chdir(owd)
+
         if out.replace('\n', '') == working_tree_clean:
+            self.logger.info('Status: Working tree clean')
             return True
         elif out.replace('\n', '') == not_git_repo:
+            self.logger.info('Status: Not git repo')
             return None
         else:
+            self.logger.info('Status: Commit required')
             return False
 
     def add(self, fpath=None, all=False):
         """
         Add files to commit.
-    
-        Arguments:
-            fpath {str} or {list} -- file(s) to add
-            all {bool} -- if True, execute 'git add .'
-        
-        Returns:
-            nothing
+
+        :param fpath: file(s) to add
+        :type fpath: str, list
+        :param all: execute 'git add .'
+        :type all: bool
         """
+        self.logger.var('fpath', fpath)
+        self.logger.var('all', all)
+
         if all == True and fpath is None:
-            syscmd('git add .;', encoding='utf-8')
+            pydoni.syscmd('git add .;', encoding='utf-8')
         elif isinstance(fpath, str):
-            syscmd('git add "%s";' % fpath, encoding='utf-8')
+            pydoni.syscmd('git add "%s";' % fpath, encoding='utf-8')
         elif isinstance(fpath, list):
             for f in fpath:
-                syscmd('git add "%s";' % f, encoding='utf-8')
+                pydoni.syscmd('git add "%s";' % f, encoding='utf-8')
+        else:
+            self.logger.error('Nonsensical `fpath` and `all` options! Nothing done.')
 
     def commit(self, msg):
         """
         Execute 'git commit -m {}' where {} is commit message.
-    
-        Arguments:
-            msg {str} -- commit message
-        
-        Returns:
-            nothing
+
+        :param msg: commit message
+        :type msg: str
         """
-        subprocess.call("git commit -m '{}';".format(msg), shell=True)
+        self.logger.var('msg', msg)
+        cmd = "git commit -m '{}';".format(msg)
+        self.logger.var('cmd', cmd)
+        subprocess.call(cmd, shell=True)
 
     def push(self):
         """
         Execute 'git push'.
-    
-        Arguments:
-            none
-        
-        Returns:
-            nothing
         """
-        subprocess.call("git push;", shell=True)
+        cmd = "git push;"
+        self.logger.var('cmd', cmd)
+        subprocess.call(cmd, shell=True)
 
     def pull(self):
         """
         Execute 'git pull'.
-    
-        Arguments:
-            none
-        
-        Returns:
-            nothing
         """
-        subprocess.call("git pull;", shell=True)
+        cmd = "git pull;"
+        self.logger.var('cmd', cmd)
+        subprocess.call(cmd, shell=True)
 
 
 class AppleScript(object):
     """
-    Store Applescript-wrapped functions.
+    Store Applescript-wrapper operations.
     """
 
     def __init__(self):
@@ -685,18 +784,20 @@ class AppleScript(object):
         """
         Wrapper for pydoni.sh.osascript
 
-        Arguments:
-            applescript {str} -- applescript string to execute
+        :param applescript:: applescript string to execute
+        :type applescript: str
         """
+        
         out = osascript(applescript)
-        if 'error' in out:
+        self.logger.logvars(locals())
+        if 'error' in out.lower():
             raise Exception(str(out))
 
     def new_terminal_tab(self):
         """
         Make new Terminal window.
         """
-        
+
         applescript = """
         tell application "Terminal"
             activate
@@ -706,14 +807,15 @@ class AppleScript(object):
             end repeat
         end tell"""
 
+        self.logger.logvars(locals())
         self.execute(applescript)
 
     def execute_shell_script_in_new_tab(self, shell_script):
         """
         Create a new Terminal tab, then execute given shell scripts.
 
-        Arguments:
-            shell_script {str} -- shell script string to execute in default shell
+        :param shell_script: shell script string to execute in default shell
+        :type shell_script: str
         """
 
         applescript = """
@@ -728,104 +830,145 @@ class AppleScript(object):
         """.format(shell_script.replace('"', '\\"'))
         applescript = applescript.replace('\\\\"', '\"')
 
+        self.logger.logvars(locals())
+
         self.execute(applescript)
 
 
-def syscmd(cmd, encoding=''):
+def find_binary(bin_name, bin_paths=['/usr/bin', '/usr/local/bin'], abort=False):
     """
-    Runs a command on the system, waits for the command to finish, and then
-    returns the text output of the command. If the command produces no text
-    output, the command's return code will be returned instead.
-    
-    Arguments:
-        cmd      {str} -- command string to execute
-        encoding {str} -- [optional] name of decoding to decode output bytestring with
-    
-    Returns:
-        {str} or {int} -- interned system output {str}, or returncode {int}
+    Find system binary by name. If multiple binaries found, return the binary from the first
+    path searched.
+
+    Ex: find_binary('exiftool') will yield '/usr/local/exiftool' if exiftool installed, and
+        it will return None if it's not installed
+
+    :param bin_name: name of binary to search for
+    :type bin_name: str
+    :param bin_paths: list of paths to search for binary in
+    :type bin_paths: list
+    :param abort: raise FileNotFoundError if no binary found
+    :type abort: bool
+    :return: absolute path of found binary, else None
+    :rtype: str
     """
-    p = subprocess.Popen(
-        cmd,
-        shell     = True,
-        stdin     = subprocess.PIPE,
-        stdout    = subprocess.PIPE,
-        stderr    = subprocess.STDOUT,
-        close_fds = True
-    )
-    p.wait()
-    output = p.stdout.read()
-    if len(output) > 1:
-        if encoding:
-            return output.decode(encoding)
+
+    import os
+
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
+
+    assert isinstance(bin_name, str)
+    assert isinstance(bin_paths, list)
+
+    owd = os.getcwd()
+    logger.var('owd', owd)
+
+    match = []
+    for path in bin_paths:
+        os.chdir(path)
+        binaries = pydoni.listfiles()
+        for binary in binaries:
+            if bin_name == binary:
+                match_item = os.path.join(path, binary)
+                match.append(match_item)
+                logger.info("Matching binary found %s" % match_item)
+
+    if len(match) > 1:
+        logger.warn("Multiple matches found: %s. Returning the first." % str(match))
+    elif len(match) == 0:
+        if abort:
+            raise FileNotFoundError("No binaries found for: " + bin_name)
         else:
-            return output
-    return p.returncode
+            logger.warn("No binaries found! Returning None.")
+        return None
+
+    os.chdir(owd)
+    return match[0]
 
 
 def adobe_dng_converter(fpath, overwrite=False):
     """
     Run Adobe DNG Converter on a file.
-    
-    Arguments:
-        fpath     {str}  -- path to file
-        overwrite {bool} -- if True, if output file already exists, overwrite it. if False, skip
-    
-    Returns:
-        nothing
+
+    :param fpath: path to file or files to run Adobe DNG Converter on
+    :type fpath: str, list
+    :param overwrite: if output file already exists, overwrite it
+    :type overwrite: bool
     """
-    
+
+    import os
+
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+
     # Check if destination file already exists
     # Build output file with .dng extension and check if it exists
-    destfile = join(splitext(fpath)[0], '.dng')
-    exists = True if isfile(destfile) else False
+    fpath = pydoni.ensurelist(fpath)
+    destfile = os.path.join(os.path.splitext(fpath)[0], '.dng')
+    exists = True if os.path.isfile(destfile) else False
+
+    logger.logvars(locals())
 
     # Build system command
-    app = join('/', 'Applications', 'Adobe DNG Converter.app', 'Contents', 'MacOS', 'Adobe DNG Converter')
+    app = os.path.join('/', 'Applications', 'Adobe DNG Converter.app',
+        'Contents', 'MacOS', 'Adobe DNG Converter')
     cmd = '"{}" "{}"'.format(app, fpath)
-    
+
+    logger.var('app', app)
+    logger.var('cmd', cmd)
+
     # Execute command if output file does not exist, or if `overwrite` is True
     if exists:
         if overwrite:
-            syscmd(cmd)
+            pydoni.syscmd(cmd)
         else:
             # File exists but `overwrite` not specified as True
             pass
     else:
-        syscmd(cmd)
+        pydoni.syscmd(cmd)
 
 
 def stat(fname):
     """
     Call 'stat' UNIX command and parse output into a Python dictionary.
-    
-    Arguments:
-        fname {str} -- path to file
-    
-    Returns:
-        {dict} -- with items:
-            File
-            Size
-            FileType 
-            Mode
-            Uid
-            Device
-            Inode
-            Links
-            AccessDate
-            ModifyDate
-            ChangeDate
+
+    :param fname: path to file
+    :type fname: str
+    :returns: dictionary with items:
+                File
+                Size
+                FileType
+                Mode
+                Uid
+                Device
+                Inode
+                Links
+                AccessDate
+                ModifyDate
+                ChangeDate
+    :rtype: dict
     """
-    
+
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
+
     def parse_datestring(fname, datestring):
         """
         Extract datestring from `stat` output.
 
-        Arguments:
-            fname {str} -- filename in question
-            datestring {str} -- string containing date
+        fname: filename in question
+        :type fname: str
+            datestring: string containing date
+            :type datestring: str
         """
+
+        import os
+
+        self.logger.logvars(locals())
+
         try:
             dt = datetime.datetime.strptime(datestring, '%a %b %d %H:%M:%S %Y')
+            logger.var('dt', dt)
             return dt.strftime('%Y-%m-%d %H:%M:%S')
 
         except Exception as e:
@@ -833,86 +976,131 @@ def stat(fname):
                 format(clickfmt(datestring, 'date'), clickfmt(fname, 'filename')),
                 warn=True, error_msg=str(e))
             return datestring
-    
-    assert isfile(fname)
+
+    assert os.path.isfile(fname)
 
     # Get output of `stat` command and clean for python list
     cmd = 'stat -x "{}"'.format(fname)
-    res = syscmd(cmd, encoding='utf-8')
+    res = pydoni.syscmd(cmd, encoding='utf-8')
     res = [x.strip() for x in res.split('\n')]
-    
-    # Parse out each element of `stat` output
-    return dict(
-        File       = res[0].split(':')[1].split('"')[1],
-        Size       = res[1].split(':')[1].strip().split(' ')[0],
-        FileType   = res[1].split(':')[1].strip().split(' ')[1],
-        Mode       = res[2].split(':')[1].strip().split(' ')[0],
-        Uid        = res[2].split(':')[2].replace('Gid', '').strip(),
-        Device     = res[3].split(':')[1].replace('Inode', '').strip(),
-        Inode      = res[3].split(':')[2].replace('Links', '').strip(),
-        Links      = res[3].split(':')[3].strip(),
-        AccessDate = parse_datestring(fname, res[4].replace('Access:', '').strip()),
-        ModifyDate = parse_datestring(fname, res[5].replace('Modify:', '').strip()),
-        ChangeDate = parse_datestring(fname, res[6].replace('Change:', '').strip()))
+
+    logger.var('cmd', cmd)
+    logger.var('res', res)
+
+    # Tease out each element of `stat` output
+    items = ['File', 'Size', 'FileType', 'Mode', 'Uid', 'Device', 'Inode', 'Links',
+        'AccessDate', 'ModifyDate', 'ChangeDate']
+    logger.var('items', items)
+
+    out = {}
+    for item in items:
+        try:
+            if item == 'File':
+                out[item] = res[0].split(':')[1].split('"')[1]
+            elif item == 'Size':
+                out[item] = res[1].split(':')[1].strip().split(' ')[0]
+            elif item == 'FileType':
+                out[item] = res[1].split(':')[1].strip().split(' ')[1]
+            elif item == 'Mode':
+                out[item] = res[2].split(':')[1].strip().split(' ')[0]
+            elif item == 'Uid':
+                out[item] = res[2].split(':')[2].replace('Gid', '').strip()
+            elif item == 'Device':
+                out[item] = res[3].split(':')[1].replace('Inode', '').strip()
+            elif item == 'Inode':
+                out[item] = res[3].split(':')[2].replace('Links', '').strip()
+            elif item == 'Links':
+                out[item] = res[3].split(':')[3].strip()
+            elif item == 'AccessDate' :
+                out[item] = parse_datestring(fname, res[4].replace('Access:', '').strip())
+            elif item == 'ModifyDate' :
+                out[item] = parse_datestring(fname, res[5].replace('Modify:', '').strip())
+            elif item == 'ChangeDate' :
+                out[item] = parse_datestring(fname, res[6].replace('Change:', '').strip())
+
+        except Exception as e:
+            out[item] = '<pydoni.sh.stat() ERROR: %s>' % str(e)
+            self.logger.exception("Error extracting key '%s' from stat output. Error message:" % item)
+            self.logger.debug(str(e))
+
+    return out
 
 
 def mid3v2(fpath, attr_name, attr_value):
     """
     Use mid3v2 to add or overwrite a metadata attribute to a file.
-    
-    Arguments:
-        fpath {str} -- path to file
-        attr_name {str} -- name of attribute to assign value to using mid3v2, one of ['artist', 'album', 'song', 'comment', 'picture', 'genre', 'year', 'date', 'track']
-        attr_value {str or int} -- value to assign to attribute `attr_name`
-    
-    Returns:
-        {bool} -- if True, successfully run. If False, failed
+
+    :param fpath: path to file
+    :type fpath: str
+    :param attr_name: name of attribute to assign value to using mid3v2, one of
+                      ['artist', 'album', 'song', 'comment', 'picture', 'genre',
+                      'year', 'date', 'track']
+    :type attr_name: str
+    :param attr_value: value to assign to attribute `attr_name`
+    :type attr_value: str, int
+    :return: boolean indicator of successful run
+    :rtype: bool
     """
 
-    # Check that attribute name is valid
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
+
     valid = ['artist', 'album', 'song', 'comment', 'picture', 'genre', 'year', 'date', 'track']
+    logger.var('valid', valid)
     assert attr_name in valid
 
-    cmd = '/usr/local/bin/mid3v2 --{}="{}" "{}"'.format(attr_name, attr_value, fpath)
-    syscmd(cmd)
+    bin = pydoni.sh.find_binary('mid3v2')
+    logger.var('bin', bin)
+
+    cmd = '{} --{}="{}" "{}"'.format(bin, attr_name, attr_value, fpath)
+    logger.var('cmd', cmd)
+    pydoni.syscmd(cmd)
 
 
 def convert_audible(fpath, fmt, activation_bytes):
     """
     Convert Audible .aax file to .mp4.
-    
-    Arguments:
-        fpath {str} -- path to .aax file
-        fmt {str} -- one of 'mp3' or 'mp4'
-        activation_bytes {str} -- activation bytes string. See https://github.com/inAudible-NG/audible-activator to get activation byte string
-    
-    Returns:
-        nothing
+
+    :param fpath: path to .aax file
+    :type fpath: str
+    :param fmt: one of 'mp3' or 'mp4', if 'mp4' then convert output file to mp3
+    :type fmt: str
+    :param activation_bytes: activation bytes string.
+                             See https://github.com/inAudible-NG/audible-activator to get
+                             activation byte string
+    :type activation_bytes: str
     """
-    assert isfile(fpath)
-    assert splitext(fpath)[1].lower() == '.aax'
+
+    import os
+
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
+
+    assert os.path.isfile(fpath)
+    assert os.path.splitext(fpath)[1].lower() == '.aax'
 
     # Get output format
     fmt = fmt.lower().replace('.', '')
     assert fmt in ['mp3', 'mp4']
-    
+
     # Get outfile
-    outfile = splitext(fpath)[0] + '.mp4'
-    assert not isfile(outfile)
-    
+    outfile = os.path.splitext(fpath)[0] + '.mp4'
+    logger.var('outfile', outfile)
+    assert not os.path.isfile(outfile)
+
     # player_id = '2jmj7l5rSw0yVb/vlWAYkK/YBwk='
     # activation_bytes = '8a87c903'
-    
+
     # Convert to mp4 (regardless of `fmt` parameter)
-    cmd = 'ffmpeg -activation_bytes {} -i "{}" -vn -c:a copy "{}"'.format(
-        activation_bytes,
-        fpath,
-        outfile
-    )
-    syscmd(cmd)
+    bin = pydoni.sh.find_binary('ffmpeg')
+    cmd = '{} -activation_bytes {} -i "{}" -vn -c:a copy "{}"'.format(
+        bin, activation_bytes, fpath, outfile)
+    logger.var('cmd', cmd)
+    pydoni.syscmd(cmd)
 
     # Convert to mp3 if specified
     if fmt == 'mp3':
+        self.logger.info('Converting MP4 to MP3 at 256k: ' + outfile)
         mp4_to_mp3(outfile, bitrate=256)
 
 
@@ -920,48 +1108,59 @@ def mp4_to_mp3(fpath, bitrate):
     """
     Convert an .mp4 file to a .mp3 file.
 
-    Arguments:
-        fpath {str} -- path to .mp4 file
-        bitrate {int} -- bitrate to export as, may also be as string for example '192k'
-
-    Returns:
-        nothing
+    :param fpath: path to .mp4 file
+    :type fpath: str
+    :param bitrate: bitrate to export as, may also be as string for example '192k'
+    :type bitrate: int
     """
-    assert splitext(fpath)[1].lower() == '.mp4'
-    
+
+    import os
+
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
+
+    assert os.path.splitext(fpath)[1].lower() == '.mp4'
+
     # Get bitrate as string ###k where ### is any number
     bitrate = str(bitrate).replace('k', '') + 'k'
+    logger.var('bitrate', bitrate)
     assert re.match(r'\d+k', bitrate)
-    
+
     # Execute command
     cmd = 'f="{}";ffmpeg -i "$f" -acodec libmp3lame -ab {} "${{f%.mp4}}.mp3";'.format(fpath, bitrate)
-    syscmd(cmd)
+    logger.var('cmd', cmd)
+    pydoni.syscmd(cmd)
 
 
 def split_video_scenes(vfpath, outdname):
     """
     Split video using PySceneDetect.
-    
-    Arguments:
-        vfpath {str} -- path to video file to split
-        outdname {str} -- path to directory to output clips to
-    
-    Returns:
-        {bool} -- True if run successfully, False if run unsuccessfully
+
+    :param vfpath: path to video file to split
+    :type vfpath: str
+    :param outdname: path to directory to output clips to
+    :type outdname: str
+    :return: True if run successfully, False if run unsuccessfully
+    :rtype: bool
     """
 
-    assert isfile(vfpath)
-    assert isdir(outdname)
+    import os
 
-    # Build command
-    cmd = 'scenedetect --input "{}" --output "{}" detect-content split-video'.format(
-        vfpath, outdname)
-    
-    # Execute command
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
+
+    assert os.path.isfile(vfpath)
+    assert os.isdir(outdname)
+
+    cmd = 'scenedetect --input "{}" --output "{}" detect-content split-video'.format(vfpath, outdname)
+    logger.var('cmd', cmd)
+
     try:
-        syscmd(cmd)
+        pydoni.syscmd(cmd)
         return True
-    except:
+    except Exception as e:
+        self.logger.exception('Failed to split video scenes')
+        self.logger.debug(str(e))
         return False
 
 
@@ -969,19 +1168,23 @@ def osascript(applescript):
     """
     Execute applescript.
 
-    Arguments:
-        applescript {str} - applescript string to execute
+    :param applescript: applescript string to execute
+    :type applescript: str
+    :return: output string from AppleScript command
+    :rtype: str
     """
-    cmd = "osascript -e '{}'".format(applescript.replace("'", "\'"))
-    out = syscmd(cmd)
+
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+
+    bin = pydoni.sh.find_binary('osascript')
+    applescript = applescript.replace("'", "\'")
+
+    cmd = "{bin_name} -e '{applescript}'".format(**locals())
+    out = pydoni.syscmd(cmd)
+
     if isinstance(out, bytes):
         out = out.decode('utf-8')
-    return out
 
-from pydoni.classes import DoniDt
-from pydoni.pyobj import fmt_seconds
-from pydoni.pyobj import split_at
-from pydoni.pyobj import duplicated
-from pydoni.pyobj import systime
-from pydoni.vb import echo
-from pydoni.vb import clickfmt
+    logger.logvars(locals())
+
+    return out
