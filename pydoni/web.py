@@ -1,31 +1,23 @@
-import re
-import requests
-import shutil
-import urllib
-from bs4 import BeautifulSoup
-from contextlib import closing
-from lxml import html
-from os import chdir
-from os import mkdir
-from os.path import  basename
-from os.path import isdir
-from os.path import join
-from requests import get
-from requests.exceptions import RequestException
-from tqdm import tqdm
-
+import pydoni
+import pydoni.sh
 
 class Goodreads_Scrape(object):
     """
     Scrape all available information from page.
 
-    Arguments:
-        url {str} -- goodreads URL to scrape
+    :param url: goodreads URL to scrape
+    :type url: str
     """
 
     def __init__(self):
+
+        self.logger = pydoni.logger_setup(
+            name=pydoni.what_is_my_name(classname=self.__class__.__name__, with_modname=True),
+            level=pydoni.modloglev)
+
         self.url_base = 'https://www.goodreads.com'
         self.url_base_search = join(self.url_base, 'search?utf8=✓')
+        
         self.bookdict = {
             'title': None,
             'author': None,
@@ -33,6 +25,7 @@ class Goodreads_Scrape(object):
             'pages': None,
             'genre': None
         }
+        
         self.selector_map = {
             'title': '#bookTitle',
             'author': '.authorName span',
@@ -45,24 +38,27 @@ class Goodreads_Scrape(object):
         """
         Build goodreads search query to be appended to base URL.
 
-        Arguments:
-            search_string {str} -- string to search for, as if user were typing in the search box
+        :param search_string: string to search for, as if user were typing in the search box
+        :type search_string: str
         """
+        self.logger.logvars(locals())
         return '&q=%s&search_type=books' % search_string.replace(' ', '+')
 
     def get_top_result(self, search_string):
         """
         Execute Goodreads search and get the top result.
 
-        Arguments:
-            search_string {str} -- string to search for, as if user were typing in the search box 
-
-        Returns:
-            {str} -- URL of top search result
+        :param search_string: string to search for, as if user were typing in the search box 
+        :type search_string: str
+        :return: URL of top search result
+        :rtype: str
         """
+        from bs4 import BeautifulSoup
+        self.logger.logvars(locals())
+
         query = self.build_query(search_string)
         url = self.url_base_search + query
-        html = simple_get(url)
+        html = pydoni.web.simple_get(url)
         soup = BeautifulSoup(html, 'html.parser')
         res = soup.findAll('a', {'class': 'bookTitle'})
         hrefs = []
@@ -77,10 +73,15 @@ class Goodreads_Scrape(object):
         """
         Scrape webpage HTML and assign all values to `self.bookdata`.
 
-        Arguments:
-            url {str} -- Goodreads book URL to scrape
+        :param url: Goodreads book URL to scrape
+        :type url: str
+        :return: entire book data dictionary
+        :rtype: dict
         """
-        html = simple_get(url)
+        from bs4 import BeautifulSoup
+        self.logger.logvars(locals())
+
+        html = pydoni.web.simple_get(url)
         soup = BeautifulSoup(html, 'html.parser')
         items = [k for k, v in self.bookdict.items()]
         
@@ -93,12 +94,18 @@ class Goodreads_Scrape(object):
         """
         Given `soup`, get book attribute by attribute name.
 
-        Arguments:
-            soup {bs4} -- goodreads soup object for book page
-            attr {str} -- attribute name to scrape
+        :param soup: goodreads soup object for book page
+        :type soup: bs4
+        :param attr: attribute name to scrape
+        :type attr: str
+        :return: attribute value of book, None if attribute not found
+        :rtype: any
         """
+        import re
 
         assert attr in self.selector_map.keys()
+        self.logger.logvars(locals())
+
         selector = self.selector_map[attr]
         match = soup.select(selector)
 
@@ -149,39 +156,57 @@ def check_network_connection(abort=False):
     """
     Check if connected to internet
     
-    Arguments:
-        abort {bool} -- if True, quit program
-    
-    Returns:
-        {bool}
+    :param abort: if True, quit program
+    :type abort: bool
+    :return: True if connected to internet, False if not
+    :rtype: bool
     """
+    import urllib
+
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
+
     try:
         urllib.request.urlopen('https://www.google.com')
         return True
-    except:
+    except Exception as e:
+        logger.exception(e)
+        logger.error('No internet connection!')
+
         if abort:
-            from pydoni.vb import echo
-            echo('No internet connection!', abort=True)
-        else:
-            return False
+            import sys
+            sys.exit()
+
+        return False
 
 
 def get_element_by_selector(url, selector, attr=None):
     """
     Extract HTML text by CSS selector.
     
-    Arguments:
-        url {str} -- target URL to scrape
-        selector {str} -- CSS selector
-        attr {str} -- name of attribute to extract
-    
-    Returns:
-        {str}
+    :param url: target URL to scrape
+    :type url: str
+    :param selector: CSS selector
+    :type selector: str
+    :param attr: name of attribute to extract
+    :type attr: str
+    :return: element value
+    :rtype: str or list ir `attr` is specified
     """
+
+    import requests
+    from bs4 import BeautifulSoup
+
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
+
     page = requests.get(url)
     soup = BeautifulSoup(page.content, 'html.parser')
+
+
     if attr:
         return [soup.select(selector)[i].attrs[attr] for i in range(len(soup.select(selector)))]
+    
     elem = [soup.select(selector)[i].text for i in range(len(soup.select(selector)))]
     return elem
     
@@ -190,14 +215,20 @@ def get_element_by_xpath(url, xpath):
     """
     Extract HTML text by Xpath selector.
     
-    Arguments:
-        url {str} -- target URL to scrape
-        selector {str} -- CSS selector
-        attr {str} -- name of attribute to extract
-    
-    Returns:
-        {str}
+    :param url: target URL to scrape
+    :type url: str
+    :param xpath: xpath selector
+    :type xpath: str
+    :param attr: name of attribute to extract
+    :type attr: str
+    :return: element value
+    :rtype: str or list ir `attr` is specified
     """
+    import requests
+
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
+
     page = requests.get(url)
     tree = html.fromstring(page.content)
     return tree.xpath(xpath)
@@ -207,16 +238,18 @@ def downloadfile(url, destfile=None, method='requests'):
     """
     Download file from the web to a local file.
     
-    Arguments:
-        url {str} -- target URL to retrieve file from
-
-    Keyword Arguments:
-        destfile {str} -- target file to download to, must be specified if `method = 'requests'`. If None, may use with `method = 'curl'`, and the -O flag will be passed into curl to keep the original filename
-        method {str} -- method to use in downloading file, one of ['requests', 'curl'] (default: {'requests'})
-    
-    Returns:
-        {str}
+    :param url: target URL to retrieve file from
+    :type url: str
+    :param destfile: target file to download to, must be specified if `method = 'requests'`.
+                     If None, may use with `method = 'curl'`, and the -O flag will be passed
+                     into curl to keep the original filename
+    :type destfile: str
+    :param method: method to use in downloading file, one of ['requests', 'curl']
+    :type method: str
     """
+
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
 
     assert method in ['requests', 'curl']
 
@@ -233,34 +266,39 @@ def downloadfile(url, destfile=None, method='requests'):
             cmd = 'curl -o "{}" "{}"'.format(destfile, url)
         else:
             cmd = 'curl -O "{}"'.format(url)
-        syscmd(cmd)
+
+        pydoni.sh.syscmd(cmd)
 
 
 def download_audiobookslab(url, targetdir):
     """
     Download audiobooks off of audiobookslab.com webpage.
 
-    Arguments:
-        url {str} -- audiobookslab.com webpage link to scrape
-        targetdir {str} -- path to directory to download files to. Will be created if it doesn't exist
-
-    Returns:
-        nothing
+    :param url: audiobookslab.com webpage link to scrape
+    :type url: str
+    :param targetdir: path to directory to download files to. Will be created if it doesn't exist
+    :type targetdir: str
     """
+    from tqdm import tqdm
+
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
 
     if not isdir(targetdir):
         mkdir(targetdir)
     chdir(targetdir)
 
-    mp3_links = sorted(list(set(get_element_by_selector(url, selector='audio'))))
+    mp3_links = sorted(list(set(pydoni.web.get_element_by_selector(url, selector='audio'))))
     if len(mp3_links):
         with tqdm(total=len(mp3_links), unit='file') as pbar:
             for mp3_link in mp3_links:
                 pbar.set_postfix(file=basename(mp3_link))
-                downloadfile(mp3_link, method='curl')
+                pydoni.web.downloadfile(mp3_link, method='curl')
                 pbar.update(1)
     else:
-        echo("No audiobooks to download at URL '%s'" % url, abort=True)
+        error_msg = "No audiobooks to download at URL '%s'" % url
+        self.logger.error(error_msg)
+        raise Exception(e)
 
 
 def simple_get(url):
@@ -269,20 +307,28 @@ def simple_get(url):
     If the content-type of response is some kind of HTML/XML, return the
     text content, otherwise return None.
 
-    Arguments:
-        url {str} -- url to read
+    :param url: url to read
+    :type url: str
 
-    Returns:
-        {resp.content}
+    :return: {resp.content}
     """
+    import contextlib
+    import requests
+    from requests.exceptions import RequestException
+
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
+
     try:
-        with closing(get(url, stream=True)) as resp:
-            if is_good_response(resp):
+        with contextlib.closing(requests.get(url, stream=True)) as resp:
+            if pydoni.web.is_good_response(resp):
                 return resp.content
             else:
                 return None
+
     except RequestException as e:
-        echo('Error during requests to {0} : {1}'.format(url, str(e)))
+        error_msg = 'Error during requests to {} : {}'.format(url, str(e))
+        logger.error(error_msg)
         return None
 
 
@@ -290,17 +336,57 @@ def is_good_response(resp):
     """
     Returns True if the response seems to be HTML, False otherwise.
 
-    Arguments:
-        resp {resp.content} -- get response
+    :param resp: get response
+    :type resp: resp
 
-    Returns:
-        {bool}
+    :return: bool
     """
+
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
+
     content_type = resp.headers['Content-Type'].lower()
     return (resp.status_code == 200 
             and content_type is not None 
             and content_type.find('html') > -1)
 
 
-from pydoni.sh import syscmd
-from pydoni.vb import echo
+def scrape_reason_article(url):
+    """
+    Scrape article on Reason.com and write it as a text file.
+
+    :param url: Reason article URL to scrape
+    :type url: str
+    :return: article text
+    :rtype: str
+    """
+
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
+
+    url = url.replace("\\?utm_medium", "?utm_medium")
+
+    article = {}
+    
+    try:
+        article['title'] = pydoni.web.get_element_by_selector(url, 'h1')
+        logger.info('Scraped title successfully')
+    except Exception as e:
+        logger.exception("Failed to scrape title with element 'h1'")
+        raise e
+
+    try:
+        article['body'] = pydoni.web.get_element_by_selector(url, '.entry-content p')
+        logger.info('Scraped body successfully, length %s paragraphs' % str(len(article['body'])))
+    except Exception as e:
+        logger.exception("Failed to scrape body with element 'h1'")
+        raise e
+
+    if article['title'] == ['404 Error']:
+        logger.critical("URL not found! Printed here: " + url)
+        raise Exception('404 URL not found!')
+
+    article = {k: '\n\n'.join(v) for k, v in article.items()}
+    article_text = "{}\n\n{}".format(article['title'], article['body'])
+
+    return article_text
