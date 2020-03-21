@@ -57,6 +57,8 @@ class Postgres(object):
         """
         Read ~/.pgpass file if it exists and extract Postgres credentials.
         """
+        import os
+
         pgpass_file = os.path.expanduser('~/.pgpass')
         if os.path.isfile(pgpass_file):
             with open(pgpass_file, 'r') as f:
@@ -86,8 +88,12 @@ class Postgres(object):
             from tqdm import tqdm
 
         self.logger.logvars(locals())
-        write_log = True if logfile is not None else False
-        assert isinstance(logfile, str)
+
+        if logfile is None:
+            write_log = False
+        else:
+            assert isinstance(logfile, str)
+            write_log = True
 
         if write_log:
             self.logger.info("Writing output to file: " + logfile)
@@ -130,7 +136,6 @@ class Postgres(object):
         :return: data queried from DB
         :rtype: DataFrame if 2D, Series if 1D
         """
-        
         import pandas as pd
 
         self.logger.logvars(locals())
@@ -467,10 +472,9 @@ class Postgres(object):
             columns = '*'
         
         sql = "select %s\nfrom information_schema.%s;" % (columns, infoschema_table)
-        df = self.read_sql(sql)
+        df = self.read_sql(sql, simplify=False)
 
-        self.logger.info("Retrieved information_schema.{} ({} rows, {} columns)".format(
-            infoschema_table, str(df.shape[0]), str(df.shape[1])))
+        self.logger.info("Retrieved information_schema.{}".format(infoschema_table))
 
         # Format known column datatypes
         bool_cols = ['is_nullable']
@@ -491,17 +495,16 @@ class Postgres(object):
         :return: list of column names
         :rtype: list
         """
-        
         self.logger.logvars(locals())
         
-        cols = self.infoschema(
-            columns=['"column_name"'],
-            infoschema_table='columns',
-            schema_filter=schema,
-            table_filter=table).squeeze().tolist()
+        df_cols = self.infoschema(
+            columns=['table_schema', 'table_name', '"column_name"'],
+            infoschema_table='columns')
         
-        self.logger.info('Columns retrieved from {schema}.{table}: {columns}'.format(**locals()))
-        
+        df_cols = df_cols.loc[(df_cols['table_schema'] == schema) & (df_cols['table_name'] == table)]
+        cols = df_cols['column_name'].squeeze().tolist()
+
+        self.logger.info('Columns retrieved from {schema}.{table}: {cols}'.format(**locals()))
         return cols
 
     def coldtypes(self, schema, table):
@@ -554,6 +557,7 @@ class Postgres(object):
         :param backup_dir_abspath: absolute path to directory to dump Postgres database to
         :type backup_dir_abspath: str
         """
+        import os
         
         self.logger.logvars(locals())
         
@@ -583,6 +587,7 @@ class Postgres(object):
         :param coerce_csv: read in each file outputted, then write as a quoted CSV
         :type coerce_csv: bool
         """
+        import os
         
         self.logger.logvars(locals())
 

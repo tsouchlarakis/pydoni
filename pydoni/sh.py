@@ -835,10 +835,9 @@ class AppleScript(object):
         self.execute(applescript)
 
 
-def find_binary(bin_name, bin_paths=['/usr/bin', '/usr/local/bin'], abort=False):
+def find_binary(bin_name, bin_paths=['/usr/bin', '/usr/local/bin'], abort=False, return_first=False):
     """
-    Find system binary by name. If multiple binaries found, return the binary from the first
-    path searched.
+    Find system binary by name. If multiple binaries found, return a list of binaries.
 
     Ex: find_binary('exiftool') will yield '/usr/local/exiftool' if exiftool installed, and
         it will return None if it's not installed
@@ -849,8 +848,10 @@ def find_binary(bin_name, bin_paths=['/usr/bin', '/usr/local/bin'], abort=False)
     :type bin_paths: list
     :param abort: raise FileNotFoundError if no binary found
     :type abort: bool
+    :param return_first: if multiple matches found, return first found binary as string
+    :type return_first: str
     :return: absolute path of found binary, else None
-    :rtype: str
+    :rtype: str or list if multiple matches found and `return_first` is False
     """
 
     import os
@@ -875,7 +876,13 @@ def find_binary(bin_name, bin_paths=['/usr/bin', '/usr/local/bin'], abort=False)
                 logger.info("Matching binary found %s" % match_item)
 
     if len(match) > 1:
-        logger.warn("Multiple matches found: %s. Returning the first." % str(match))
+        if return_first:
+            logger.warn("Multiple matches found, returning first: %s" % str(match))
+            return match[0]
+        else:
+            logger.warn("Multiple matches found: %s" % str(match))
+            return match
+
     elif len(match) == 0:
         if abort:
             raise FileNotFoundError("No binaries found for: " + bin_name)
