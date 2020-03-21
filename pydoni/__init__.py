@@ -635,6 +635,35 @@ def user_select_from_list(
         return out[0] if len(out) == 1 else out
 
 
+def user_select_from_list_inq(lst, msg='Select an option'):
+    """
+    Use PyInquirer module to prompt user to select an item or items from a list.
+
+    :param lst: options to choose from
+    :type lst: list
+    :return: selection from list
+    :rtype: str (default) or list
+    """
+    import PyInquirer as inq
+
+    style = inq.style_from_dict({
+        inq.Token.QuestionMark: '#E91E63 bold',
+        inq.Token.Selected    : '#673AB7 bold',
+        inq.Token.Instruction : '',
+        inq.Token.Answer      : '#2196f3 bold',
+        inq.Token.Question    : ''})
+
+    question = [{
+        'type': 'list',
+        'name': 'option',
+        'message': msg,
+        'choices': lst}]
+
+    selection = inq.prompt(question)['option']
+    
+    return selection
+
+
 def fmt_seconds(time_in_sec, units='auto', round_digits=4):
     """
     Format time in seconds to a custom string.
