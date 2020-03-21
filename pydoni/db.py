@@ -11,7 +11,7 @@ class Postgres(object):
     :type pg_dbname: str
     """
 
-    def __init__(self, pg_user, pg_dbname):
+    def __init__(self, pg_user=None, pg_dbname=None):
         
         self.logger = pydoni.logger_setup(
             name=pydoni.what_is_my_name(classname=self.__class__.__name__, with_modname=True),
@@ -34,13 +34,35 @@ class Postgres(object):
         :return: database connection
         :rtype: sqlalchemy DB connection
         """
-        
         import sqlalchemy
+
+        if self.dbuser is None and self.dbname is None:
+            # Try to parse ~/.pgpass file
+            hostname, port, pg_dbname, pg_user, pg_pass = self.read_pgpass()
+            if pg_dbname > '' and pg_user > '':
+                self.dbuser = pg_user
+                self.dbname = pg_dbname
+            else:
+                error_msg = 'Could not connect to Postgres database! Check your PG credentials' + \
+                ' and/or you ~/.pgpass file.'
+                self.logger.error(error_msg)
+                raise Exception(error_msg)
 
         con_str = "postgresql://%s@localhost:5432/%s" % (self.dbuser, self.dbname)
         self.logger.logvars(locals())
 
         return sqlalchemy.create_engine(con_str)
+
+    def read_pgpass(self):
+        """
+        Read ~/.pgpass file if it exists and extract Postgres credentials.
+        """
+        pgpass_file = os.path.expanduser('~/.pgpass')
+        if os.path.isfile(pgpass_file):
+            with open(pgpass_file, 'r') as f:
+                pgpass_contents = f.read()
+            
+            return pgpass_contents.split(':')
 
     def execute(self, sql, logfile=None, log_ts=False, progress=False):
         """
@@ -57,7 +79,6 @@ class Postgres(object):
         :return: True or None
         :rtype: bool
         """
-
         import os
         import sqlalchemy
 
