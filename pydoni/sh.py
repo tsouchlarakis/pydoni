@@ -669,9 +669,9 @@ class Git(object):
 
         :param dir: directory to check if git repo
         :type dir: str
-        :return: bool
+        :return: True if '.git' found in directory contents, False otherwise
+        :rtype: bool
         """
-
         import os
 
         self.logger.logvars(locals())
@@ -837,7 +837,8 @@ class AppleScript(object):
 
 def find_binary(bin_name, bin_paths=['/usr/bin', '/usr/local/bin'], abort=False, return_first=False):
     """
-    Find system binary by name. If multiple binaries found, return a list of binaries.
+    Find system binary by name. If multiple binaries found, return a list of binaries unless
+    `return_first` is True, in which case just return the first binary found.
 
     Ex: find_binary('exiftool') will yield '/usr/local/exiftool' if exiftool installed, and
         it will return None if it's not installed
@@ -877,10 +878,10 @@ def find_binary(bin_name, bin_paths=['/usr/bin', '/usr/local/bin'], abort=False,
 
     if len(match) > 1:
         if return_first:
-            logger.warn("Multiple matches found, returning first: %s" % str(match))
+            logger.warn("Multiple matches found for `{}`, returning first: {}".format(bin_name, str(match)))
             return match[0]
         else:
-            logger.warn("Multiple matches found: %s" % str(match))
+            logger.warn("Multiple matches found for `{}`: {}".format(bin_name, str(match)))
             return match
 
     elif len(match) == 0:
