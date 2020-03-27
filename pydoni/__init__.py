@@ -297,6 +297,9 @@ def ensurelist(val):
     """
     Accept a string or list and ensure that it is formatted as a list. If `val` is not a list,
     return [va]. If `val` is already a list, return as is.
+
+    :param val: value to coerce to list
+    :type val: any
     """
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     logger.logvars(locals())
