@@ -22,7 +22,7 @@ import sys
 
 # Module variables ---------------------------------------------------------------------------------
 
-modloglev = 'WARN'
+modloglev = logging.WARN
 
 # Module classes -----------------------------------------------------------------------------------
 
@@ -131,7 +131,7 @@ def logger_setup(name='root', level=modloglev):
         handler.setFormatter(formatter)
 
         logger.addHandler(handler)
-        logger.setLevel(getattr(logging, level))
+        logger.setLevel(modloglev)
 
     return logger
 
@@ -998,13 +998,14 @@ def test(value, dtype, return_coerced_value=False):
     :param value: value to test
     :type value: any
     :param dtype: datatype to test for, one of ['bool', 'date', 'datetime', 'int', 'float',
-        'str', 'file', 'filev', 'dir', 'dirv']
+        'str', 'string', 'file', 'filev', 'dir', 'dirv', 'path', 'path exists']
     :type dtype: str
     :param return_coerced_value: return `value` coerced to datatype `dtype`
     :type return_coerced_value: bool
     :return: True if value is of type `dtype`, False otherwise
     :rtype: bool
     """
+    import os
     import re
     import dateutil
     from datetime import datetime
@@ -1012,7 +1013,8 @@ def test(value, dtype, return_coerced_value=False):
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     logger.logvars(locals())
 
-    valid = ['bool', 'date', 'datetime', 'int', 'float', 'str', 'file', 'filev', 'dir', 'dirv']
+    valid = ['bool', 'date', 'datetime', 'int', 'float', 'str', 'string', 'file',
+             'filev', 'dir', 'dirv', 'path', 'path exists']
     assert dtype in valid
 
     if return_coerced_value:
@@ -1132,8 +1134,20 @@ def test(value, dtype, return_coerced_value=False):
                 if return_coerced_value:
                     return testval
 
-        elif dtype == 'str':
+        elif dtype in ['str', 'string']:
             testval = str(value)
+
+        elif dtype == 'path':
+            if '/' in value or value == '.':
+                return True
+            else:
+                return False
+
+        elif dtype == 'path exists':
+            if os.path.isfile(value) or os.path.isdir(value):
+                return True
+            else:
+                return False
 
         elif dtype in ['file', 'filev']:
             if os.path.isfile(os.path.expanduser(value)):
@@ -1150,7 +1164,9 @@ def test(value, dtype, return_coerced_value=False):
         return True
 
     except Exception as e:
+        logger.exception(str(e))
         return False
+
 
 
 def get_input(msg='Enter input', mode='str', indicate_mode=False):
