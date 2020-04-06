@@ -1233,6 +1233,7 @@ def join_audiofiles(audiofiles, targetfile, method=None, silence_between=0):
     :param silence_between: milliseconds of silence to insert between clips
     :type silence_between: int
     """
+    import os
 
     assert isinstance(silence_between, int)
     assert isinstance(audiofiles, list)

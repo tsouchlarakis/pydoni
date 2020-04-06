@@ -1164,9 +1164,8 @@ def test(value, dtype, return_coerced_value=False):
         return True
 
     except Exception as e:
-        logger.exception(str(e))
+        logger.info(str(e))
         return False
-
 
 
 def get_input(msg='Enter input', mode='str', indicate_mode=False):
@@ -1424,3 +1423,28 @@ def rename_dict_keys(d, key_dict):
             d[v] = d.pop(k)
 
     return d
+
+
+def append_filename_suffix(filename, suffix):
+    """
+    Add suffix string to filename before extension.
+
+    :param filename: Name of file to append suffix to.
+    :type filename: path exists
+    :param suffix: Suffix string to append to filename.
+    :type suffix: str
+    """
+    import os
+
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
+
+    base, ext = os.path.splitext(filename)
+    if ext == '.icloud':
+        ext_icloud = ext
+        base, ext = os.path.splitext(base)
+        ext += ext_icloud
+
+    return base + suffix + ext
+
+
