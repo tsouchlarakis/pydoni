@@ -506,33 +506,32 @@ class FFmpeg(object):
         files = pydoni.ensurelist(file)
         for f in files:
             if not os.path.isfile(f):
-                logger.error("File does not exist: " + f)
+                self.logger.error("File does not exist: " + f)
                 assert os.path.isfile(f)
 
         if outfile is not None:
-            outfiles = [outfile] if isinstance(outfile, str) else outfile
+            outfiles = pydoni.ensurelist(outfile)
             if len(files) != len(outfiles):
-                logger.error("Specified input and output filepaths are of different lengths")
+                self.logger.error("Specified input and output filepaths are of different lengths")
                 assert len(files) == len(outfiles)
 
-
         for i, f in enumerate(files):
-
-            if outfile is None:
-                tmpoutfile = os.path.splitext(f)[0] + '-COMPRESSED' + os.path.splitext(f)[1]
-            else:
-                tmpoutfile = outfiles[i]
+            tmpoutfile = pydoni.append_filename_suffix(f, '-COMPRESSED') if outfile is None else outfiles[i]
+            if os.path.isfile(tmpoutfile):
+                os.remove(tmpoutfile)
 
             try:
-                cmd = '{} -i "{}" -map 0:a:0 -b:a 32k "{}"'.format(self.bin, f, outfile)
-                logger.debug(cmd)
-                pydoni.syscmd(cmd)
-                logger.info("Compressed '%s' to '%s'" % (f, tmpoutfile))
-            except Exception as e:
-                if os.path.isfile(outfile):
-                    os.remove(outfile)
+                cmd = '{} -i "{}" -map 0:a:0 -b:a 32k "{}"'.format(self.bin, f, tmpoutfile)
+                self.logger.debug(cmd)
 
-                logger.exception('Failed to run FFMpeg to compress audiofile')
+                pydoni.syscmd(cmd)
+                self.logger.info("Compressed '%s' to '%s'" % (f, tmpoutfile))
+
+            except Exception as e:
+                if os.path.isfile(tmpoutfile):
+                    os.remove(tmpoutfile)
+
+                self.logger.exception('Failed to run FFMpeg to compress audiofile')
                 raise e
 
     def join(self, audiofiles, outfile):
