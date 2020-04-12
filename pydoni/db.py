@@ -165,7 +165,6 @@ class Postgres(object):
         :return: indicator as to whether python value is compatible with SQL datatype
         :rtype: bool
         """
-
         import pandas as pd
 
         self.logger.logvars(locals())
@@ -178,8 +177,8 @@ class Postgres(object):
             (infoschema['column_name'] == col)]
         infoschema = infoschema.squeeze().to_dict()
 
-        if val == 'NULL':
-            if infoschema['is_nullable'] is True:
+        if val == 'NULL' or val is None:
+            if bool(infoschema['is_nullable']) is True:
                 return True
             else:
                 self.logger.error("Value 'NULL' (dtype: {}) not allowed for column {}".format(
@@ -216,6 +215,8 @@ class Postgres(object):
             'boolean'                    : 'bool',
             'bool'                       : 'bool'}
 
+        if dtype == 'date':
+            import pdb;pdb.set_trace()
         # Get python equivalent of SQL column datatype according to dtype_map above
         python_dtype = [v for k, v in dtype_map.items() if dtype in k]
         if not len(python_dtype):
@@ -325,9 +326,10 @@ class Postgres(object):
             if validate:
                 test = self.validate_dtype(schema, table, col, val)
                 if not test:
-                    raise Exception('Dtype mismatch')
+                    dtype = type(val).__name__
+                    raise Exception("Dtype mismatch. Value: {val}, dtype: {dtype}, column: {col}".format(**locals()))
             
-            if str(val).lower() in ['nan', 'n/a', 'null', '']:
+            if str(val).lower() in ['nan', 'n/a', 'null', 'none', '']:
                 val = 'NULL'
 
             elif pydoni.test(val, 'bool') or pydoni.test(val, 'int') or pydoni.test(val, 'float'):
