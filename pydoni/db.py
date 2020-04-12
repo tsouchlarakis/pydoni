@@ -215,8 +215,6 @@ class Postgres(object):
             'boolean'                    : 'bool',
             'bool'                       : 'bool'}
 
-        if dtype == 'date':
-            import pdb;pdb.set_trace()
         # Get python equivalent of SQL column datatype according to dtype_map above
         python_dtype = [v for k, v in dtype_map.items() if dtype in k]
         if not len(python_dtype):
@@ -225,13 +223,20 @@ class Postgres(object):
             return False
         else:
             python_dtype = python_dtype[0]
+        true_python_dtype = type(val).__name__
 
         # Prepare message to be used in event of incompatible datatypes
         msg = 'Incompatible datatypes! SQL column {} has type `{}`, and Python value `{}` is of type `{}`.'.format(
             full_col, dtype, str(val), val.__class__.__name__)
 
         # Begin validation
-        if python_dtype == 'bool':
+        if true_python_dtype in ['date', 'datetime']:
+            if 'date' in dtype or 'timestamp' in dtype:
+                return True
+            else:
+                return False
+
+        elif python_dtype == 'bool':
             
             if isinstance(val, bool):
                 return True
@@ -402,9 +407,10 @@ class Postgres(object):
             if validate:
                 test = self.validate_dtype(schema, table, col, val)
                 if not test:
-                    raise Exception('Dtype mismatch')
+                    dtype = type(val).__name__
+                    raise Exception('Dtype mismatch. Value: {val}, Dtype: {}, Column: {col}'.format(**locals()))
 
-            if str(val) in ['nan', 'N/A', 'null', '']:
+            if str(val) in ['nan', 'N/A', 'null', 'none', '']:
                 val = 'null'
 
             elif pydoni.test(val, 'bool') or pydoni.test(val, 'int') or pydoni.test(val, 'float'):
