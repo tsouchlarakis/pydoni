@@ -540,8 +540,6 @@ def excel_to_csv(excel_file, outfile=None):
 
     :param excel_file {str} path to excel file to convert
     :param outfile {str} path to output CSV file
-
-    :return: nothing
     """
 
     import os
