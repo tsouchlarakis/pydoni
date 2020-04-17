@@ -777,7 +777,10 @@ class AppleScript(object):
     """
 
     def __init__(self):
-        pass
+        self.logger = pydoni.logger_setup(
+            name=pydoni.what_is_my_name(classname=self.__class__.__name__, with_modname=True),
+            level=pydoni.modloglev)
+        self.logger.logvars(locals())
 
     def execute(self, applescript):
         """
@@ -1183,7 +1186,7 @@ def osascript(applescript):
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
 
-    bin = pydoni.sh.find_binary('osascript')
+    bin_name = pydoni.sh.find_binary('osascript')
     applescript = applescript.replace("'", "\'")
 
     cmd = "{bin_name} -e '{applescript}'".format(**locals())
