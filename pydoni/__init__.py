@@ -455,7 +455,7 @@ def assert_len(varlist, varnames=None):
 
     if len(set(lengths)) > 1:
         if varnames is not None:
-            assert length(varlist) == length(varnames)
+            assert len(varlist) == len(varnames)
             logger.error("Unequal variable lengths: {}. Respective lengths are {}".format(
                 ', '.join("'" + click.style(item, fg='red', bold=True) + "'" for item in varnames),
                 ', '.join("'" + click.style(str(item), fg='red', bold=True) + "'" for item in lengths)))
@@ -830,16 +830,16 @@ def human_filesize(nbytes: int) -> str:
 
         if n < 9.95 and unit != 'B':
             # Less than 10 then keep 1 decimal place
-            value = "{:.1f}{}".format(n, unit)
+            value = "{:.1f} {}".format(n, unit)
             return value
 
         if round(n) < 1000:
             # Less than 4 digits so use this
-            value = "{}{}".format(round(n), unit)
+            value = "{} {}".format(round(n), unit)
             return value
 
         base *= 1024
-    value = "{}{}".format(round(n), unit)
+    value = "{} {}".format(round(n), unit)
 
     return value
 
@@ -1448,3 +1448,12 @@ def append_filename_suffix(filename, suffix):
     return base + suffix + ext
 
 
+def file_len(fname):
+    """
+    Get number of rows in a text file.
+    Source: https://stackoverflow.com/questions/845058/how-to-get-line-count-of-a-large-file-cheaply-in-python
+    """
+    with open(fname) as f:
+        for i, l in enumerate(f):
+            pass
+    return i + 1
