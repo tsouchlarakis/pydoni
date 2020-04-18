@@ -1457,3 +1457,21 @@ def file_len(fname):
         for i, l in enumerate(f):
             pass
     return i + 1
+
+
+def dirsize(start_path='.'):
+    """
+    Get size of directory in bytes.
+    Source: https://stackoverflow.com/questions/1392413/calculating-a-directorys-size-using-python
+    """
+    import os
+
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(start_path):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            # skip if it is symbolic link
+            if not os.path.islink(fp):
+                total_size += os.path.getsize(fp)
+
+    return total_size
