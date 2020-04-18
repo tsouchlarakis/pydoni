@@ -3,6 +3,7 @@
 **/*__pycache__/
 **/*.app/
 **/*.DS_Store
+**/*.pyc
 pydoni/scripts/*
 pydoni/scripts
 pydoni/apps/*

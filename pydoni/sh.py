@@ -620,6 +620,8 @@ class FFmpeg(object):
         :param m4a_file: path to file to convert to .mp3
         :type m4a_file: str
         """
+        import os
+        
         m4a_file = os.path.abspath(m4a_file)
         cmd = '{} -i "{}" -codec:v copy -codec:a libmp3lame -q:a 2 "{}.mp3"'.format(
             self.bin, m4a_file, os.path.splitext(m4a_file)[0])
@@ -640,12 +642,14 @@ class FFmpeg(object):
         :param fps: desired frames per second of output gif
         :type fps: int
         """
-
         import os
 
         outfile = giffile if giffile is not None else os.path.splitext(moviefile)[0] + '.gif'
         moviefile = os.path.abspath(moviefile)
         cmd = '{} -i "{}" -r {} "{}"'.format(self.bin, moviefile, str(fps), outfile)
+
+        if os.path.isfile(outfile):
+            os.remove(outfile)
 
         self.logger.logvars(locals())
         pydoni.syscmd(cmd)
