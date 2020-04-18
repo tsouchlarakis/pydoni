@@ -339,7 +339,6 @@ def unarchive(fpath, dest_dir):
     :param dest_dir: path to destination extract directory
     :type dest_dir: str
     """
-
     import zipfile
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
@@ -376,7 +375,6 @@ def macos_notify(
     :param open_iterm: overwrites 'command' parameter as 'open /Applications/iTerm.app'
     :type open_iterm: bool
     """
-
     import os
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
@@ -438,7 +436,6 @@ def find_drives(external_only=False):
     :return: list of attached drives
     :rtype: list
     """
-
     import os
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
@@ -471,7 +468,6 @@ def du_by_filetype(
     :param total {bool} display total filesize of directory as final line
     :return {dict}: dictionary in format {extension: filesyze}
     """
-
     import os
 
     if progress:
@@ -540,7 +536,6 @@ def excel_to_csv(excel_file, outfile=None):
     :param excel_file {str} path to excel file to convert
     :param outfile {str} path to output CSV file
     """
-
     import os
     import pandas as pd
 
@@ -579,7 +574,6 @@ def delete_empty_dirs(root, recursive=False, true_remove=False, count_hidden_fil
     :param count_hidden_files: count hidden files in evaluating whether directory is empty
     :type count_hidden_files: bool
     """
-
     import os
     import shutil
     from send2trash import send2trash
@@ -589,8 +583,9 @@ def delete_empty_dirs(root, recursive=False, true_remove=False, count_hidden_fil
     logger.info('Scanning for empty bottom-level dirs at: ' + root)
 
     def scan_dirs(dirs):
-        dirs_remove = []
+        import os
 
+        dirs_remove = []
         for dir in dirs:
             fulldir = os.path.join(root, dir)
             files_present = pydoni.listfiles(path=fulldir, include_hidden_files=count_hidden_files)
@@ -605,11 +600,13 @@ def delete_empty_dirs(root, recursive=False, true_remove=False, count_hidden_fil
     if not len(dirs_remove):
         logger.warn('No empty dirs found!')
 
+    actually_removed_dirs = []
     while len(dirs_remove):
         for dir in dirs_remove:
             try:
                 # shutil.rmtree(dir)
                 send2trash(dir)
+                actually_removed_dirs.append(dir)
                 logger.info('Deleted: ' + dir)
             except Exception as e:
                 logger.exception('Could not remove dir: ' + dir)
@@ -619,4 +616,4 @@ def delete_empty_dirs(root, recursive=False, true_remove=False, count_hidden_fil
         else:
             dirs_remove = []
 
-
+    return actually_removed_dirs
