@@ -608,7 +608,7 @@ class Postgres(object):
         :return: path to all dumped .csv files
         :rtype: list
         """
-        import os
+        import os, csv
         import pandas as pd
         
         self.logger.logvars(locals())
@@ -712,8 +712,7 @@ def colorize_sql(sql):
     :return: string with colorized SQL keywords embedded
     :rtype: str
     """
-
-    import click
+    import click, re
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     logger.logvars(locals())
@@ -850,7 +849,7 @@ def colorize_sql(sql):
         else:
             csql2.append(token)
 
-    self.logger.info("Colorized SQL")
+    logger.info("Colorized SQL")
     return ' '.join(csql2)
 
 

@@ -160,9 +160,10 @@ def ocr_image(imagefile, preprocess=None):
     :return: OCR text string
     :rtype: str
     """
-
     import cv2
     import pytesseract
+    import os
+    from PIL import Image
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     logger.logvars(locals())

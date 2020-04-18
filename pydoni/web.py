@@ -1,5 +1,5 @@
 import pydoni
-import pydoni.sh
+
 
 class Goodreads_Scrape(object):
     """
@@ -16,7 +16,7 @@ class Goodreads_Scrape(object):
             level=pydoni.modloglev)
 
         self.url_base = 'https://www.goodreads.com'
-        self.url_base_search = join(self.url_base, 'search?utf8=✓')
+        self.url_base_search = self.url_base + '/' + 'search?utf8=✓'
         
         self.bookdict = {
             'title': None,
@@ -146,7 +146,7 @@ class Goodreads_Scrape(object):
                 genres = [item.text.strip() for item in match]
                 genres = [re.sub(r'(\d),(\d)', r'\1\2', x) for x in genres]
                 genres = [re.sub(r'\d+ users', '', x) for x in genres]
-                genres = [re.sub('\s+', ' ', x).strip() for x in genres]
+                genres = [re.sub(r'\s+', ' ', x).strip() for x in genres]
                 return ';'.join(genres)
 
         return None
@@ -224,7 +224,7 @@ def get_element_by_xpath(url, xpath):
     :return: element value
     :rtype: str or list ir `attr` is specified
     """
-    import requests
+    import requests, html
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     logger.logvars(locals())
@@ -247,6 +247,7 @@ def downloadfile(url, destfile=None, method='requests'):
     :param method: method to use in downloading file, one of ['requests', 'curl']
     :type method: str
     """
+    import shutil, requests
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     logger.logvars(locals())
@@ -267,7 +268,7 @@ def downloadfile(url, destfile=None, method='requests'):
         else:
             cmd = 'curl -O "{}"'.format(url)
 
-        pydoni.sh.syscmd(cmd)
+        pydoni.syscmd(cmd)
 
 
 def download_audiobookslab(url, targetdir):
@@ -279,26 +280,27 @@ def download_audiobookslab(url, targetdir):
     :param targetdir: path to directory to download files to. Will be created if it doesn't exist
     :type targetdir: str
     """
+    import os
     from tqdm import tqdm
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     logger.logvars(locals())
 
-    if not isdir(targetdir):
-        mkdir(targetdir)
-    chdir(targetdir)
+    if not os.path.isdir(targetdir):
+        os.mkdir(targetdir)
+    os.chdir(targetdir)
 
     mp3_links = sorted(list(set(pydoni.web.get_element_by_selector(url, selector='audio'))))
     if len(mp3_links):
         with tqdm(total=len(mp3_links), unit='file') as pbar:
             for mp3_link in mp3_links:
-                pbar.set_postfix(file=basename(mp3_link))
+                pbar.set_postfix(file=os.path.basename(mp3_link))
                 pydoni.web.downloadfile(mp3_link, method='curl')
                 pbar.update(1)
     else:
         error_msg = "No audiobooks to download at URL '%s'" % url
-        self.logger.error(error_msg)
-        raise Exception(e)
+        logger.error(error_msg)
+        raise Exception(error_msg)
 
 
 def simple_get(url):

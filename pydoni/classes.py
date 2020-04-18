@@ -78,7 +78,7 @@ class ProgramEnv(object):
             else:
                 msg = "Specified path {} already exists and 'overwrite'".format(self.path) +\
                 " set to False. Continue with this path anyway?"
-                if not click.confirm():
+                if not click.confirm(msg):
                     error_msg = 'Must answer affirmatively!'
                     self.logger.fatal(error_msg)
                     raise Exception(error_msg)
@@ -98,6 +98,8 @@ class ProgramEnv(object):
         
         :rtype: nothing
         """
+        import os, shutil
+
         env_dest = os.path.join(self.path, os.path.basename(fname))
         shutil.copyfile(fname, env_dest)
         self.logger.info("Copied file '%s' to '%s'" % (fname, env_dest))
@@ -115,18 +117,19 @@ class ProgramEnv(object):
             include_hidden_files=False):
         """
         List files at given path.
-        SEE `pydoni.os.listfiles()` FOR DETAILED DOCUMENTATION OF ARGUMENTS
+        SEE `pydoni.listfiles()` FOR DETAILED DOCUMENTATION OF ARGUMENTS
         AND THEIR DATATYPES.
         """
-        fnames = pydoni.os.listfiles(
+        import os
+
+        fnames = pydoni.listfiles(
             path=path,
             pattern=pattern,
             full_names=full_names,
             recursive=recursive,
             ignore_case=ignore_case,
             include_hidden_files=include_hidden_files)
-        self.logger.info("Listed files at '%s', files found: %s" %  \
-            (os.getcwd(), str(len(fnames))))
+        self.logger.info("Listed files at '%s', files found: %s" %  (os.getcwd(), str(len(fnames))))
         return fnames
     
     def listdirs(
@@ -139,13 +142,14 @@ class ProgramEnv(object):
         List directories at given path.
         SEE `pydoni.os.listdirs()` FOR DETAILED DOCUMENTATION OF ARGUMENTS AND THEIR DATATYPES.
         """
-        dnames = pydoni.os.listdirs(
+        import os
+
+        dnames = pydoni.listdirs(
             path=path,
             pattern=pattern,
             full_names=full_names,
             recursive=recursive)
-        self.logger.info("Listed dirs at '%s', dirs found: %s" %  \
-            (os.getcwd(), str(len(dnames))))
+        self.logger.info("Listed dirs at '%s', dirs found: %s" %  (os.getcwd(), str(len(dnames))))
         return dnames
     
     def downloadfile(self, url, destfile):
@@ -181,6 +185,8 @@ class ProgramEnv(object):
         """
         Remove environment from filesystem.
         """
+        import os, shutil
+
         if os.path.isdir(self.path):
             self.logger.info("Deleting environment at '%s'" % self.path)
             os.chdir(os.path.dirname(self.path))
@@ -245,6 +251,8 @@ class DoniDt(object):
         Test if input string contains a date or datetime value.
         :rtype: {bool}
         """
+        import re
+
         m = [bool(re.search(pattern, self.val)) for pattern in self.rgx.__flatten__()]
         out = any(m)
         self.logger.info("Value '%s' does%s contain a date or datetime value" % \
