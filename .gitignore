@@ -9,4 +9,5 @@ pydoni/apps/*
 pydoni/apps
 **/scripts
 **/apps
-Icon
+Icon
+**/*in-progress
