@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import pydoni
+import pydoni.vb
 import logging
 import sys
 
@@ -547,7 +548,7 @@ def user_select_from_list(
         """
 
         def error_func(msg):
-            echo(msg, error=True)
+            pydoni.vb.echo(msg, error=True)
 
         # Test that input is valid mix of digits, hyphens and commas only
         if not re.match(r'^(\d|-|,)+$', uin_raw):
@@ -1184,6 +1185,7 @@ def get_input(msg='Enter input', mode='str', indicate_mode=False):
     :rtype: str
     """
     import re
+    import os
 
     assert mode in ['str', 'bool', 'date', 'int', 'float', 'file', 'filev', 'dir', 'dirv']
 
@@ -1250,6 +1252,7 @@ def get_input_inq(msg='Enter input', mode='str', indicate_mode=False):
     :rtype: str
     """
     import re
+    import os
     import PyInquirer as inq
 
     assert mode in ['str', 'bool', 'date', 'int', 'float', 'file', 'filev', 'dir', 'dirv']

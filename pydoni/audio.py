@@ -2,6 +2,7 @@ import pydoni
 import pydoni.os
 import pydoni.web
 
+
 class Audio:
     """
     Operate on an audio file.

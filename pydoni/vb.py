@@ -1,6 +1,7 @@
 import pydoni
 import pydoni.os
 
+
 def echo(
         msg,
         indent       = 0,
@@ -400,7 +401,3 @@ def line_messages(messages):
 
     for i, m in enumerate(messages, 1):
         trange(1, desc=str(m), position=i, bar_format='{desc}')
-
-
-import pydoni
-import pydoni.os

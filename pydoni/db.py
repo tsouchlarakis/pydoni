@@ -255,7 +255,7 @@ class Postgres(object):
             else:
                 if isinstance(val, str):
                     try:
-                        test = int(val)
+                        int(val)
                         return True
                     except:
                         pass
@@ -269,7 +269,7 @@ class Postgres(object):
                 if val == 'inf':
                     pass
                 try:
-                    test = float(val)
+                    float(val)
                     return True
                 except:
                     pass
@@ -358,12 +358,11 @@ class Postgres(object):
         else:
             sql = ' '.join(sql)
         
-        return sql.format(
-            schema,
-            table,
-            ', '.join(lst),
-            '"' + pkey_name + '"',
-            pkey_value)
+        return sql.format(schema,
+                          table,
+                          ', '.join(lst),
+                          '"' + pkey_name + '"',
+                          pkey_value)
 
     def build_insert(self, schema, table, columns, values, validate=False, newlines=False):
         """
@@ -887,4 +886,3 @@ def progrun_update(name, started, ended, args, res={}):
     pg.execute(pg.build_insert(**locals()))
 
     logger.info("Successfully inserted record into {schema}.{table}".format(**locals()))
-
