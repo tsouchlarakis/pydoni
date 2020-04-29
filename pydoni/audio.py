@@ -1,4 +1,7 @@
 import pydoni
+import pydoni.os
+import pydoni.web
+
 
 class Audio:
     """
@@ -27,7 +30,7 @@ class Audio:
         """
         Wrapper for `pydub.AudioSegment_from*()`. Create an audio file segment from local file.
         """
-
+        import os
         from pydub import AudioSegment
 
         if self.ext.lower() == '.mp3':
@@ -81,6 +84,7 @@ class Audio:
         :param outfile: path to output file to write. If None, replace `audiofile` on disk
         :type outfile: str
         """
+        import os
 
         wavfile = os.path.splitext(self.audiofile)[0] + '.wav'
         if outfile is None:
@@ -114,6 +118,7 @@ class Audio:
         :param num_channels: number of channels to convert audio segment to using `pydub.AudioSegment.set_channels()`
         :type num_channels: int
         """
+        import os
 
         self.logger.logvars(locals())
 
@@ -143,7 +148,8 @@ class Audio:
         :type gcs_split_threshold: intclass method `split()`
         :param apply_correction: if True, call apply_transcription_corrections() after transcript created
         :type apply_correction: bool
-        :param progress print tqdm progress bar
+        :param progress: print tqdm progress bar
+        :type progress: bool
         :return: transcription string
         :rtype: str
         """
@@ -153,8 +159,7 @@ class Audio:
         return pydoni.audio.transcribe(
             audiofile=self.audiofile,
             gcs_split_threshold=gcs_split_threshold,
-            apply_correction=apply_correction,
-            verbose=verbose)
+            apply_correction=apply_correction)
 
 
 class Song(object):
@@ -402,8 +407,8 @@ class Song(object):
         Get EXIF album value and apply any corrections.
         :return: str
         """
-
         import os
+        import re
 
         if 'album' in self.exif.keys():
             val = self.exif['album']
@@ -604,6 +609,7 @@ class Album(object):
         Get the number of discs in album.
         :return: int
         """
+        import re
 
         # Get first from song disc indices
         discs = list(filter(None, list(set(song_disc_idxs))))
@@ -667,7 +673,8 @@ class Album(object):
         Attempt to extract album year from directory name.
         :return: int or None
         """
-
+        import os
+        import re
         from datetime import datetime
 
         # Establish valid year ranges to check extracted year string against, from year
@@ -720,8 +727,9 @@ class Album(object):
         :return: genre string scraped from Wikipedia, may be comma-separated for multiple genres
         :rtype: str
         """
-
         import requests
+        import os
+        from send2trash import send2trash
 
         def search_google_for_album_wikipage(artist, year, album):
             """
@@ -734,8 +742,8 @@ class Album(object):
             :return: URL to Wikipedia page
             :rtype: str
             """
-
             import googlesearch
+            import re
 
             clean_album = re.sub(
                 r'(\[|\()(.*?)(\]|\))|CD\s*\d+|Disc\s*\d+', '', album, flags=re.IGNORECASE).strip()
@@ -758,6 +766,8 @@ class Album(object):
             :return: genre(s) parsed from Wikipedia page
             :rtype: str
             """
+            import re
+            from titlecase import titlecase
 
             # Scrape page for CSS selector
             genre = pydoni.web.get_element_by_selector(wikilink, '.category a')
@@ -785,9 +795,11 @@ class Album(object):
 
             :return:
             """
+            import os
+            import re
 
             # Get image xpath
-            img_xpath = get_element_by_xpath(
+            img_xpath = pydoni.web.get_element_by_xpath(
                 wikilink, xpath='//*[contains(concat( " ", @class, " " ), concat( " ", "image", " " ))]//img/@src')
             if img_xpath is None or not len(img_xpath):
                 return None
@@ -887,12 +899,13 @@ def transcribe(
     :return: transcription string
     :rtype: str
     """
-
-    assert method in ['gcs']
-
     import numpy as np
+    import re
+    import os
     from google.cloud import speech_v1p1beta1
     from tqdm import tqdm
+
+    assert method in ['gcs']
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
 
@@ -903,7 +916,6 @@ def transcribe(
 
     logger.info("Copying file '%s' to environment" % audiofile)
     env.copyfile(audiofile, set_focus=True)
-    # os.chdir(env.path)
 
     try:
         if method == 'gcs':
@@ -1025,8 +1037,6 @@ def transcribe(
         raise e
 
     env.delete_env()
-    if verbose:
-        pydoni.vb.program_complete('Transcription complete')
 
     return transcript
 
@@ -1050,6 +1060,8 @@ def apply_transcription_corrections(transcript):
         :return: transcript string
         :rtype: str
         """
+        import re
+
         dictation_map = {
             r'(\b|\s)(comma)(\s|\b)'            : r',\3',
             r'(\b|\s)(colon)(\s|\b)'            : r':\3',
@@ -1091,6 +1103,7 @@ def apply_transcription_corrections(transcript):
         :return: transcript string
         :rtype: str
         """
+        import re
 
         # Capitalize first letter of each sentence, split by newline character
         val = transcript
@@ -1104,7 +1117,7 @@ def apply_transcription_corrections(transcript):
             val = val.replace('make capital ', '')
 
         # Capitalize and concatenate letters following keyphrase 'make letter'. Ex: 'make letter a' -> 'A'
-        letter_idx = [m.start()+len('make letter')+1 for m in re.finditer('make letter', val)]
+        letter_idx = [m.start() + len('make letter') + 1 for m in re.finditer('make letter', val)]
         if len(letter_idx):
             for idx in letter_idx:
                 val = pydoni.cap_nth_char(val, idx)
@@ -1115,7 +1128,7 @@ def apply_transcription_corrections(transcript):
 
         # Capitalize letter following '?'
         if '? ' in val:
-            q_idx = [m.start()+len('? ') for m in re.finditer(r'\? ', val)]
+            q_idx = [m.start() + len('? ') for m in re.finditer(r'\? ', val)]
             for idx in q_idx:
                 val = pydoni.cap_nth_char(val, idx)
         return val
@@ -1129,6 +1142,7 @@ def apply_transcription_corrections(transcript):
         :return: transcript string
         :rtype: str
         """
+        import re
         return re.sub(r' +', ' ', transcript)
 
     def manual_corrections(transcript):
@@ -1140,6 +1154,7 @@ def apply_transcription_corrections(transcript):
         :return: transcript string
         :rtype: str
         """
+        import re
 
         # Regex word replacements
         dictation_map = {
@@ -1187,6 +1202,8 @@ def join_audiofiles_pydub(audiofiles, targetfile, silence_between):
     :param silence_between: milliseconds of silence to insert between clips
     :type silence_between: int
     """
+    import os
+    from pydub import AudioSegment
     
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
 
@@ -1273,6 +1290,7 @@ def split_audiofile(audiofile, segment_time):
     :return: list of split filenames
     :rtype: list
     """
+    import os
 
     assert os.path.isfile(audiofile)
     assert isinstance(segment_time, int)
@@ -1313,9 +1331,9 @@ def get_duration(audiofile):
     :return: duration of audio file in seconds
     :rtype: float
     """
-
     import contextlib
     import wave
+    import os
 
     assert os.path.splitext(audiofile)[1].lower() == '.wav'
 
@@ -1341,6 +1359,7 @@ def set_google_credentials(google_application_credentials_json):
     :param google_application_credentials_json: path to google application credentials file
     :type google_application_credentials_json: str
     """
+    import os
     
     assert(os.path.isfile(google_application_credentials_json))
     

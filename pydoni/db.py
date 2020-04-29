@@ -1,4 +1,5 @@
 import pydoni
+import pydoni.sh
 
 
 class Postgres(object):
@@ -254,7 +255,7 @@ class Postgres(object):
             else:
                 if isinstance(val, str):
                     try:
-                        test = int(val)
+                        int(val)
                         return True
                     except:
                         pass
@@ -268,7 +269,7 @@ class Postgres(object):
                 if val == 'inf':
                     pass
                 try:
-                    test = float(val)
+                    float(val)
                     return True
                 except:
                     pass
@@ -357,12 +358,11 @@ class Postgres(object):
         else:
             sql = ' '.join(sql)
         
-        return sql.format(
-            schema,
-            table,
-            ', '.join(lst),
-            '"' + pkey_name + '"',
-            pkey_value)
+        return sql.format(schema,
+                          table,
+                          ', '.join(lst),
+                          '"' + pkey_name + '"',
+                          pkey_value)
 
     def build_insert(self, schema, table, columns, values, validate=False, newlines=False):
         """
@@ -558,44 +558,57 @@ class Postgres(object):
         
         return df
 
-    def dump(self, backup_dir_abspath):
+    def dump(self, backup_dir):
         """
         Execute pg_dump command on connected database. Create .sql backup file.
         
-        :param backup_dir_abspath: absolute path to directory to dump Postgres database to
-        :type backup_dir_abspath: str
+        :param backup_dir: absolute path to directory to dump Postgres database to
+        :type backup_dir: str
+        :return: path to output .sql dump file
+        :rtype: str
         """
         import os
         
         self.logger.logvars(locals())
         
-        backup_dir_abspath = os.path.expanduser(backup_dir_abspath)
-        assert os.path.isdir(backup_dir_abspath)
+        backup_dir = os.path.expanduser(backup_dir)
+        assert os.path.isdir(backup_dir)
 
         bin = pydoni.sh.find_binary('pg_dump', abort=True)
-        cmd = '{bin} {self.dbname} > "{backup_dir_abspath}/{self.dbname}.sql"'.format(**locals())
+        outfile = "{backup_dir}/{self.dbname}.sql".format(**locals())
+        cmd = '{bin} --user {self.dbuser} {self.dbname} > "{outfile}"'.format(**locals())
         
         self.logger.var('bin', bin)
         self.logger.var('cmd', cmd)
 
-        pydoni.syscmd(cmd)
-        self.logger.info("Dumped database to dir: " + backup_dir_abspath)
+        out = pydoni.syscmd(cmd)
+        if not isinstance(out, int):
+            out = out.decode('utf-8')
+            if 'FATAL' in out:
+                raise Exception(out.strip())
 
-    def dump_tables(self, backup_dir_abspath, sep=',', coerce_csv=False):
+        self.logger.info("Dumped database to dir: " + backup_dir)
+
+        return outfile
+
+    def dump_tables(self, backup_dir, sep=',', coerce_csv=False):
         """
         Dump each table in database to a textfile with specified separator.
         
         Source:
             https://stackoverflow.com/questions/17463299/export-database-into-csv-file?answertab=oldest#tab-top
         
-        :param backup_dir_abspath: absolute path to directory to dump Postgres database to
-        :type backup_dir_abspath: str
+        :param backup_dir: absolute path to directory to dump Postgres database to
+        :type backup_dir: str
         :param sep: output datafile separator, defaults to comma
         :type sep: str
         :param coerce_csv: read in each file outputted, then write as a quoted CSV
         :type coerce_csv: bool
+        :return: path to all dumped .csv files
+        :rtype: list
         """
-        import os
+        import os, csv
+        import pandas as pd
         
         self.logger.logvars(locals())
 
@@ -613,7 +626,7 @@ class Postgres(object):
                AND t.table_type NOT IN ('VIEW')
            ORDER BY schema_table
         LOOP
-           statement := 'COPY ' || tables.schema_table || ' TO ''' || path || '/' || tables.schema_table || '.csv' ||''' DELIMITER ''{sep}'' CSV HEADER';
+           statement := 'COPY ' || tables.schema_table || ' TO ''' || path || '/' || tables.schema_table || '.tmpcsv' ||''' DELIMITER ''{sep}'' CSV HEADER';
            EXECUTE statement;
         END LOOP;
         RETURN;  
@@ -623,7 +636,7 @@ class Postgres(object):
 
         # Execute function, dumping each table to a textfile.
         # Function is used as follows: SELECT db_to_csv('/path/to/dump/destination');
-        self.execute("select db_to_csv('{}')".format(backup_dir_abspath))
+        self.execute("select db_to_csv('{}')".format(backup_dir))
         self.logger.info("Successfully dumped database")
 
         # If coerce_csv is True, read in each file outputted, then write as a quoted CSV.
@@ -631,7 +644,7 @@ class Postgres(object):
         if coerce_csv:
             if sep != ',':
                 owd = os.getcwd()
-                os.chdir(backup_dir_abspath)
+                os.chdir(backup_dir)
 
                 # Get tables that were dumped and build filenames
                 get_dumped_tables = """
@@ -661,6 +674,17 @@ class Postgres(object):
             else:
                 self.logger.warn("`coerce_csv` is True but desired sep is not a comma!")
 
+        # Get tables that were just dumped and return their filenames
+        dumped_files_tmpcsv = pydoni.listfiles(path=backup_dir, ext='tmpcsv', full_names=True)
+        dumped_files = []
+        for tmpcsvfile in dumped_files_tmpcsv:
+            newfilename = os.path.splitext(tmpcsvfile)[0] + '.csv'
+            os.rename(tmpcsvfile, newfilename)
+            dumped_files.append(newfilename)
+
+        return dumped_files
+
+
     def __single_quote__(self, val):
         """
         Escape single quotes and put single quotes around value if string value.
@@ -687,8 +711,7 @@ def colorize_sql(sql):
     :return: string with colorized SQL keywords embedded
     :rtype: str
     """
-
-    import click
+    import click, re
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     logger.logvars(locals())
@@ -825,7 +848,7 @@ def colorize_sql(sql):
         else:
             csql2.append(token)
 
-    self.logger.info("Colorized SQL")
+    logger.info("Colorized SQL")
     return ' '.join(csql2)
 
 
@@ -863,4 +886,3 @@ def progrun_update(name, started, ended, args, res={}):
     pg.execute(pg.build_insert(**locals()))
 
     logger.info("Successfully inserted record into {schema}.{table}".format(**locals()))
-

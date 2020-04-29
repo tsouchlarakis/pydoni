@@ -1,4 +1,5 @@
 import pydoni
+import pydoni.vb
 
 
 class EXIF(object):
@@ -285,11 +286,11 @@ class EXIF(object):
 
         self._is_valid_tag_name(tags)
 
-        self.logger.info("Files to write EXIF metadata to: " + str(len(files)))
+        self.logger.info("Files to write EXIF metadata to: " + str(len(self.fpath)))
         self.logger.info("Tags to write: " + str(tags))
         self.logger.info("Values to write: " + str(values))
 
-        for file in files:
+        for file in self.fpath:
             self.logger.info("File: " + file)
 
             for tag, value in zip(tags, values):
@@ -350,10 +351,10 @@ class EXIF(object):
 
         self._is_valid_tag_name(tags)
 
-        self.logger.info("Files to remove EXIF metadata from: " + str(len(files)))
+        self.logger.info("Files to remove EXIF metadata from: " + str(len(self.fpath)))
         self.logger.info("Tags to remove: " + str(tags))
 
-        for file in files:
+        for file in self.fpath:
             self.logger.info("File: " + file)
 
             for tag in tags:
@@ -620,6 +621,8 @@ class FFmpeg(object):
         :param m4a_file: path to file to convert to .mp3
         :type m4a_file: str
         """
+        import os
+        
         m4a_file = os.path.abspath(m4a_file)
         cmd = '{} -i "{}" -codec:v copy -codec:a libmp3lame -q:a 2 "{}.mp3"'.format(
             self.bin, m4a_file, os.path.splitext(m4a_file)[0])
@@ -640,12 +643,14 @@ class FFmpeg(object):
         :param fps: desired frames per second of output gif
         :type fps: int
         """
-
         import os
 
         outfile = giffile if giffile is not None else os.path.splitext(moviefile)[0] + '.gif'
         moviefile = os.path.abspath(moviefile)
         cmd = '{} -i "{}" -r {} "{}"'.format(self.bin, moviefile, str(fps), outfile)
+
+        if os.path.isfile(outfile):
+            os.remove(outfile)
 
         self.logger.logvars(locals())
         pydoni.syscmd(cmd)
@@ -749,6 +754,8 @@ class Git(object):
         :param msg: commit message
         :type msg: str
         """
+        import subprocess
+
         self.logger.var('msg', msg)
         cmd = "git commit -m '{}';".format(msg)
         self.logger.var('cmd', cmd)
@@ -758,6 +765,8 @@ class Git(object):
         """
         Execute 'git push'.
         """
+        import subprocess
+
         cmd = "git push;"
         self.logger.var('cmd', cmd)
         subprocess.call(cmd, shell=True)
@@ -766,6 +775,8 @@ class Git(object):
         """
         Execute 'git pull'.
         """
+        import subprocess
+
         cmd = "git pull;"
         self.logger.var('cmd', cmd)
         subprocess.call(cmd, shell=True)
@@ -777,7 +788,10 @@ class AppleScript(object):
     """
 
     def __init__(self):
-        pass
+        self.logger = pydoni.logger_setup(
+            name=pydoni.what_is_my_name(classname=self.__class__.__name__, with_modname=True),
+            level=pydoni.modloglev)
+        self.logger.logvars(locals())
 
     def execute(self, applescript):
         """
@@ -955,6 +969,7 @@ def stat(fname):
                 ChangeDate
     :rtype: dict
     """
+    import os
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     logger.logvars(locals())
@@ -968,26 +983,26 @@ def stat(fname):
             datestring: string containing date
             :type datestring: str
         """
-
         import os
+        from datetime import datetime
 
-        self.logger.logvars(locals())
+        logger.logvars(locals())
 
         try:
-            dt = datetime.datetime.strptime(datestring, '%a %b %d %H:%M:%S %Y')
+            dt = datetime.strptime(datestring, '%a %b %d %H:%M:%S %Y')
             logger.var('dt', dt)
             return dt.strftime('%Y-%m-%d %H:%M:%S')
 
         except Exception as e:
-            echo("Unable to parse date string {} for {} (original date string returned)". \
-                format(clickfmt(datestring, 'date'), clickfmt(fname, 'filename')),
+            pydoni.vb.echo("Unable to parse date string '{datestring}' for '{fname}' (original date string returned)".format(**locals()),
                 warn=True, error_msg=str(e))
             return datestring
 
     assert os.path.isfile(fname)
 
     # Get output of `stat` command and clean for python list
-    cmd = 'stat -x "{}"'.format(fname)
+    bin_path = pydoni.sh.find_binary('stat')
+    cmd = '{bin_name} -x "{fname}"'.format(**locals())
     res = pydoni.syscmd(cmd, encoding='utf-8')
     res = [x.strip() for x in res.split('\n')]
 
@@ -1027,8 +1042,8 @@ def stat(fname):
 
         except Exception as e:
             out[item] = '<pydoni.sh.stat() ERROR: %s>' % str(e)
-            self.logger.exception("Error extracting key '%s' from stat output. Error message:" % item)
-            self.logger.debug(str(e))
+            logger.exception("Error extracting key '%s' from stat output. Error message:" % item)
+            logger.debug(str(e))
 
     return out
 
@@ -1077,7 +1092,6 @@ def convert_audible(fpath, fmt, activation_bytes):
                              activation byte string
     :type activation_bytes: str
     """
-
     import os
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
@@ -1107,7 +1121,7 @@ def convert_audible(fpath, fmt, activation_bytes):
 
     # Convert to mp3 if specified
     if fmt == 'mp3':
-        self.logger.info('Converting MP4 to MP3 at 256k: ' + outfile)
+        logger.info('Converting MP4 to MP3 at 256k: ' + outfile)
         mp4_to_mp3(outfile, bitrate=256)
 
 
@@ -1120,8 +1134,7 @@ def mp4_to_mp3(fpath, bitrate):
     :param bitrate: bitrate to export as, may also be as string for example '192k'
     :type bitrate: int
     """
-
-    import os
+    import os, re
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     logger.logvars(locals())
@@ -1150,7 +1163,6 @@ def split_video_scenes(vfpath, outdname):
     :return: True if run successfully, False if run unsuccessfully
     :rtype: bool
     """
-
     import os
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
@@ -1159,15 +1171,16 @@ def split_video_scenes(vfpath, outdname):
     assert os.path.isfile(vfpath)
     assert os.isdir(outdname)
 
-    cmd = 'scenedetect --input "{}" --output "{}" detect-content split-video'.format(vfpath, outdname)
+    bin_path = pydoni.sh.find_binary('scenedetect')
+    cmd = '{bin_name} --input "{vpath}" --output "{outdname}" detect-content split-video'.format(**locals())
     logger.var('cmd', cmd)
 
     try:
         pydoni.syscmd(cmd)
         return True
     except Exception as e:
-        self.logger.exception('Failed to split video scenes')
-        self.logger.debug(str(e))
+        logger.exception('Failed to split video scenes')
+        logger.debug(str(e))
         return False
 
 
@@ -1183,7 +1196,7 @@ def osascript(applescript):
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
 
-    bin = pydoni.sh.find_binary('osascript')
+    bin_name = pydoni.sh.find_binary('osascript')
     applescript = applescript.replace("'", "\'")
 
     cmd = "{bin_name} -e '{applescript}'".format(**locals())

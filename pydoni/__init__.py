@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import pydoni
+import pydoni.vb
 import logging
 import sys
 
@@ -37,7 +38,7 @@ class ExtendedLogger(logging.Logger):
     """
 
     def __init__(self, name, level=logging.NOTSET):
-        
+
         import threading
 
         self._count = 0
@@ -63,13 +64,13 @@ class ExtendedLogger(logging.Logger):
         dtype = value.__class__.__name__
         value = str(value)
         msg = 'Var {varname} {{{dtype}}}: {value}'.format(**locals())
-        
+
         if dtype == 'module' and not include_modules:
             return None
 
         if 'ExtendedLogger' in dtype and not include_extended_logger:
             return None
-        
+
         return super(ExtendedLogger, self).debug(msg)
 
     def logvars(self, var_dict):
@@ -348,7 +349,7 @@ def print_apple_ascii_art(by_line=False, by_char=False, sleep=0):
 def systime(stripchars=False):
     """
     Get the current datetime formatted as a string.
-    
+
     :param stripchars: strip dashes and colons from datetime string and return YYYYMMDD_HHMMSS
     :type stripchars: bool
     :return: system time formatted as string
@@ -385,7 +386,7 @@ def naturalsort(lst):
     """
     Sort a list with numeric elements, numerically.
     Source: https://stackoverflow.com/questions/5967500/how-to-correctly-sort-a-string-with-a-number-inside
-    
+
     :param lst: list to sort
     :type lst: list
     :return: list in naturally sorted order
@@ -455,7 +456,7 @@ def assert_len(varlist, varnames=None):
 
     if len(set(lengths)) > 1:
         if varnames is not None:
-            assert length(varlist) == length(varnames)
+            assert len(varlist) == len(varnames)
             logger.error("Unequal variable lengths: {}. Respective lengths are {}".format(
                 ', '.join("'" + click.style(item, fg='red', bold=True) + "'" for item in varnames),
                 ', '.join("'" + click.style(str(item), fg='red', bold=True) + "'" for item in lengths)))
@@ -547,7 +548,7 @@ def user_select_from_list(
         """
 
         def error_func(msg):
-            echo(msg, error=True)
+            pydoni.vb.echo(msg, error=True)
 
         # Test that input is valid mix of digits, hyphens and commas only
         if not re.match(r'^(\d|-|,)+$', uin_raw):
@@ -663,7 +664,7 @@ def user_select_from_list_inq(lst, msg='Select an option'):
         'choices': lst}]
 
     selection = inq.prompt(question)['option']
-    
+
     return selection
 
 
@@ -830,16 +831,16 @@ def human_filesize(nbytes: int) -> str:
 
         if n < 9.95 and unit != 'B':
             # Less than 10 then keep 1 decimal place
-            value = "{:.1f}{}".format(n, unit)
+            value = "{:.1f} {}".format(n, unit)
             return value
 
         if round(n) < 1000:
             # Less than 4 digits so use this
-            value = "{}{}".format(round(n), unit)
+            value = "{} {}".format(round(n), unit)
             return value
 
         base *= 1024
-    value = "{}{}".format(round(n), unit)
+    value = "{} {}".format(round(n), unit)
 
     return value
 
@@ -1184,6 +1185,7 @@ def get_input(msg='Enter input', mode='str', indicate_mode=False):
     :rtype: str
     """
     import re
+    import os
 
     assert mode in ['str', 'bool', 'date', 'int', 'float', 'file', 'filev', 'dir', 'dirv']
 
@@ -1250,6 +1252,7 @@ def get_input_inq(msg='Enter input', mode='str', indicate_mode=False):
     :rtype: str
     """
     import re
+    import os
     import PyInquirer as inq
 
     assert mode in ['str', 'bool', 'date', 'int', 'float', 'file', 'filev', 'dir', 'dirv']
@@ -1339,10 +1342,10 @@ def continuous_prompt(msg, mode='str', indicate_mode=False, use_inq=False):
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     logger.logvars(locals())
-    
+
     uin = 'TMP'
     all_input = []
-    
+
     while uin > '':
         if use_inq:
             uin = get_input_inq(msg=msg, mode=mode, indicate_mode=indicate_mode)
@@ -1448,3 +1451,53 @@ def append_filename_suffix(filename, suffix):
     return base + suffix + ext
 
 
+def file_len(fname):
+    """
+    Get number of rows in a text file.
+    Source: https://stackoverflow.com/questions/845058/how-to-get-line-count-of-a-large-file-cheaply-in-python
+    """
+    with open(fname) as f:
+        for i, l in enumerate(f):
+            pass
+    return i + 1
+
+
+def dirsize(start_path='.'):
+    """
+    Get size of directory in bytes.
+    Source: https://stackoverflow.com/questions/1392413/calculating-a-directorys-size-using-python
+    """
+    import os
+
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(start_path):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            # skip if it is symbolic link
+            if not os.path.islink(fp):
+                total_size += os.path.getsize(fp)
+
+    return total_size
+
+
+def pydonicli_register_backend_vars(program_name=None, args=None, result=None):
+    """
+    Register the 'args' and 'result' variables if present to be logged to the CLI's backend.
+    """
+    pydoni.pydonicli_program_name = program_name
+    pydoni.pydonicli_args = args
+    pydoni.pydonicli_result = result
+
+
+def pydonicli_declare_args_and_result(var_dict):
+    """
+    Filter `locals()` dictionary to only variables, and return empty dictionary for `result`.
+    """
+    vars_only = {}
+    for k, v in var_dict.items():
+        dtype = v.__class__.__name__
+        if dtype not in ['module', 'function']:
+            vars_only[k] = v
+
+    result = {}
+    return vars_only, result

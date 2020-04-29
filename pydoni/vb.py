@@ -1,6 +1,7 @@
 import pydoni
 import pydoni.os
 
+
 def echo(
         msg,
         indent       = 0,
@@ -91,6 +92,7 @@ def echo(
     """
     import click
     import time
+    import os
     from datetime import datetime
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
@@ -227,6 +229,7 @@ def print_columns(lst, ncol=2, delay=None):
     :param delay: delay this many seconds after each line is printed
     :type delay: int or float
     """
+    import time
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     logger.logvars(locals())
@@ -398,7 +401,3 @@ def line_messages(messages):
 
     for i, m in enumerate(messages, 1):
         trange(1, desc=str(m), position=i, bar_format='{desc}')
-
-
-import pydoni
-import pydoni.os

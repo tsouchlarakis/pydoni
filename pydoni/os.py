@@ -1,5 +1,6 @@
 import pydoni
 import pydoni.sh
+import pydoni.db
 
 
 class FinderMacOS(object):
@@ -13,7 +14,8 @@ class FinderMacOS(object):
     def __init__(self):
 
         self.bin_mdls = pydoni.sh.find_binary('mdls')
-        self.bin_mdls_osa = pydoni.sh.find_binary('osascript')
+        self.bin_osa = pydoni.sh.find_binary('osascript')
+        self.bin_tag = pydoni.sh.find_binary('tag')
 
         self.logger = pydoni.logger_setup(
             name=pydoni.what_is_my_name(classname=self.__class__.__name__, with_modname=True),
@@ -40,6 +42,8 @@ class FinderMacOS(object):
         :return: file's comment
         :rtype: str
         """
+        import os
+
         self.logger.info('Getting comment from file: ' + fpath)
 
         cmd = '%s -r -nullMarker "" -n kMDItemFinderComment "%s"' % (self.bin_mdls, fpath)
@@ -48,7 +52,7 @@ class FinderMacOS(object):
         res = pydoni.syscmd(cmd, encoding='utf-8')
         self.logger.var('res', res)
 
-        if 'could not find ' + basename(fpath) in res:
+        if 'could not find ' + os.path.basename(fpath) in res:
             self.logger.error('Could not find Finder comment')
             res = ''
 
@@ -65,6 +69,8 @@ class FinderMacOS(object):
         :return: True if successful, False otherwise
         :rtype: bool
         """
+        import os, re
+
         self.logger.info("Setting comment '%s' on file: %s" % (comment, fpath))
 
         cmd = '%s -e' % self.bin_osa
@@ -75,7 +81,7 @@ class FinderMacOS(object):
             'set the_file to filepath as alias',
             'tell application "Finder" to set the comment of the_file to "{comment}"'
         ])
-        self.logger.var('applescript', applescripdt)
+        self.logger.var('applescript', applescript)
 
         applescript_clear = applescript.format(file=fpath, comment='test')
         applescript_set = applescript.format(file=fpath, comment=comment)
@@ -111,6 +117,9 @@ class FinderMacOS(object):
         :return: True if successful, False otherwise
         :rtype: bool
         """
+        import re
+        import os
+
         self.logger.info('Removing comment from file: ' + fpath)
 
         cmd = '%s -e' % self.bin_osa
@@ -122,7 +131,7 @@ class FinderMacOS(object):
             'tell application "Finder" to set the comment of the_file to "{comment}"'
         ])
         applescript = re.sub(r'"', r'\"', applescript)
-        self.logger.var('applescript', applescripdt)
+        self.logger.var('applescript', applescript)
 
         try:
             cmd_exec = cmd + ' "' + applescript + '"'
@@ -163,21 +172,15 @@ class FinderMacOS(object):
 
         return tags
 
-    def write_tag(self, tag):
+    def write_tag(self, fpath, tag):
         """
         Write Finder tag or tags to a file. Requires Jdberry's 'tag' command line utility to
         be installed. Install here: https://github.com/jdberry/tag
-
-        Arguments:
-            tag {str} or {list} -- string or list of finder tags. Usually one or more of 'Red', 'Orange', 'Yellow', ...
-
-        Returns:
-            {bool}
         """
         tag = [tag] if isinstance(tag, str) else tag
         res = []
         for tg in tag:
-            z = pydoni.syscmd('tag --add "%s" "%s"' % (tg, fpath))
+            z = pydoni.syscmd('%s --add "%s" "%s"' % (self.bin_tag, tg, fpath))
             res.append(z)
         if len(list(set(res))) == 1:
             if list(set(res)) == [0]:
@@ -187,26 +190,20 @@ class FinderMacOS(object):
         else:
             return False
 
-    def remove_tag(self, tag):
+    def remove_tag(self, fpath, tag):
         """
         Remove a Finder tag or tags from a file. Requires Jdberry's 'tag' command line utility to
         be installed. Install here: https://github.com/jdberry/tag
-
-        Arguments:
-            tag {str} or {list} -- name(s) of Finder tags to remove
-
-        Returns:
-            {bool}
         """
 
         if tag == 'all':
-            tag = self.get_tag()
+            tag = self.get_tag(fpath)
         elif isinstance(tag, str):
             tag = [tag]
 
         res = []
         for tg in tag:
-            z = pydoni.syscmd('tag --remove "%s" "%s"' % (tg, fpath))
+            z = pydoni.syscmd('%s --remove "%s" "%s"' % (self.bin_tag, tg, fpath))
             res.append(z)
 
         if len(list(set(res))) == 1:
@@ -237,11 +234,13 @@ class TMBackup(object):
         :return: (drive name, last TM backup date)
         :rtype: tuple
         """
+        import os
+
         out = pydoni.syscmd('%s latestbackup' % self.bin).decode('utf-8').strip()
 
         try:
-            lastdate = basename(out)
-            lastdate = datetime.strptime(lastdate, '%Y-%m-%d-%H%M%S')
+            lastdate = os.path.basename(out)
+            lastdate = os.path.datetime.strptime(lastdate, '%Y-%m-%d-%H%M%S')
             lastdate = lastdate.strftime('%Y-%m-%d %H:%M:%S')
             lastdrive = out.split('/Backups.backupdb')[0]
 
@@ -283,8 +282,9 @@ class TMBackup(object):
         :param pg_table: target schema containing `pg_table`
         :type pg_table: str
         """
+        from datetime import datetime
 
-        pg = Postgres(pg_user=pg_user, pg_dbname=pg_dbname)
+        pg = pydoni.db.Postgres(pg_user=pg_user, pg_dbname=pg_dbname)
         lastdrive, lastdate = self.parse_latestbackup()
 
         if lastdrive is not None and lastdate is not None:
@@ -309,13 +309,12 @@ def assert_dpath(dpaths=[], abort=True):
     :return: True if all directories exist, False otherwise
     :rtype bool:
     """
-
     import os
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     logger.logvars(locals())
 
-    dpaths = [expanduser(x) for x in pydoni.ensurelist(dpaths)]
+    dpaths = [os.path.expanduser(x) for x in pydoni.ensurelist(dpaths)]
     res = [(d, os.path.isdir(d)) for d in dpaths]
 
     for d, exists in res:
@@ -340,7 +339,6 @@ def unarchive(fpath, dest_dir):
     :param dest_dir: path to destination extract directory
     :type dest_dir: str
     """
-
     import zipfile
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
@@ -377,7 +375,6 @@ def macos_notify(
     :param open_iterm: overwrites 'command' parameter as 'open /Applications/iTerm.app'
     :type open_iterm: bool
     """
-
     import os
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
@@ -439,7 +436,6 @@ def find_drives(external_only=False):
     :return: list of attached drives
     :rtype: list
     """
-
     import os
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
@@ -472,7 +468,6 @@ def du_by_filetype(
     :param total {bool} display total filesize of directory as final line
     :return {dict}: dictionary in format {extension: filesyze}
     """
-
     import os
 
     if progress:
@@ -540,10 +535,7 @@ def excel_to_csv(excel_file, outfile=None):
 
     :param excel_file {str} path to excel file to convert
     :param outfile {str} path to output CSV file
-
-    :return: nothing
     """
-
     import os
     import pandas as pd
 
@@ -582,7 +574,6 @@ def delete_empty_dirs(root, recursive=False, true_remove=False, count_hidden_fil
     :param count_hidden_files: count hidden files in evaluating whether directory is empty
     :type count_hidden_files: bool
     """
-
     import os
     import shutil
     from send2trash import send2trash
@@ -592,8 +583,9 @@ def delete_empty_dirs(root, recursive=False, true_remove=False, count_hidden_fil
     logger.info('Scanning for empty bottom-level dirs at: ' + root)
 
     def scan_dirs(dirs):
-        dirs_remove = []
+        import os
 
+        dirs_remove = []
         for dir in dirs:
             fulldir = os.path.join(root, dir)
             files_present = pydoni.listfiles(path=fulldir, include_hidden_files=count_hidden_files)
@@ -608,11 +600,13 @@ def delete_empty_dirs(root, recursive=False, true_remove=False, count_hidden_fil
     if not len(dirs_remove):
         logger.warn('No empty dirs found!')
 
+    actually_removed_dirs = []
     while len(dirs_remove):
         for dir in dirs_remove:
             try:
                 # shutil.rmtree(dir)
                 send2trash(dir)
+                actually_removed_dirs.append(dir)
                 logger.info('Deleted: ' + dir)
             except Exception as e:
                 logger.exception('Could not remove dir: ' + dir)
@@ -622,4 +616,4 @@ def delete_empty_dirs(root, recursive=False, true_remove=False, count_hidden_fil
         else:
             dirs_remove = []
 
-
+    return actually_removed_dirs
