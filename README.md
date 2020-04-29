@@ -1,10 +1,10 @@
 <div style="display: flex; justify-content: center;">
-  <img src="img/pydoni-icon.png" style="width: 300px; height: 300px;" />
+  <img src="logo.png" style="width: 300px; height: 300px;" />
 </div>
 
 # pydoni
 
-> A Python module for commonly-used functions and classes by Andoni Sooklaris.
+> A Python module for commonly-used functions and classes built and maintained by Andoni Sooklaris.
 
 ---
 
@@ -17,14 +17,23 @@ Completed Date : <in progress>
 
 ## Sub-Modules
 
+#### `api`
+> Interact with specific APIs.
+
+#### `audio`
+> Work on or apply transformations to audio files.
+
+#### `classes`
+> Module-wide classes.
+
 #### `db`
 > Database. Addresses interacting with MySQL and PostgreSQL databases.
 
+#### `image`
+> Work on or apply transformations to image files.
+
 #### `os`
 > Operating System. Addresses handling files on the filesystem.
-
-#### `pyobj`
-> Python Objects. Addresses recurrent handling methods on Python objects.
 
 #### `sh`
 > Shell. Python wrappers for BASH functions or programs.
@@ -35,19 +44,12 @@ Completed Date : <in progress>
 #### `web`
 > Web. Addresses webscraping, parsing web documents, or any other web-related calls from Python.
 
-#### `classes`
-> Houses all pydoni class objects.
-
 ---
 
 ## Changelog
-### v1.0.0 - 2019-01-12
 
-* Initial release!
+See CHANGELOG.md.
 
 ## License
 
-[![License](http://img.shields.io/:license-mit-blue.svg?style=flat-square)](http://badges.mit-license.org)
-
-- **[MIT license](http://opensource.org/licenses/mit-license.php)**
-- Copyright 2019 © **Andoni Sooklaris**
+See LICENSE.
