@@ -38,7 +38,7 @@ class ExtendedLogger(logging.Logger):
     """
 
     def __init__(self, name, level=logging.NOTSET):
-        
+
         import threading
 
         self._count = 0
@@ -64,13 +64,13 @@ class ExtendedLogger(logging.Logger):
         dtype = value.__class__.__name__
         value = str(value)
         msg = 'Var {varname} {{{dtype}}}: {value}'.format(**locals())
-        
+
         if dtype == 'module' and not include_modules:
             return None
 
         if 'ExtendedLogger' in dtype and not include_extended_logger:
             return None
-        
+
         return super(ExtendedLogger, self).debug(msg)
 
     def logvars(self, var_dict):
@@ -349,7 +349,7 @@ def print_apple_ascii_art(by_line=False, by_char=False, sleep=0):
 def systime(stripchars=False):
     """
     Get the current datetime formatted as a string.
-    
+
     :param stripchars: strip dashes and colons from datetime string and return YYYYMMDD_HHMMSS
     :type stripchars: bool
     :return: system time formatted as string
@@ -386,7 +386,7 @@ def naturalsort(lst):
     """
     Sort a list with numeric elements, numerically.
     Source: https://stackoverflow.com/questions/5967500/how-to-correctly-sort-a-string-with-a-number-inside
-    
+
     :param lst: list to sort
     :type lst: list
     :return: list in naturally sorted order
@@ -664,7 +664,7 @@ def user_select_from_list_inq(lst, msg='Select an option'):
         'choices': lst}]
 
     selection = inq.prompt(question)['option']
-    
+
     return selection
 
 
@@ -1342,10 +1342,10 @@ def continuous_prompt(msg, mode='str', indicate_mode=False, use_inq=False):
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     logger.logvars(locals())
-    
+
     uin = 'TMP'
     all_input = []
-    
+
     while uin > '':
         if use_inq:
             uin = get_input_inq(msg=msg, mode=mode, indicate_mode=indicate_mode)
@@ -1478,3 +1478,26 @@ def dirsize(start_path='.'):
                 total_size += os.path.getsize(fp)
 
     return total_size
+
+
+def pydonicli_register_backend_vars(program_name=None, args=None, result=None):
+    """
+    Register the 'args' and 'result' variables if present to be logged to the CLI's backend.
+    """
+    pydoni.pydonicli_program_name = program_name
+    pydoni.pydonicli_args = args
+    pydoni.pydonicli_result = result
+
+
+def pydonicli_declare_args_and_result(var_dict):
+    """
+    Filter `locals()` dictionary to only variables, and return empty dictionary for `result`.
+    """
+    vars_only = {}
+    for k, v in var_dict.items():
+        dtype = v.__class__.__name__
+        if dtype not in ['module', 'function']:
+            vars_only[k] = v
+
+    result = {}
+    return vars_only, result
