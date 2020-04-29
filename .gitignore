@@ -4,12 +4,5 @@
 **/*.app/
 **/*.DS_Store
 **/*.pyc
-pydoni/scripts/*
-pydoni/scripts
-pydoni/apps/*
-pydoni/apps
-**/scripts
-**/apps
 Icon
 Icon?
-**/*in-progress
