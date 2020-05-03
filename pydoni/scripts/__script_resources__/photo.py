@@ -249,9 +249,9 @@ class MediaFile(Convention, Extension):
                 attrs = ['FileModifyDate', 'CreateDate']
 
             # Get capture date
-            raw_dt = search_exif(exif=exif, attrs=attrs, def_str=def_str)
+            raw_dt = str(search_exif(exif=exif, attrs=attrs, def_str=def_str))
             capture_date = re.sub(r'(.*?)(\s+)(.*)', r'\1', raw_dt)
-            capture_date = capture_date.replace(':', '')
+            capture_date = capture_date.replace(':', '').replace('-', '')
 
             # Get capture time
             capture_time = raw_dt.replace(':', '')
@@ -393,7 +393,7 @@ class MediaFile(Convention, Extension):
         """
         assert self.ext in self.valid_ext.photo
         pydoni.sh.adobe_dng_converter(self.fpath_abs)
-        
+
         if remove_original:
             from send2trash import send2trash
             send2trash(self.fpath_abs)
