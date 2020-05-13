@@ -209,7 +209,6 @@ def listfiles(
     :return: list of files present at directory
     :rtype: list
     """
-
     import os
     import re
 
@@ -221,9 +220,9 @@ def listfiles(
 
     if recursive:
         files = []
-        for dp, dn, filenames in os.walk('.'):
+        for root, dirs, filenames in os.walk('.'):
             for f in filenames:
-                files.append(os.path.join(dp, f).replace('./', ''))
+                files.append(os.path.join(root, f).replace('./', ''))
 
     else:
         files = [f for f in os.listdir() if os.path.isfile(f)]
@@ -1480,16 +1479,15 @@ def dirsize(start_path='.'):
     return total_size
 
 
-def pydonicli_register_backend_vars(program_name=None, args=None, result=None):
+def pydonicli_register(var_dict):
     """
-    Register the 'args' and 'result' variables if present to be logged to the CLI's backend.
+    Register variable as a part of the 'pydoni' module to be logged to the CLI's backend.
     """
-    pydoni.pydonicli_program_name = program_name
-    pydoni.pydonicli_args = args
-    pydoni.pydonicli_result = result
+    for key, value in var_dict.items():
+        setattr(pydoni, 'pydonicli_' + key, value)
 
 
-def pydonicli_declare_args_and_result(var_dict):
+def pydonicli_declare_args(var_dict):
     """
     Filter `locals()` dictionary to only variables, and return empty dictionary for `result`.
     """
@@ -1499,5 +1497,4 @@ def pydonicli_declare_args_and_result(var_dict):
         if dtype not in ['module', 'function']:
             vars_only[k] = v
 
-    result = {}
-    return vars_only, result
+    return vars_only
