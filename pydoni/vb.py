@@ -22,6 +22,7 @@ def echo(
         reverse      = None,
         return_str   = False,
         notify       = False,
+        arrow        = None,
         notification = dict(
             title         = '',
             subtitle      = None,
@@ -80,6 +81,8 @@ def echo(
     :param notify: invoke `pydoni.os.macos_notify()`. Notification customizations can
                    be altered in `notification` parameter.
     :type notify: bool
+    :param arrow: color of arrow to display before message
+    :type arrow: str
     :param notification: customize macOS notification. Requires that `notify` set to True
     :type notification: dict
         title: title of notification
@@ -117,6 +120,8 @@ def echo(
     else:
         ew_string = ''
 
+    arrow_string = click.style('==>', fg=arrow) if arrow is not None else ''
+
     # Function name string
     if fn_name:
         fnn_string = click.style('<fn: ', fg='white') + \
@@ -132,7 +137,7 @@ def echo(
     ts_string = click.style(datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' ', fg='cyan') if timestamp else ''
 
     # Construct message
-    msg_out = ts_string + fnn_string + idt_string + ew_string + msg
+    msg_out = ts_string + fnn_string + idt_string + arrow_string + ew_string + msg
 
     # Print message to STDOUT
     if not abort and not return_str:
