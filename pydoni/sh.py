@@ -475,7 +475,6 @@ class FFmpeg(object):
     """
 
     def __init__(self):
-    
         import os
         import pydoni
         import pydoni.sh
@@ -499,7 +498,6 @@ class FFmpeg(object):
                         as `file`. If None (default), outfile name will be generated for each file.
         :type outfile: str, list or None
         """
-
         import os
 
         self.logger.logvars(locals())
@@ -622,7 +620,7 @@ class FFmpeg(object):
         :type m4a_file: str
         """
         import os
-        
+
         m4a_file = os.path.abspath(m4a_file)
         cmd = '{} -i "{}" -codec:v copy -codec:a libmp3lame -q:a 2 "{}.mp3"'.format(
             self.bin, m4a_file, os.path.splitext(m4a_file)[0])
@@ -800,7 +798,7 @@ class AppleScript(object):
         :param applescript:: applescript string to execute
         :type applescript: str
         """
-        
+
         out = osascript(applescript)
         self.logger.logvars(locals())
         if 'error' in out.lower():
