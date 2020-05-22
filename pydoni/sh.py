@@ -1167,7 +1167,7 @@ def split_video_scenes(vfpath, outdname):
     logger.logvars(locals())
 
     assert os.path.isfile(vfpath)
-    assert os.isdir(outdname)
+    assert os.path.isdir(outdname)
 
     bin_path = pydoni.sh.find_binary('scenedetect')
     cmd = '{bin_name} --input "{vpath}" --output "{outdname}" detect-content split-video'.format(**locals())
