@@ -1007,165 +1007,184 @@ def test(value, dtype, return_coerced_value=False):
     """
     import os
     import re
-    import dateutil
     from datetime import datetime
+    from dateutil.parser import parse
+    from dateutil.tz import tzoffset
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     logger.logvars(locals())
 
-    valid = ['bool', 'date', 'datetime', 'int', 'float', 'str', 'string', 'file',
-             'filev', 'dir', 'dirv', 'path', 'path exists']
-    assert dtype in valid
+    def safe_is_date(date_string):
+        """Test date string using dateutil.parser.parse() safely."""
+        try:
+            return parse(str(date_string).strip())
+        except Exception as e:
+            return None
 
-    if return_coerced_value:
-        assert dtype in ['bool', 'date', 'datetime', 'int', 'float']
+    class Attribute():
+        pass
 
-    value = str(value)
+    def define_date_regex():
+        """Define all date component regex strings."""
+        rgx = Attribute()
+        rgx.sep = r'(\.|\/|-|_|\:)'
 
-    try:
-        if dtype == 'bool':
-            if value.lower() in ['true', 'false', 'y', 'yes', 'n', 'no']:
-                if return_coerced_value:
-                    if value.lower() in ['true', 'y', 'yes']:
-                        return True
-                    elif value.lower() in ['false', 'n', 'no']:
-                        return False
-                else:
-                    return True
-            else:
-                return False
+        rgx.year = r'(?P<year>\d{4})'
+        rgx.month = r'(?P<month>\d{2})'
+        rgx.day = r'(?P<day>\d{2})'
 
-        elif dtype in ['date', 'datetime']:
+        rgx.hour = r'(?P<hour>\d{2})'
+        rgx.minute = r'(?P<minute>\d{2})'
+        rgx.second = r'(?P<second>\d{2})'
+        rgx.microsecond = r'(?P<microsecond>\d+)'
 
-            def safe_is_date(date_string):
-                """
-                Apply dateutil.parser.parse() safely.
+        rgx.tz_sign = r'(?P<tz_sign>-|\+)'
+        rgx.tz_hour = r'(?P<tz_hour>\d{1,2})'
+        rgx.tz_minute = r'(?P<tz_minute>\d{1,2})'
 
-                :param date_string: date string to attempt to parse
-                :type date_string: str
-                :return: indicator
-                :rtype: bool
-                """
-                try:
-                    out = dateutil.parser.parse(date_string.strip())
-                    return out
-                except Exception as e:
-                    return False
+        rgx.date = '{rgx.year}{rgx.sep}{rgx.month}{rgx.sep}{rgx.day}'.format(**locals())
+        rgx.datetime = r'{rgx.date} {rgx.hour}{rgx.sep}{rgx.minute}{rgx.sep}{rgx.second}'.format(**locals())
+        rgx.datetime_timezone = r'{rgx.datetime}{rgx.tz_sign}{rgx.tz_hour}(:){rgx.tz_minute}'.format(**locals())
+        rgx.datetime_microsecond = r'{rgx.datetime}(\.){rgx.microsecond}'.format(**locals())
 
-            anchor = lambda x: '^' + x + '$'
+        return rgx
 
-            # Date/Datetime regular expressions
-            dt = {'sep': r'\.|\/|-|_|\:'}
-            dt['d'] = r'(?P<year>\d{4})(%s)(?P<month>\d{2})(%s)(?P<day>\d{2})' % \
-                (dt['sep'], dt['sep'])
-            dt['dt'] = r'%s(\s+)(?P<hour>\d{2})(%s)(?P<minute>\d{2})(%s)(?P<second>\d{2})' % \
-                (dt['d'], dt['sep'], dt['sep'])
-            dt['dt_tz'] = r'%s(?P<tz_sign>-|\+)(?P<tz_hour>\d{1,2})(:)(?P<tz_minute>\d{1,2})' % \
-                (dt['dt'])
-            dt['dt_ms'] = r'%s\.(?P<milisecond>\d+)$' % (dt['dt'])
+    def anchor(x):
+        return '^' + x + '$'
 
-            if dtype == 'date':
+    valid_dtypes = ['bool',
+                    'str', 'string',
+                    'int', 'integer',
+                    'float',
+                    'date',
+                    'datetime',
+                    'path',
+                    'path exists']
+    assert dtype in valid_dtypes, "Datatype must be one of %s" % ', '.join(valid_dtypes)
 
-                m = re.search(anchor(dt['d']), value.strip())
-                if m:
-                    outval = '-'.join([m.group('year'), m.group('month'), m.group('day')])
-                    out = safe_is_date(outval)
-                    if out:
-                        if return_coerced_value:
-                            return out
-                        else:
-                            return True
-                    else:
-                        return False
+    # Date/datetime regex definitions
+    rgx = define_date_regex()
 
-            elif dtype == 'datetime':
+    coerced_value = None
 
-                m = re.search(anchor(dt['dt']), value.strip())
-                if m:
-                    outval = '-'.join([m.group('year'), m.group('month'), m.group('day')]) + ' ' + \
-                        ':'.join([m.group('hour'), m.group('minute'), m.group('second')])
-                    out = safe_is_date(outval)
-                    if out:
-                        if return_coerced_value:
-                            return out
-                        else:
-                            return True
-                    else:
-                        return False
+    # Test bool
+    if dtype == 'bool':
+        if isinstance(value, bool):
+            coerced_value = value
+        else:
+            if str(value).lower() in ['true', 't', 'yes', 'y']:
+                coerced_value = True
+            elif str(value).lower() in ['false', 'f', 'no', 'n']:
+                coerced_value = False
 
-                m = re.search(anchor(dt['dt_tz']), value.strip())
-                if m:
-                    outval = '-'.join([m.group('year'), m.group('month'), m.group('day')]) + ' ' + \
-                        ':'.join([m.group('hour'), m.group('minute'), m.group('second')]) + \
-                        m.group('tz_sign') + m.group('tz_hour') + ':' + m.group('tz_minute')
-                    out = safe_is_date(outval)
-                    if out:
-                        if return_coerced_value:
-                            return out
-                        else:
-                            return True
-                    else:
-                        return False
+    # Test string
+    elif dtype in ['str', 'string']:
+        try:
+            coerced_value = str(value)
+        except Exception as e:
+            logger.exception(e)
 
-                m = re.search(anchor(dt['dt_ms']), value.strip())
-                if m:
-                    outval = '-'.join([m.group('year'), m.group('month'), m.group('day')]) + ' ' + \
-                        ':'.join([m.group('hour'), m.group('minute'), m.group('second')]) + \
-                        '.' + m.group('milisecond')
-                    out = safe_is_date(outval)
-                    if out:
-                        if return_coerced_value:
-                            return out
-                        else:
-                            return True
-                    else:
-                        return False
+    # Test integer
+    elif dtype in ['int', 'integer']:
+        if isinstance(value, int):
+            coerced_value = value
+        elif str(value).isdigit():
+            coerced_value = int(value)
+        else:
+            try:
+                coerced_value = int(value)
+            except Exception as e:
+                logger.exception(e)
 
+    # Test float
+    elif dtype == 'float':
+        if isinstance(value, float) or isinstance(value, int):
+            coerced_value = float(value)
+        elif '.' in str(value):
+            try:
+                coerced_value = float(value)
+            except Exception as e:
+                logger.exception(e)
+
+    # Test date
+    elif dtype == 'date':
+        m = re.search(anchor(rgx.date), value.strip())
+        if m:
+            dt_components = dict(year=m.group('year'), month=m.group('month'), day=m.group('day'))
+            dt_components = {k: int(v) for k, v in dt_components.items()}
+            coerced_value = datetime(**dt_components)
+        else:
+            # Try with dateutil, returns None if not successfully parsed
+            coerced_value = safe_is_date(value)
+
+    # Test datetime
+    elif dtype == 'datetime':
+        m_dt = re.search(anchor(rgx.datetime), value.strip())
+        m_dt_tz = re.search(anchor(rgx.datetime_timezone), value.strip())
+        m_dt_ms = re.search(anchor(rgx.datetime_microsecond), value.strip())
+
+        if m_dt:
+            dt_components = dict(year=m_dt.group('year'),
+                                 month=m_dt.group('month'),
+                                 day=m_dt.group('day'),
+                                 hour=m_dt.group('hour'),
+                                 minute=m_dt.group('minute'),
+                                 second=m_dt.group('second'))
+            dt_components = {k: int(v) for k, v in dt_components.items()}
+            coerced_value = datetime(**dt_components)
+
+        elif m_dt_tz:
+            dt_components = dict(year=m_dt_tz.group('year'),
+                                 month=m_dt_tz.group('month'),
+                                 day=m_dt_tz.group('day'),
+                                 hour=m_dt_tz.group('hour'),
+                                 minute=m_dt_tz.group('minute'),
+                                 second=m_dt_tz.group('second'))
+            dt_components = {k: int(v) for k, v in dt_components.items()}
+            dt_components['tzinfo'] = tzoffset(None, int(m_dt_tz.group('tz_hour'))*60*60)
+            coerced_value = datetime(**dt_components)
+
+        elif m_dt_ms:
+            dt_components = dict(year=m_dt_ms.group('year'),
+                                 month=m_dt_ms.group('month'),
+                                 day=m_dt_ms.group('day'),
+                                 hour=m_dt_ms.group('hour'),
+                                 minute=m_dt_ms.group('minute'),
+                                 second=m_dt_ms.group('second'),
+                                 microsecond=m_dt_ms.group('microsecond'))
+            dt_components = {k: int(v) for k, v in dt_components.items()}
+            coerced_value = datetime(**dt_components)
+
+        else:
+            # Try with dateutil, returns None if not successfully parsed
+            coerced_value = safe_is_date(value)
+
+    # Test path
+    elif dtype == 'path':
+        if '/' in value or value == '.':
+            coerced_value = value
+
+    # Test path exists
+    elif dtype == 'path exists':
+        if os.path.isfile(value) or os.path.isdir(value):
+            coerced_value = value
+
+    # Close function
+    if coerced_value is None:
+        error_str = "Unable to coerce value '{}' (dtype: {}) to {}".format(
+            str(value), type(value).__name__, dtype)
+        logger.error(error_str)
+
+        if return_coerced_value:
+            raise ValueError(error_str)
+        else:
             return False
 
-        elif dtype in ['int', 'float']:
-
-            if '.' in str(value):
-                testval = float(value)
-                if return_coerced_value:
-                    return testval
-            else:
-                testval = int(value)
-                if return_coerced_value:
-                    return testval
-
-        elif dtype in ['str', 'string']:
-            testval = str(value)
-
-        elif dtype == 'path':
-            if '/' in value or value == '.':
-                return True
-            else:
-                return False
-
-        elif dtype == 'path exists':
-            if os.path.isfile(value) or os.path.isdir(value):
-                return True
-            else:
-                return False
-
-        elif dtype in ['file', 'filev']:
-            if os.path.isfile(os.path.expanduser(value)):
-                return True
-            else:
-                return False
-
-        elif dtype in ['dir', 'dirv']:
-            if os.path.isdir(os.path.expanduser(value)):
-                return True
-            else:
-                return False
-
-        return True
-
-    except Exception as e:
-        logger.info(str(e))
-        return False
+    else:
+        if return_coerced_value:
+            return coerced_value
+        else:
+            return True
 
 
 def get_input(msg='Enter input', mode='str', indicate_mode=False):
