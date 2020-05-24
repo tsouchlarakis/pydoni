@@ -12,7 +12,6 @@ class EXIF(object):
     """
 
     def __init__(self, fpath):
-
         import os
         import subprocess
         import pydoni
@@ -50,7 +49,6 @@ class EXIF(object):
         :return: EXIF metadata
         :rtype: dict
         """
-
         import re
         import os
         from xml.etree import ElementTree
@@ -180,10 +178,8 @@ class EXIF(object):
         self.logger.info("Running with method: " + method)
 
         if method == 'doni':
-
             num_files = len(self.fpath) if self.is_batch else 1
             self.logger.info("Extracting EXIF for files: " + str(num_files))
-
             self.logger.info("Exiftool binary found: " + self.bin)
 
             char_limit = int(pydoni.syscmd("getconf ARG_MAX")) - 25000
@@ -199,9 +195,7 @@ class EXIF(object):
 
             exifd = {}
 
-
             for i, cmd in enumerate(commands):
-
                 self.logger.info("Running batch %s of %s. Total files: %s" % \
                     (str(i+1), str(len(file_batches)), str(len(file_batches[i]))))
 
@@ -250,11 +244,8 @@ class EXIF(object):
                 return exifd
 
         elif method == 'pyexiftool':
-
             import exiftool
-
             with exiftool.ExifTool() as et:
-
                 if self.is_batch:
                     exifd = et.get_metadata_batch(self.fpath)
                 else:
