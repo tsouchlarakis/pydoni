@@ -991,19 +991,18 @@ def markdown_toc(md_fpath, li_type):
     return '\n'.join(h_toc)
 
 
-def test(value, dtype, return_coerced_value=False):
+def test(value, dtype, return_coerced_value=False, assertion=False):
     """
-    Test if a value is an instance of type `dtype`.
+    Test if a value is an instance of type `dtype`. May accept a value of any kind.
 
-    :param value: value to test
-    :type value: any
-    :param dtype: datatype to test for, one of ['bool', 'date', 'datetime', 'int', 'float',
-        'str', 'string', 'file', 'filev', 'dir', 'dirv', 'path', 'path exists']
-    :type dtype: str
-    :param return_coerced_value: return `value` coerced to datatype `dtype`
-    :type return_coerced_value: bool
-    :return: True if value is of type `dtype`, False otherwise
-    :rtype: bool
+    Parameter `dtype` must be one of ['bool', 'str', 'string', 'int', 'integer',
+    'float', 'date', 'datetime', 'path', 'path exists'].
+
+    Parameter `return_coerced_value` will return `value` as type `dtype` if possible, and will
+    raise an error otherwise.
+
+    Parameter `assertion` will cause this function to raise an error if `value` cannot be
+    coerced to `dtype` instead of simply logging the error message.
     """
     import os
     import re
@@ -1018,7 +1017,7 @@ def test(value, dtype, return_coerced_value=False):
         """Test date string using dateutil.parser.parse() safely."""
         try:
             return parse(str(date_string).strip())
-        except Exception as e:
+        except:
             return None
 
     class Attribute():
@@ -1082,7 +1081,8 @@ def test(value, dtype, return_coerced_value=False):
         try:
             coerced_value = str(value)
         except Exception as e:
-            logger.exception(e)
+            if assertion: raise e
+            else: logger.info(str(e))
 
     # Test integer
     elif dtype in ['int', 'integer']:
@@ -1094,21 +1094,24 @@ def test(value, dtype, return_coerced_value=False):
             try:
                 coerced_value = int(value)
             except Exception as e:
-                logger.exception(e)
+                if assertion: raise e
+                else: logger.info(str(e))
 
     # Test float
     elif dtype == 'float':
         if isinstance(value, float) or isinstance(value, int):
+            import pdb; pdb.set_trace()
             coerced_value = float(value)
         elif '.' in str(value):
             try:
                 coerced_value = float(value)
             except Exception as e:
-                logger.exception(e)
+                if assertion: raise e
+                else: logger.info(str(e))
 
     # Test date
     elif dtype == 'date':
-        m = re.search(anchor(rgx.date), value.strip())
+        m = re.search(anchor(rgx.date), str(value).strip())
         if m:
             dt_components = dict(year=m.group('year'), month=m.group('month'), day=m.group('day'))
             dt_components = {k: int(v) for k, v in dt_components.items()}
@@ -1119,9 +1122,9 @@ def test(value, dtype, return_coerced_value=False):
 
     # Test datetime
     elif dtype == 'datetime':
-        m_dt = re.search(anchor(rgx.datetime), value.strip())
-        m_dt_tz = re.search(anchor(rgx.datetime_timezone), value.strip())
-        m_dt_ms = re.search(anchor(rgx.datetime_microsecond), value.strip())
+        m_dt = re.search(anchor(rgx.datetime), str(value).strip())
+        m_dt_tz = re.search(anchor(rgx.datetime_timezone), str(value).strip())
+        m_dt_ms = re.search(anchor(rgx.datetime_microsecond), str(value).strip())
 
         if m_dt:
             dt_components = dict(year=m_dt.group('year'),
@@ -1173,7 +1176,7 @@ def test(value, dtype, return_coerced_value=False):
     if coerced_value is None:
         error_str = "Unable to coerce value '{}' (dtype: {}) to {}".format(
             str(value), type(value).__name__, dtype)
-        logger.error(error_str)
+        logger.info(error_str)
 
         if return_coerced_value:
             raise ValueError(error_str)
