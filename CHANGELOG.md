@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-## 0.2.0
+## 20200429.020
 ### Added
 - All scripts migrated from `pydoni-scripts` repository.
 - Backend support for updating Postgres database used in `pydoni-cli` application.
@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-## 0.1.0
+## 20200429.010
 ### Added
 - Initial release!
 - All submodules in `pydoni` module up until April 29, 2020.
