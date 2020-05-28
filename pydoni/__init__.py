@@ -1116,9 +1116,6 @@ def test(value, dtype, return_coerced_value=False, assertion=False):
             dt_components = dict(year=m.group('year'), month=m.group('month'), day=m.group('day'))
             dt_components = {k: int(v) for k, v in dt_components.items()}
             coerced_value = datetime(**dt_components)
-        else:
-            # Try with dateutil, returns None if not successfully parsed
-            coerced_value = safe_is_date(value)
 
     # Test datetime
     elif dtype == 'datetime':
@@ -1157,10 +1154,6 @@ def test(value, dtype, return_coerced_value=False, assertion=False):
                                  microsecond=m_dt_ms.group('microsecond'))
             dt_components = {k: int(v) for k, v in dt_components.items()}
             coerced_value = datetime(**dt_components)
-
-        else:
-            # Try with dateutil, returns None if not successfully parsed
-            coerced_value = safe_is_date(value)
 
     # Test path
     elif dtype == 'path':
