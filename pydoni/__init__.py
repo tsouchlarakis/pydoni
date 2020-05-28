@@ -1013,13 +1013,6 @@ def test(value, dtype, return_coerced_value=False, assertion=False):
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     logger.logvars(locals())
 
-    def safe_is_date(date_string):
-        """Test date string using dateutil.parser.parse() safely."""
-        try:
-            return parse(str(date_string).strip())
-        except:
-            return None
-
     class Attribute():
         pass
 
@@ -1141,7 +1134,11 @@ def test(value, dtype, return_coerced_value=False, assertion=False):
                                  minute=m_dt_tz.group('minute'),
                                  second=m_dt_tz.group('second'))
             dt_components = {k: int(v) for k, v in dt_components.items()}
-            dt_components['tzinfo'] = tzoffset(None, int(m_dt_tz.group('tz_hour'))*60*60)
+
+            second_offset = int(m_dt_tz.group('tz_hour'))*60*60
+            second_offset = -second_offset if m_dt_tz.group('tz_sign') == '-' else second_offset
+
+            dt_components['tzinfo'] = tzoffset(None, second_offset)
             coerced_value = datetime(**dt_components)
 
         elif m_dt_ms:
