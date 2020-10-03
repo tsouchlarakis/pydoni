@@ -120,7 +120,6 @@ class MediaFile(Convention, Extension):
         :return: new file basename according to convention
         :rtype: str
         """
-
         from os.path import join
 
         assert isinstance(initials, str)
@@ -180,7 +179,7 @@ class MediaFile(Convention, Extension):
 
             image_width = search_exif(
                 exif    = exif,
-                attrs   = ['ImageWidth', 'VideoSize'],
+                attrs   = ['image_width', 'video_size'],
                 def_str = def_str)
 
             if image_width == def_str:
@@ -212,7 +211,7 @@ class MediaFile(Convention, Extension):
 
             framerate = search_exif(
                 exif    = exif,
-                attrs=['VideoAvgFrameRate', 'VideoFrameRate'],
+                attrs=['video_avg_frame_rate', 'video_frame_rate'],
                 def_str = def_str)
 
             if framerate == def_str:
@@ -244,9 +243,9 @@ class MediaFile(Convention, Extension):
             assert mtype in ['photo', 'video']
 
             if mtype == 'photo':
-                attrs = ['CreateDate', 'FileModifyDate']
+                attrs = ['create_date', 'file_modify_date']
             elif mtype == 'video':
-                attrs = ['FileModifyDate', 'CreateDate']
+                attrs = ['file_modify_date', 'create_date']
 
             # Get capture date
             raw_dt = str(search_exif(exif=exif, attrs=attrs, def_str=def_str))
@@ -328,7 +327,7 @@ class MediaFile(Convention, Extension):
             # Get camera model from raw exif
             cm_raw = search_exif(
                 exif    = exif,
-                attrs   = ['CameraModelName', 'DeviceModelName', 'Model'],
+                attrs   = ['camera_model_name', 'device_model_name', 'model'],
                 def_str = def_str
             )
 
@@ -338,7 +337,7 @@ class MediaFile(Convention, Extension):
                 # Get make
                 make_raw = search_exif(
                     exif    = exif,
-                    attrs   = ['Make', 'DeviceManufacturer', 'CompressorName'],
+                    attrs   = ['make', 'device_manufacturer', 'compressor_name'],
                     def_str = '{}'
                 )
                 valid_makes = ['Sony', 'Canon', 'DJI', 'Gopro', 'Gopro AVC Encoder', '{}']
