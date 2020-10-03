@@ -228,5 +228,5 @@ def get_blur_value(imagefile):
     img = cv2.imread(imagefile)
     laplacian = cv2.Laplacian(img, cv2.CV_64F)
     laplacian_var = laplacian.var()
-    
+
     return laplacian_var
