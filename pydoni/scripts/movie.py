@@ -1,3 +1,4 @@
+import requests
 import pydoni
 import pydoni.db
 import pydoni.vb
@@ -87,11 +88,15 @@ def refresh_movie_imdb_table(schema, table, omdbapikey, verbose=False):
 
         try:
             omdbresp = query_omdb(title=row['title'], release_year=row['release_year'], omdbapikey=omdbapikey)
-        except Exception as e:
+        except requests.exceptions.HTTPError as e:
+            print('Unable to query OMDBAPI!')
+            raise e
+        else:
             tqdm.write("{} in '{}': {}".format(click.style('ERROR', fg='red'), movie_name, str(e)))
             result[movie_name] = {k: v for k, v in zip(result_items, ['Error', str(e), None])}
             if verbose:
                 pbar.update(1)
+
             continue
 
         omdbresp = {k: v for k, v in omdbresp.items() if k in cols}
