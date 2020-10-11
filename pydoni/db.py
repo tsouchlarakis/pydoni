@@ -176,6 +176,8 @@ class Postgres(object):
             (infoschema['table_schema'] == schema) &
             (infoschema['table_name'] == table) &
             (infoschema['column_name'] == col)]
+
+        assert len(infoschema), f"No infoschema values matching {schema}.{table}.{col}"
         infoschema = infoschema.squeeze().to_dict()
 
         if val == 'NULL' or val is None:
