@@ -30,8 +30,7 @@ def echo(
             app_icon      = None,
             content_image = None,
             command       = None,
-            open_iterm    = False
-            )):
+            open_iterm    = False)):
     """
     Update stdout with custom message and many custom parameters including indentation,
     timestamp, warning/error message, text styles, and more!
