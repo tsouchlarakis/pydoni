@@ -152,6 +152,24 @@ class Goodreads_Scrape(object):
         return None
 
 
+def test_url(url):
+    """
+    Test if a url is available using the requests library.
+    """
+    import requests
+
+    logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
+    logger.logvars(locals())
+
+    try:
+        requests.get(url)
+        return True
+    except Exception as e:
+        logger.exception(e)
+        logger.error(f'url {url} not available')
+        return False
+
+
 def check_network_connection(abort=False):
     """
     Check if connected to internet
@@ -161,23 +179,15 @@ def check_network_connection(abort=False):
     :return: True if connected to internet, False if not
     :rtype: bool
     """
-    import urllib
-
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     logger.logvars(locals())
 
-    try:
-        urllib.request.urlopen('https://www.google.com')
-        return True
-    except Exception as e:
-        logger.exception(e)
-        logger.error('No internet connection!')
+    is_network_connected = test_url('https://www.google.com')
+    if abort and not is_nis_network_connected:
+        import sys
+        sys.exit()
 
-        if abort:
-            import sys
-            sys.exit()
-
-        return False
+    return is_network_connected
 
 
 def get_element_by_selector(url, selector, attr=None):
