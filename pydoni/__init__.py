@@ -128,10 +128,10 @@ def logger_setup(name='root', level=modloglev, colorized=True):
     if not logger.handlers:
         if colorized:
             from colorlog import ColoredFormatter
-            logger_fmt = '%(log_color)s%(asctime)s : %(levelname)s : %(name)s : %(message)s'
+            logger_fmt = '%(log_color)s%(asctime)s : %(levelname)-8s : %(name)s : %(message)s'
             formatter = ColoredFormatter(logger_fmt)
         else:
-            logger_fmt = '%(asctime)s : %(levelname)s : %(name)s : %(message)s'
+            logger_fmt = '%(asctime)s : %(levelname)-8s : %(name)s : %(message)s'
             formatter = logging.Formatter(logger_fmt)
 
         handler = logging.StreamHandler()
@@ -160,7 +160,6 @@ def colorized_logger(name='root', level='info'):
     log = logging.getLogger('pythonConfig')
     log.setLevel(LOG_LEVEL)
     log.addHandler(stream)
-
 
 
 def syscmd(cmd, encoding=''):
