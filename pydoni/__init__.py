@@ -111,7 +111,7 @@ def what_is_my_name(classname=None, with_modname=True):
     return '.'.join(lst)
 
 
-def logger_setup(name='root', level=modloglev):
+def logger_setup(name='root', level=modloglev, colorized=True):
     """
     Define an identical logger object for all pydoni submodules.
 
@@ -120,21 +120,47 @@ def logger_setup(name='root', level=modloglev):
     :param level: desired logging.Logger level
     :type level: str
     """
+    import logging
 
     logging.setLoggerClass(ExtendedLogger)
     logger = logging.getLogger(name)
 
     if not logger.handlers:
-        logger_fmt = '%(asctime)s : %(levelname)s : %(name)s : %(message)s'
+        if colorized:
+            from colorlog import ColoredFormatter
+            logger_fmt = '%(log_color)s%(asctime)s : %(levelname)s : %(name)s : %(message)s'
+            formatter = ColoredFormatter(logger_fmt)
+        else:
+            logger_fmt = '%(asctime)s : %(levelname)s : %(name)s : %(message)s'
+            formatter = logging.Formatter(logger_fmt)
 
-        formatter = logging.Formatter(logger_fmt)
         handler = logging.StreamHandler()
         handler.setFormatter(formatter)
 
         logger.addHandler(handler)
-        logger.setLevel(modloglev)
+        logger.setLevel(level)
 
     return logger
+
+
+def colorized_logger(name='root', level='info'):
+    """
+    Pydoni logger with Jupyter-style colorized timestamp and logging level.
+    """
+    import logging
+    from colorlog import ColoredFormatter
+
+    LOGFORMAT = '%(log_color)s%(asctime)s : %(levelname)s : %(name)s : %(message)s'
+
+    logging.root.setLevel(LOG_LEVEL)
+    formatter = ColoredFormatter(LOGFORMAT)
+    stream = logging.StreamHandler()
+    stream.setLevel(LOG_LEVEL)
+    stream.setFormatter(formatter)
+    log = logging.getLogger('pythonConfig')
+    log.setLevel(LOG_LEVEL)
+    log.addHandler(stream)
+
 
 
 def syscmd(cmd, encoding=''):
