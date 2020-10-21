@@ -17,7 +17,7 @@ class Goodreads_Scrape(object):
 
         self.url_base = 'https://www.goodreads.com'
         self.url_base_search = self.url_base + '/' + 'search?utf8=✓'
-        
+
         self.bookdict = {
             'title': None,
             'author': None,
@@ -25,7 +25,7 @@ class Goodreads_Scrape(object):
             'pages': None,
             'genre': None
         }
-        
+
         self.selector_map = {
             'title': '#bookTitle',
             'author': '.authorName span',
@@ -48,7 +48,7 @@ class Goodreads_Scrape(object):
         """
         Execute Goodreads search and get the top result.
 
-        :param search_string: string to search for, as if user were typing in the search box 
+        :param search_string: string to search for, as if user were typing in the search box
         :type search_string: str
         :return: URL of top search result
         :rtype: str
@@ -62,11 +62,11 @@ class Goodreads_Scrape(object):
         soup = BeautifulSoup(html, 'html.parser')
         res = soup.findAll('a', {'class': 'bookTitle'})
         hrefs = []
-        
+
         for x in res:
             if 'href' in x.attrs.keys():
                 hrefs.append(x['href'])
-        
+
         return self.url_base + hrefs[0]
 
     def scrape_book_page(self, url):
@@ -84,10 +84,10 @@ class Goodreads_Scrape(object):
         html = pydoni.web.simple_get(url)
         soup = BeautifulSoup(html, 'html.parser')
         items = [k for k, v in self.bookdict.items()]
-        
+
         for item in items:
             self.bookdict[item] = self.__getbookattr__(soup, item)
-        
+
         return self.bookdict
 
     def __getbookattr__(self, soup, attr):
@@ -116,7 +116,7 @@ class Goodreads_Scrape(object):
                 title = re.sub(r'\s+', ' ', title)
                 title = title.replace(':', '_').replace('’', "'")
                 return title
-            
+
             elif attr == 'author':
                 author = [item.text for item in match][0]
                 author = re.sub(r'\s+', ' ', author)
@@ -152,7 +152,7 @@ class Goodreads_Scrape(object):
         return None
 
 
-def test_url(url):
+def test_url(url, quiet=False):
     """
     Test if a url is available using the requests library.
     """
@@ -165,15 +165,17 @@ def test_url(url):
         requests.get(url)
         return True
     except Exception as e:
-        logger.exception(e)
-        logger.error(f'url {url} not available')
+        if not quiet:
+            logger.exception(e)
+            logger.error(f'URL {url} not available')
+
         return False
 
 
 def check_network_connection(abort=False):
     """
     Check if connected to internet
-    
+
     :param abort: if True, quit program
     :type abort: bool
     :return: True if connected to internet, False if not
@@ -182,10 +184,10 @@ def check_network_connection(abort=False):
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     logger.logvars(locals())
 
-    is_network_connected = test_url('https://www.google.com')
-    if abort and not is_nis_network_connected:
-        import sys
-        sys.exit()
+    is_network_connected = test_url('https://www.google.com', quiet=True)
+    if abort and not is_network_connected:
+        logger.error('No network connection!')
+        import sys; sys.exit()
 
     return is_network_connected
 
@@ -193,7 +195,7 @@ def check_network_connection(abort=False):
 def get_element_by_selector(url, selector, attr=None):
     """
     Extract HTML text by CSS selector.
-    
+
     :param url: target URL to scrape
     :type url: str
     :param selector: CSS selector
@@ -216,15 +218,15 @@ def get_element_by_selector(url, selector, attr=None):
 
     if attr:
         return [soup.select(selector)[i].attrs[attr] for i in range(len(soup.select(selector)))]
-    
+
     elem = [soup.select(selector)[i].text for i in range(len(soup.select(selector)))]
     return elem
-    
+
 
 def get_element_by_xpath(url, xpath):
     """
     Extract HTML text by Xpath selector.
-    
+
     :param url: target URL to scrape
     :type url: str
     :param xpath: xpath selector
@@ -247,7 +249,7 @@ def get_element_by_xpath(url, xpath):
 def downloadfile(url, destfile=None, method='requests'):
     """
     Download file from the web to a local file.
-    
+
     :param url: target URL to retrieve file from
     :type url: str
     :param destfile: target file to download to, must be specified if `method = 'requests'`.
@@ -358,8 +360,8 @@ def is_good_response(resp):
     logger.logvars(locals())
 
     content_type = resp.headers['Content-Type'].lower()
-    return (resp.status_code == 200 
-            and content_type is not None 
+    return (resp.status_code == 200
+            and content_type is not None
             and content_type.find('html') > -1)
 
 
@@ -379,7 +381,7 @@ def scrape_reason_article(url):
     url = url.replace("\\?utm_medium", "?utm_medium")
 
     article = {}
-    
+
     try:
         article['title'] = pydoni.web.get_element_by_selector(url, 'h1')
         logger.info('Scraped title successfully')
