@@ -25,6 +25,10 @@ def rename_mediafile(
     :param verbose: print messages and progress bar to console
     :type verbose: bool
     """
+    pydoni.pydonicli_register({'command_name': pydoni.what_is_my_name(with_modname=True)})
+    args, result = pydoni.pydonicli_declare_args(locals()), dict()
+    pydoni.pydonicli_register({k: v for k, v in locals().items() if k in ['args', 'result']})
+
     import os, re, click
     from pydoni.vb import echo
     from tqdm import tqdm
@@ -53,7 +57,6 @@ def rename_mediafile(
 
         raise Exception('Invalid extension: ' + str(file_ext))
 
-
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     logger.logvars(locals())
 
@@ -75,7 +78,6 @@ def rename_mediafile(
         if verbose:
             echo('No files to rename!', fg='green')
 
-    res = {}  # key = old filename, value = new filename
     for mfile in mediafiles:
         if verbose:
             pbar.set_postfix(mediafile=pydoni.vb.stabilize_postfix(mfile, max_len=15))
@@ -86,14 +88,14 @@ def rename_mediafile(
 
         if os.path.basename(mfile) != os.path.basename(newfname):
             os.rename(mfile, newfname)
-            res[os.path.basename(mfile)] = os.path.basename(newfname)
+            result[os.path.basename(mfile)] = os.path.basename(newfname)
             if verbose:
                 tqdm.write('{}: {} -> {}'.format(
                     click.style('Renamed', fg='green'),
                     os.path.basename(mfile),
                     os.path.basename(newfname)))
         else:
-            res[os.path.basename(mfile)] = 'NOT RENAMED'
+            result[os.path.basename(mfile)] = '<not renamed, new filename identical>'
             if verbose:
                 tqdm.write('{}: {}'.format(
                     click.style('Not renamed', fg='red'),
@@ -109,19 +111,25 @@ def rename_mediafile(
     if verbose or notify:
         pydoni.os.macos_notify(title='Mediafile Rename', message='Completed successfully!')
 
+    pydoni.pydonicli_register({k: v for k, v in locals().items() if k in ['args', 'result']})
+
 
 def website_extract_image_titles(website_export_dir, outfile, verbose):
     """
     Scan photo files exported for andonisooklaris.com and construct list of image filenames
     and titles, separated by collection.
-    
-    :param website_export_dir: 
+
+    :param website_export_dir:
     :type website_export_dir: str
-    :param outfile: 
+    :param outfile:
     :type outfile: str
-    :param verbose: 
+    :param verbose:
     :type verbose: bool
     """
+    pydoni.pydonicli_register({'command_name': pydoni.what_is_my_name(with_modname=True)})
+    args, result = pydoni.pydonicli_declare_args(locals()), dict()
+    pydoni.pydonicli_register({k: v for k, v in locals().items() if k in ['args', 'result']})
+
     import os
     import pandas as pd
     from tabulate import tabulate
@@ -137,13 +145,13 @@ def website_extract_image_titles(website_export_dir, outfile, verbose):
 
     files = pydoni.listfiles(path=website_export_dir, recursive=True, full_names=True)
     files = [f for f in files if os.path.splitext(f)[1].lower() != '.txt']
-    
+
     if verbose:
         echo('Files found: ' + str(len(files)))
         echo('Extracting EXIF metadata...')
         exifd = pydoni.sh.EXIF(files).extract()
         echo('EXIF metadata successfully extracted')
-        
+
         if outfile is not None:
             echo('Writing output datafile: ' + outfile)
     else:
@@ -185,3 +193,6 @@ def website_extract_image_titles(website_export_dir, outfile, verbose):
 
     if verbose:
         pydoni.vb.program_complete()
+
+    result['n_collections'] = len(tracker['collection'].unique())
+    pydoni.pydonicli_register({k: v for k, v in locals().items() if k in ['args', 'result']})

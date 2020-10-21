@@ -1,3 +1,4 @@
+import requests
 import pydoni
 import pydoni.db
 import pydoni.vb
@@ -10,8 +11,14 @@ def refresh_movie_imdb_table(schema, table, omdbapikey, verbose=False):
     """
     Query Postgres table containing IMDB metadata and refresh any values that need updating.
     """
-    args, result = pydoni.pydonicli_declare_args_and_result(locals())
-    result = {'Updated': [], 'No change': [], 'Not found': [], 'Error': []}
+    pydoni.pydonicli_register({'command_name': pydoni.what_is_my_name(with_modname=True)})
+    args, result = pydoni.pydonicli_declare_args(locals()), dict()
+    pydoni.pydonicli_register({k: v for k, v in locals().items() if k in ['args', 'result']})
+
+    result_items = ['status', 'message', 'updated_values']
+    # 'result' will be a dictionary where the movie names are the keys, and the values are
+    # dictionaries with items: 'status', 'message', 'updated_values' (dictionary of
+    # updated values, if any).
 
     import click
     import numpy as np
@@ -81,11 +88,15 @@ def refresh_movie_imdb_table(schema, table, omdbapikey, verbose=False):
 
         try:
             omdbresp = query_omdb(title=row['title'], release_year=row['release_year'], omdbapikey=omdbapikey)
-        except Exception as e:
+        except requests.exceptions.HTTPError as e:
+            print('Unable to query OMDBAPI!')
+            raise e
+        else:
             tqdm.write("{} in '{}': {}".format(click.style('ERROR', fg='red'), movie_name, str(e)))
-            result['Error'].append(movie_name)
+            result[movie_name] = {k: v for k, v in zip(result_items, ['Error', str(e), None])}
             if verbose:
                 pbar.update(1)
+
             continue
 
         omdbresp = {k: v for k, v in omdbresp.items() if k in cols}
@@ -109,14 +120,20 @@ def refresh_movie_imdb_table(schema, table, omdbapikey, verbose=False):
                                    validate=True)
             pg.execute(stmt)
 
-        result[change].append(movie_name)
+            upd_backend = {k: v for k, v in upd.items() if k != 'imdb_update_ts'}
+            upd_backend = upd_backend if len(upd_backend) else None
+            result[movie_name] = {k: v for k, v in zip(result_items, [change, None, upd_backend])}
+
+        else:
+            result[movie_name] = {k: v for k, v in zip(result_items, [change, None, None])}
 
         if verbose:
             pbar.update(1)
-            tqdm.write(click.style(change + ': ', fg=color_map[change]) + movie_name)
+            space = '  ' if change == 'Updated' else ''
+            tqdm.write(click.style(change, fg=color_map[change]) + space + ': ' + movie_name)
 
     if verbose:
         pbar.close()
         pydoni.vb.program_complete('Movie refresh complete!')
 
-    pydoni.pydonicli_register_backend_vars(pydoni.what_is_my_name(with_modname=True), args, result)
+    pydoni.pydonicli_register({k: v for k, v in locals().items() if k in ['args', 'result']})

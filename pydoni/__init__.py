@@ -111,30 +111,54 @@ def what_is_my_name(classname=None, with_modname=True):
     return '.'.join(lst)
 
 
-def logger_setup(name='root', level=modloglev):
+def logger_setup(name='root', level=modloglev, colorized=True, equal_width=False):
     """
     Define an identical logger object for all pydoni submodules.
-
-    :param name: desired logger name
-    :type name: str
-    :param level: desired logging.Logger level
-    :type level: str
     """
+    import logging
 
     logging.setLoggerClass(ExtendedLogger)
     logger = logging.getLogger(name)
 
     if not logger.handlers:
-        logger_fmt = '%(asctime)s : %(levelname)s : %(name)s : %(message)s'
+        if colorized:
+            from colorlog import ColoredFormatter
+            logger_fmt = '%(log_color)s%(asctime)s : %(levelname)s : %(name)s : %(message)s'
 
-        formatter = logging.Formatter(logger_fmt)
+            if equal_width:
+                logger_fmt = logger_fmt.replace('levelname)s', 'levelname)-8s')
+
+            formatter = ColoredFormatter(logger_fmt)
+        else:
+            logger_fmt = '%(asctime)s : %(levelname)-8s : %(name)s : %(message)s'
+            formatter = logging.Formatter(logger_fmt)
+
         handler = logging.StreamHandler()
         handler.setFormatter(formatter)
 
         logger.addHandler(handler)
-        logger.setLevel(modloglev)
+        logger.setLevel(level)
 
     return logger
+
+
+def colorized_logger(name='root', level='info'):
+    """
+    Pydoni logger with Jupyter-style colorized timestamp and logging level.
+    """
+    import logging
+    from colorlog import ColoredFormatter
+
+    LOGFORMAT = '%(log_color)s%(asctime)s : %(levelname)s : %(name)s : %(message)s'
+
+    logging.root.setLevel(LOG_LEVEL)
+    formatter = ColoredFormatter(LOGFORMAT)
+    stream = logging.StreamHandler()
+    stream.setLevel(LOG_LEVEL)
+    stream.setFormatter(formatter)
+    log = logging.getLogger('pythonConfig')
+    log.setLevel(LOG_LEVEL)
+    log.addHandler(stream)
 
 
 def syscmd(cmd, encoding=''):
@@ -209,7 +233,6 @@ def listfiles(
     :return: list of files present at directory
     :rtype: list
     """
-
     import os
     import re
 
@@ -221,9 +244,9 @@ def listfiles(
 
     if recursive:
         files = []
-        for dp, dn, filenames in os.walk('.'):
+        for root, dirs, filenames in os.walk('.'):
             for f in filenames:
-                files.append(os.path.join(dp, f).replace('./', ''))
+                files.append(os.path.join(root, f).replace('./', ''))
 
     else:
         files = [f for f in os.listdir() if os.path.isfile(f)]
@@ -992,181 +1015,193 @@ def markdown_toc(md_fpath, li_type):
     return '\n'.join(h_toc)
 
 
-def test(value, dtype, return_coerced_value=False):
+def test(value, dtype, return_coerced_value=False, assertion=False):
     """
-    Test if a value is an instance of type `dtype`.
+    Test if a value is an instance of type `dtype`. May accept a value of any kind.
 
-    :param value: value to test
-    :type value: any
-    :param dtype: datatype to test for, one of ['bool', 'date', 'datetime', 'int', 'float',
-        'str', 'string', 'file', 'filev', 'dir', 'dirv', 'path', 'path exists']
-    :type dtype: str
-    :param return_coerced_value: return `value` coerced to datatype `dtype`
-    :type return_coerced_value: bool
-    :return: True if value is of type `dtype`, False otherwise
-    :rtype: bool
+    Parameter `dtype` must be one of ['bool', 'str', 'string', 'int', 'integer',
+    'float', 'date', 'datetime', 'path', 'path exists'].
+
+    Parameter `return_coerced_value` will return `value` as type `dtype` if possible, and will
+    raise an error otherwise.
+
+    Parameter `assertion` will cause this function to raise an error if `value` cannot be
+    coerced to `dtype` instead of simply logging the error message.
     """
     import os
     import re
-    import dateutil
     from datetime import datetime
+    from dateutil.parser import parse
+    from dateutil.tz import tzoffset
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     logger.logvars(locals())
 
-    valid = ['bool', 'date', 'datetime', 'int', 'float', 'str', 'string', 'file',
-             'filev', 'dir', 'dirv', 'path', 'path exists']
-    assert dtype in valid
+    class Attribute():
+        pass
 
-    if return_coerced_value:
-        assert dtype in ['bool', 'date', 'datetime', 'int', 'float']
+    def define_date_regex():
+        """Define all date component regex strings."""
+        rgx = Attribute()
+        rgx.sep = r'(\.|\/|-|_|\:)'
 
-    value = str(value)
+        rgx.year = r'(?P<year>\d{4})'
+        rgx.month = r'(?P<month>\d{2})'
+        rgx.day = r'(?P<day>\d{2})'
 
-    try:
-        if dtype == 'bool':
-            if value.lower() in ['true', 'false', 'y', 'yes', 'n', 'no']:
-                if return_coerced_value:
-                    if value.lower() in ['true', 'y', 'yes']:
-                        return True
-                    elif value.lower() in ['false', 'n', 'no']:
-                        return False
-                else:
-                    return True
-            else:
-                return False
+        rgx.hour = r'(?P<hour>\d{2})'
+        rgx.minute = r'(?P<minute>\d{2})'
+        rgx.second = r'(?P<second>\d{2})'
+        rgx.microsecond = r'(?P<microsecond>\d+)'
 
-        elif dtype in ['date', 'datetime']:
+        rgx.tz_sign = r'(?P<tz_sign>-|\+)'
+        rgx.tz_hour = r'(?P<tz_hour>\d{1,2})'
+        rgx.tz_minute = r'(?P<tz_minute>\d{1,2})'
 
-            def safe_is_date(date_string):
-                """
-                Apply dateutil.parser.parse() safely.
+        rgx.date = '{rgx.year}{rgx.sep}{rgx.month}{rgx.sep}{rgx.day}'.format(**locals())
+        rgx.datetime = r'{rgx.date} {rgx.hour}{rgx.sep}{rgx.minute}{rgx.sep}{rgx.second}'.format(**locals())
+        rgx.datetime_timezone = r'{rgx.datetime}{rgx.tz_sign}{rgx.tz_hour}(:){rgx.tz_minute}'.format(**locals())
+        rgx.datetime_microsecond = r'{rgx.datetime}(\.){rgx.microsecond}'.format(**locals())
 
-                :param date_string: date string to attempt to parse
-                :type date_string: str
-                :return: indicator
-                :rtype: bool
-                """
-                try:
-                    out = dateutil.parser.parse(date_string.strip())
-                    return out
-                except Exception as e:
-                    return False
+        return rgx
 
-            anchor = lambda x: '^' + x + '$'
+    def anchor(x):
+        return '^' + x + '$'
 
-            # Date/Datetime regular expressions
-            dt = {'sep': r'\.|\/|-|_|\:'}
-            dt['d'] = r'(?P<year>\d{4})(%s)(?P<month>\d{2})(%s)(?P<day>\d{2})' % \
-                (dt['sep'], dt['sep'])
-            dt['dt'] = r'%s(\s+)(?P<hour>\d{2})(%s)(?P<minute>\d{2})(%s)(?P<second>\d{2})' % \
-                (dt['d'], dt['sep'], dt['sep'])
-            dt['dt_tz'] = r'%s(?P<tz_sign>-|\+)(?P<tz_hour>\d{1,2})(:)(?P<tz_minute>\d{1,2})' % \
-                (dt['dt'])
-            dt['dt_ms'] = r'%s\.(?P<milisecond>\d+)$' % (dt['dt'])
+    valid_dtypes = ['bool',
+                    'str', 'string',
+                    'int', 'integer',
+                    'float',
+                    'date',
+                    'datetime',
+                    'path',
+                    'path exists']
+    assert dtype in valid_dtypes, "Datatype must be one of %s" % ', '.join(valid_dtypes)
 
-            if dtype == 'date':
+    # Date/datetime regex definitions
+    rgx = define_date_regex()
 
-                m = re.search(anchor(dt['d']), value.strip())
-                if m:
-                    outval = '-'.join([m.group('year'), m.group('month'), m.group('day')])
-                    out = safe_is_date(outval)
-                    if out:
-                        if return_coerced_value:
-                            return out
-                        else:
-                            return True
-                    else:
-                        return False
+    coerced_value = None
 
-            elif dtype == 'datetime':
+    # Test bool
+    if dtype == 'bool':
+        if isinstance(value, bool):
+            coerced_value = value
+        else:
+            if str(value).lower() in ['true', 't', 'yes', 'y']:
+                coerced_value = True
+            elif str(value).lower() in ['false', 'f', 'no', 'n']:
+                coerced_value = False
 
-                m = re.search(anchor(dt['dt']), value.strip())
-                if m:
-                    outval = '-'.join([m.group('year'), m.group('month'), m.group('day')]) + ' ' + \
-                        ':'.join([m.group('hour'), m.group('minute'), m.group('second')])
-                    out = safe_is_date(outval)
-                    if out:
-                        if return_coerced_value:
-                            return out
-                        else:
-                            return True
-                    else:
-                        return False
+    # Test string
+    elif dtype in ['str', 'string']:
+        try:
+            coerced_value = str(value)
+        except Exception as e:
+            if assertion: raise e
+            else: logger.info(str(e))
 
-                m = re.search(anchor(dt['dt_tz']), value.strip())
-                if m:
-                    outval = '-'.join([m.group('year'), m.group('month'), m.group('day')]) + ' ' + \
-                        ':'.join([m.group('hour'), m.group('minute'), m.group('second')]) + \
-                        m.group('tz_sign') + m.group('tz_hour') + ':' + m.group('tz_minute')
-                    out = safe_is_date(outval)
-                    if out:
-                        if return_coerced_value:
-                            return out
-                        else:
-                            return True
-                    else:
-                        return False
+    # Test integer
+    elif dtype in ['int', 'integer']:
+        if isinstance(value, int):
+            coerced_value = value
+        elif str(value).isdigit():
+            coerced_value = int(value)
+        else:
+            try:
+                coerced_value = int(value)
+            except Exception as e:
+                if assertion: raise e
+                else: logger.info(str(e))
 
-                m = re.search(anchor(dt['dt_ms']), value.strip())
-                if m:
-                    outval = '-'.join([m.group('year'), m.group('month'), m.group('day')]) + ' ' + \
-                        ':'.join([m.group('hour'), m.group('minute'), m.group('second')]) + \
-                        '.' + m.group('milisecond')
-                    out = safe_is_date(outval)
-                    if out:
-                        if return_coerced_value:
-                            return out
-                        else:
-                            return True
-                    else:
-                        return False
+    # Test float
+    elif dtype == 'float':
+        if isinstance(value, float) or isinstance(value, int):
+            import pdb; pdb.set_trace()
+            coerced_value = float(value)
+        elif '.' in str(value):
+            try:
+                coerced_value = float(value)
+            except Exception as e:
+                if assertion: raise e
+                else: logger.info(str(e))
 
+    # Test date
+    elif dtype == 'date':
+        m = re.search(anchor(rgx.date), str(value).strip())
+        if m:
+            dt_components = dict(year=m.group('year'), month=m.group('month'), day=m.group('day'))
+            dt_components = {k: int(v) for k, v in dt_components.items()}
+            coerced_value = datetime(**dt_components)
+
+    # Test datetime
+    elif dtype == 'datetime':
+        m_dt = re.search(anchor(rgx.datetime), str(value).strip())
+        m_dt_tz = re.search(anchor(rgx.datetime_timezone), str(value).strip())
+        m_dt_ms = re.search(anchor(rgx.datetime_microsecond), str(value).strip())
+
+        if m_dt:
+            dt_components = dict(year=m_dt.group('year'),
+                                 month=m_dt.group('month'),
+                                 day=m_dt.group('day'),
+                                 hour=m_dt.group('hour'),
+                                 minute=m_dt.group('minute'),
+                                 second=m_dt.group('second'))
+            dt_components = {k: int(v) for k, v in dt_components.items()}
+            coerced_value = datetime(**dt_components)
+
+        elif m_dt_tz:
+            dt_components = dict(year=m_dt_tz.group('year'),
+                                 month=m_dt_tz.group('month'),
+                                 day=m_dt_tz.group('day'),
+                                 hour=m_dt_tz.group('hour'),
+                                 minute=m_dt_tz.group('minute'),
+                                 second=m_dt_tz.group('second'))
+            dt_components = {k: int(v) for k, v in dt_components.items()}
+
+            second_offset = int(m_dt_tz.group('tz_hour'))*60*60
+            second_offset = -second_offset if m_dt_tz.group('tz_sign') == '-' else second_offset
+
+            dt_components['tzinfo'] = tzoffset(None, second_offset)
+            coerced_value = datetime(**dt_components)
+
+        elif m_dt_ms:
+            dt_components = dict(year=m_dt_ms.group('year'),
+                                 month=m_dt_ms.group('month'),
+                                 day=m_dt_ms.group('day'),
+                                 hour=m_dt_ms.group('hour'),
+                                 minute=m_dt_ms.group('minute'),
+                                 second=m_dt_ms.group('second'),
+                                 microsecond=m_dt_ms.group('microsecond'))
+            dt_components = {k: int(v) for k, v in dt_components.items()}
+            coerced_value = datetime(**dt_components)
+
+    # Test path
+    elif dtype == 'path':
+        if '/' in value or value == '.':
+            coerced_value = value
+
+    # Test path exists
+    elif dtype == 'path exists':
+        if os.path.isfile(value) or os.path.isdir(value):
+            coerced_value = value
+
+    # Close function
+    if coerced_value is None:
+        error_str = "Unable to coerce value '{}' (dtype: {}) to {}".format(
+            str(value), type(value).__name__, dtype)
+        logger.info(error_str)
+
+        if return_coerced_value:
+            raise ValueError(error_str)
+        else:
             return False
 
-        elif dtype in ['int', 'float']:
-
-            if '.' in str(value):
-                testval = float(value)
-                if return_coerced_value:
-                    return testval
-            else:
-                testval = int(value)
-                if return_coerced_value:
-                    return testval
-
-        elif dtype in ['str', 'string']:
-            testval = str(value)
-
-        elif dtype == 'path':
-            if '/' in value or value == '.':
-                return True
-            else:
-                return False
-
-        elif dtype == 'path exists':
-            if os.path.isfile(value) or os.path.isdir(value):
-                return True
-            else:
-                return False
-
-        elif dtype in ['file', 'filev']:
-            if os.path.isfile(os.path.expanduser(value)):
-                return True
-            else:
-                return False
-
-        elif dtype in ['dir', 'dirv']:
-            if os.path.isdir(os.path.expanduser(value)):
-                return True
-            else:
-                return False
-
-        return True
-
-    except Exception as e:
-        logger.info(str(e))
-        return False
+    else:
+        if return_coerced_value:
+            return coerced_value
+        else:
+            return True
 
 
 def get_input(msg='Enter input', mode='str', indicate_mode=False):
@@ -1480,16 +1515,15 @@ def dirsize(start_path='.'):
     return total_size
 
 
-def pydonicli_register_backend_vars(program_name=None, args=None, result=None):
+def pydonicli_register(var_dict):
     """
-    Register the 'args' and 'result' variables if present to be logged to the CLI's backend.
+    Register variable as a part of the 'pydoni' module to be logged to the CLI's backend.
     """
-    pydoni.pydonicli_program_name = program_name
-    pydoni.pydonicli_args = args
-    pydoni.pydonicli_result = result
+    for key, value in var_dict.items():
+        setattr(pydoni, 'pydonicli_' + key, value)
 
 
-def pydonicli_declare_args_and_result(var_dict):
+def pydonicli_declare_args(var_dict):
     """
     Filter `locals()` dictionary to only variables, and return empty dictionary for `result`.
     """
@@ -1499,5 +1533,4 @@ def pydonicli_declare_args_and_result(var_dict):
         if dtype not in ['module', 'function']:
             vars_only[k] = v
 
-    result = {}
-    return vars_only, result
+    return vars_only
