@@ -111,14 +111,9 @@ def what_is_my_name(classname=None, with_modname=True):
     return '.'.join(lst)
 
 
-def logger_setup(name='root', level=modloglev, colorized=True):
+def logger_setup(name='root', level=modloglev, colorized=True, equal_width=False):
     """
     Define an identical logger object for all pydoni submodules.
-
-    :param name: desired logger name
-    :type name: str
-    :param level: desired logging.Logger level
-    :type level: str
     """
     import logging
 
@@ -128,7 +123,11 @@ def logger_setup(name='root', level=modloglev, colorized=True):
     if not logger.handlers:
         if colorized:
             from colorlog import ColoredFormatter
-            logger_fmt = '%(log_color)s%(asctime)s : %(levelname)-8s : %(name)s : %(message)s'
+            logger_fmt = '%(log_color)s%(asctime)s : %(levelname)s : %(name)s : %(message)s'
+
+            if equal_width:
+                logger_fmt = logger_fmt.replace('levelname)s', 'levelname)-8s')
+
             formatter = ColoredFormatter(logger_fmt)
         else:
             logger_fmt = '%(asctime)s : %(levelname)-8s : %(name)s : %(message)s'
