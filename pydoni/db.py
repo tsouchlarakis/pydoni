@@ -551,12 +551,9 @@ class Postgres(object):
         :return: entire SQL table as DataFrame (or Series if only one column)
         :rtype: DataFrame, Series
         """
-
         self.logger.logvars(locals())
-
-        df = self.read_sql("select * from {schema}.{table}".format(**locals()))
-        self.logger.info("Read dataframe {schema}.{table}, shape: {df.shape}".format(**locals()))
-
+        df = self.read_sql(f'select * from "{schema}"."{table}"')
+        self.logger.info(f"Read dataframe {schema}.{table}, shape: {df.shape}")
         return df
 
     def dump(self, backup_dir):
@@ -684,6 +681,14 @@ class Postgres(object):
             dumped_files.append(newfilename)
 
         return dumped_files
+
+    def table_exists(self, table_schema, table_name):
+        """
+        Return boolean indicating whether a given table exists in a given schema.
+        """
+        ischema = self.infoschema(infoschema_table='tables')
+        matching_tables = ischema.loc[(ischema['table_schema'] == table_schema) & (ischema['table_name'] == table_name)]
+        return len(matching_tables) == 1
 
 
     def __single_quote__(self, val):
