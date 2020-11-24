@@ -1,5 +1,5 @@
 import pydoni
-import pydoni.os
+import pydoni.opsys
 import pydoni.web
 
 
@@ -91,7 +91,7 @@ class Audio:
             outfile = os.path.splitext(self.audiofile)[0] + '.mp3'
 
         self.sound.export(outfile, bitrate='32k')
-        
+
         if os.path.isfile(wavfile):
             os.remove(wavfile)
 
@@ -125,7 +125,7 @@ class Audio:
         dest_fmt = dest_fmt.replace('.', '')
         assert dest_fmt in ['mp3', 'wav']
         assert self.ext != dest_fmt
-        
+
         outfile = os.path.splitext(self.audiofile)[0] + '.' + dest_fmt
         assert not os.path.isfile(outfile)
 
@@ -144,7 +144,7 @@ class Audio:
         :type audiofile: str
         :param method: transcription method, as of 2019-12-20 12:24:54 only 'gcs' is supported
         :type method: str
-        :param gcs_split_threshold: maximum audio clip size in seconds, if clip exceeds this length it will be split using 
+        :param gcs_split_threshold: maximum audio clip size in seconds, if clip exceeds this length it will be split using
         :type gcs_split_threshold: intclass method `split()`
         :param apply_correction: if True, call apply_transcription_corrections() after transcript created
         :type apply_correction: bool
@@ -155,7 +155,7 @@ class Audio:
         """
 
         self.logger.logvars(locals())
-        
+
         return pydoni.audio.transcribe(
             audiofile=self.audiofile,
             gcs_split_threshold=gcs_split_threshold,
@@ -242,7 +242,7 @@ class Song(object):
         the disc would be parsed as '2'. If not present, attempt to parse from directory
         name, as sometimes directory names contain 'CD 1' or 'Disc 2'. If not in either of
         those places, return nothing.
-        
+
         :return: int
         """
 
@@ -269,7 +269,7 @@ class Song(object):
         """
         Get the raw track information in the EXIF metadata. If unavailable, attempt
         to parse from song filename.
-        
+
         :return: str
         """
 
@@ -309,7 +309,7 @@ class Song(object):
         Return the track index given the raw track metadata. Format will generally be a
         single digit, or two digits, separated by a forward slash. Ex: '5', '9', '2/12'.
         Extract the 5, 9 and 2 respectively and convert to int.
-        
+
         :return: int or None
         """
         if track_raw is None:
@@ -462,7 +462,7 @@ class Song(object):
         # Replace so that these tags are enclosed in square brackets [] instead of
         # parenthesis () as they generally are.
         x = ' '.join(item for item in x)
-        
+
         # Regex replace (case insensitive)
         rgx_replacements = [
             (r'\] \[', ']['),
@@ -540,7 +540,7 @@ class Album(object):
         os.chdir(dpath)
 
         self.dname = os.path.basename(dpath)
-        self.fnames = pydoni.os.listfiles(ext=valid_ext)
+        self.fnames = pydoni.opsys.listfiles(ext=valid_ext)
 
         assert len(self.fnames)
 
@@ -891,7 +891,7 @@ def transcribe(
     :type audiofile: str
     :param method: transcription method, as of 2019-12-20 12:24:54 only 'gcs' is supported
     :type method: str
-    :param gcs_split_threshold: maximum audio clip size in seconds, if clip exceeds this length it will be split using 
+    :param gcs_split_threshold: maximum audio clip size in seconds, if clip exceeds this length it will be split using
     :type gcs_split_threshold: intclass method `split()`
     :param apply_correction: if True, call apply_transcription_corrections() after transcript created
     :type apply_correction: bool
@@ -1204,7 +1204,7 @@ def join_audiofiles_pydub(audiofiles, targetfile, silence_between):
     """
     import os
     from pydub import AudioSegment
-    
+
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
 
     for file in audiofiles:
@@ -1245,7 +1245,7 @@ def join_audiofiles(audiofiles, targetfile, method=None, silence_between=0):
     :type audiofiles: list
     :param targetfile: name of file to create from joined audio files
     :type targetfile: str
-    :param method: method to join audiofiles, one of ['ffmpeg', 'pydub']. If None, method is automatically 
+    :param method: method to join audiofiles, one of ['ffmpeg', 'pydub']. If None, method is automatically
     :type method: strdetermined
     :param silence_between: milliseconds of silence to insert between clips
     :type silence_between: int
@@ -1255,7 +1255,7 @@ def join_audiofiles(audiofiles, targetfile, method=None, silence_between=0):
     assert isinstance(silence_between, int)
     assert isinstance(audiofiles, list)
     assert len(audiofiles) > 1
-    
+
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     logger.logvars(locals())
 
@@ -1267,7 +1267,7 @@ def join_audiofiles(audiofiles, targetfile, method=None, silence_between=0):
             method = 'ffmpeg'
         else:
             method = 'pydub'
-    
+
     assert method in ['ffmpeg', 'pydub']
 
     if method == 'ffmpeg':
@@ -1296,7 +1296,7 @@ def split_audiofile(audiofile, segment_time):
     assert isinstance(segment_time, int)
 
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
-    
+
     wd = os.getcwd()
 
     # Split audio file with FFmpeg
@@ -1307,7 +1307,7 @@ def split_audiofile(audiofile, segment_time):
     dname = os.path.dirname(audiofile)
     dname = '.' if dname == '' else dname
     os.chdir(dname)
-    splitfiles = pydoni.os.listfiles(
+    splitfiles = pydoni.opsys.listfiles(
         path=dname,
         pattern=r'%s-ffmpeg-\d{3}\.%s' % \
             (os.path.basename(os.path.splitext(audiofile)[0]), os.path.splitext(audiofile)[1].replace('.', '')))
@@ -1360,11 +1360,11 @@ def set_google_credentials(google_application_credentials_json):
     :type google_application_credentials_json: str
     """
     import os
-    
+
     assert(os.path.isfile(google_application_credentials_json))
-    
+
     logger = pydoni.logger_setup(pydoni.what_is_my_name(), pydoni.modloglev)
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_application_credentials_json
-    
+
     logger.info("Google application credentials set as file '%s'" % \
         google_application_credentials_json)

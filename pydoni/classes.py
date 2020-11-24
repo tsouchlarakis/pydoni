@@ -1,5 +1,5 @@
 import pydoni
-import pydoni.os
+import pydoni.opsys
 import pydoni.web
 
 
@@ -22,10 +22,10 @@ class Attribute(object):
         :return: flattened list
         :rtype: list
         """
-        
+
         dct = self.__dict__
         is_list = list(set([True for k, v in dct.items() if isinstance(v, list)]))
-        
+
         if len(is_list) == 0:
             # Assume string, no matches for isinstance(..., list)
             return [v for k, v in dct.items()]
@@ -52,7 +52,7 @@ class ProgramEnv(object):
     """
 
     def __init__(self, path, overwrite=False):
-        
+
         import os
         import shutil
         import click
@@ -67,10 +67,10 @@ class ProgramEnv(object):
             error_msg = 'Path cannot be home or root directory'
             self.logger.fatal(error_msg)
             raise Exception(error_msg)
-        
+
         # self.focus is the current working file, if specified
         self.focus = None
-        
+
         # Overwrite existing directory if specified and directory exists
         if os.path.isdir(self.path):
             if overwrite:
@@ -82,20 +82,20 @@ class ProgramEnv(object):
                     error_msg = 'Must answer affirmatively!'
                     self.logger.fatal(error_msg)
                     raise Exception(error_msg)
-        
+
         # Create program environment
         if not os.path.isdir(self.path):
             os.mkdir(self.path)
-    
+
     def copyfile(self, fname, set_focus=False):
         """
         Copy a file into the program environment.
-    
+
         :param fname: filename to copy
         :type fname: str
         :param set_focus: set the focus to the newly copied file
         :type set_focus: bool
-        
+
         :rtype: nothing
         """
         import os, shutil
@@ -106,7 +106,7 @@ class ProgramEnv(object):
         if set_focus:
             self.focus = env_dest
             self.logger.info("Environment focus set to '%s'" % env_dest)
-    
+
     def listfiles(
             self,
             path='.',
@@ -131,7 +131,7 @@ class ProgramEnv(object):
             include_hidden_files=include_hidden_files)
         self.logger.info("Listed files at '%s', files found: %s" %  (os.getcwd(), str(len(fnames))))
         return fnames
-    
+
     def listdirs(
             self,
             path='.',
@@ -140,7 +140,7 @@ class ProgramEnv(object):
             recursive=False):
         """
         List directories at given path.
-        SEE `pydoni.os.listdirs()` FOR DETAILED DOCUMENTATION OF ARGUMENTS AND THEIR DATATYPES.
+        SEE `pydoni.opsys.listdirs()` FOR DETAILED DOCUMENTATION OF ARGUMENTS AND THEIR DATATYPES.
         """
         import os
 
@@ -151,34 +151,34 @@ class ProgramEnv(object):
             recursive=recursive)
         self.logger.info("Listed dirs at '%s', dirs found: %s" %  (os.getcwd(), str(len(dnames))))
         return dnames
-    
+
     def downloadfile(self, url, destfile):
         """
         Download file from the web to a local file in Environment.
-    
+
         :param url: target URL to retrieve file from
         :type url: str
         :param destfile: target filename
         :type destfile: str
-        
+
         :rtype: {str}
         """
         pydoni.web.downloadfile(url=url, destfile=destfile)
         self.logger.info("Downloaded url '%s' to file '%s'" % (url, destfile))
-    
+
 
     def unarchive(self, fpath, dest_dir):
         """
         Unpack a .zip archive.
-    
+
         :param fpath: path to zip archive file
         :type fpath: str
         :param dest_dir: path to destination extract directory
         :type dest_dir: str
-        
+
         :rtype: nothing
         """
-        pydoni.os.unarchive(fpath=fpath, dest_dir=dest_dir)
+        pydoni.opsys.unarchive(fpath=fpath, dest_dir=dest_dir)
         self.logger.info("Unarchived file '%s' to dir '%s'" % (fpath, dest_dir))
 
     def delete_env(self):
@@ -209,14 +209,14 @@ class DoniDt(object):
     def __init__(self, val, apply_tz=True):
 
         import os, re, datetime
-    
+
         self.logger = pydoni.logger_setup(
             name=pydoni.what_is_my_name(classname=self.__class__.__name__, with_modname=True),
             level=pydoni.modloglev)
 
         self.val = str(val)
         sep = r'\.|\/|-|_|\:'
-        
+
         # Assign regex expressions to match date, datetime,
         # datetime w/ time zone, and datetime w/ milliseconds
         rgx = Attribute()
@@ -225,14 +225,14 @@ class DoniDt(object):
         rgx.dt_tz = r'%s(?P<tz_sign>-|\+)(?P<tz_hours>\d{1,2})(:)(?P<tz_minutes>\d{1,2})' % (rgx.dt)
         rgx.dt_ms = r'%s\.(?P<miliseconds>\d+)$' % (rgx.dt)
         self.rgx = rgx
-        
+
         # Parse type as one of above date types
         self.dtype, self.match = self.detect_dtype()
-    
+
     def is_exact(self):
         """
         Test if input string is exactly a date or datetime value.
-        
+
         none
 
         :rtype: {bool}
@@ -245,7 +245,7 @@ class DoniDt(object):
         self.logger.info("Value '%s' is%s exactly a date or datetime value" % \
             (str(self.val), ' not' if not out else ''))
         return out
-    
+
     def contains(self):
         """
         Test if input string contains a date or datetime value.
@@ -258,7 +258,7 @@ class DoniDt(object):
         self.logger.info("Value '%s' does%s contain a date or datetime value" % \
             (str(self.val), ' not' if not out else ''))
         return out
-    
+
     def extract_first(self, apply_tz=True):
         """
         Given a string with a date or datetime value, extract the
@@ -283,28 +283,28 @@ class DoniDt(object):
         # Extract date/datetime value based on value type
         if self.dtype == 'dt_tz':
             # Datetime with timezone
-            
+
             # Build dt string
             dt = '{}-{}-{} {} --{} --{}'.format(
                 m.group('year'), m.group('month'), m.group('day'),
                 m.group('hours'), m.group('minutes'), m.group('seconds'))
-            
+
             # Build timezone string
             tz = '{}{} --{}'.format(
                 m.group('tz_sign'),
                 m.group('tz_hours'),
                 m.group('tz_minutes'))
-            
+
             if apply_tz:
                 tz = tz.split(':')[0]
-                
+
                 try:
                     tz = int(tz)
                 except:
                     self.logger.error("Invalid timezone (not coercible to integer) '%s'" % tz)
                     self.dtype = 'dt'
                     return dt
-                
+
                 dt = datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S')
                 dt = dt + datetime.timedelta(hours=tz)
                 self.dtype = 'dt_tz'
@@ -327,7 +327,7 @@ class DoniDt(object):
             dt = '{}-{}-{}'.format(m.group('year'), m.group('month'), m.group('day'))
             self.dtype = 'd'
             return dt
-    
+
     def detect_dtype(self):
         """
         Get datatype as one of 'd', 'dt', 'dt_tz', and return regex match object.

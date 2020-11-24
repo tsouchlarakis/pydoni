@@ -1,5 +1,5 @@
 import pydoni
-import pydoni.os
+import pydoni.opsys
 
 
 def echo(
@@ -77,7 +77,7 @@ def echo(
     :type reverse: bool
     :param return_str: return string instead of printing
     :type return_str: bool
-    :param notify: invoke `pydoni.os.macos_notify()`. Notification customizations can
+    :param notify: invoke `pydoni.opsys.macos_notify()`. Notification customizations can
                    be altered in `notification` parameter.
     :type notify: bool
     :param arrow: color of arrow to display before message
@@ -171,7 +171,7 @@ def echo(
 
         notification['message'] = msg_raw if notification['message'] is None else notification['message']
 
-        pydoni.os.macos_notify(
+        pydoni.opsys.macos_notify(
             title         = notification['title'],
             subtitle      = notification['subtitle'],
             message       = notification['message'],
@@ -290,7 +290,7 @@ def program_complete(
     :type start_time: float
     :param end_time: end time of program, output of time.time()
     :type end_time: float
-    :param notify: notify user with pydoni.os.macos_notify()
+    :param notify: notify user with pydoni.opsys.macos_notify()
     :type notify: bool
     :param notification: customize macOS notification. Requires that `notify` set to True
     :type notification: dict
@@ -341,7 +341,7 @@ def program_complete(
     # Print message and notify if specified
     if notify:
         notification['message'] = msg_raw
-        pydoni.os.macos_notify(**notification)
+        pydoni.opsys.macos_notify(**notification)
 
     if use_stdout:
         pydoni.vb.echo(msg)

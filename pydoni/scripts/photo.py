@@ -18,7 +18,7 @@ def rename_mediafile(
     :type file: str or list
     :param initials: 2 or 3 letter initials string
     :type initials: str
-    :param notify: execute `pydoni.os.macos_notify()` on program completion
+    :param notify: execute `pydoni.opsys.macos_notify()` on program completion
     :type notify: bool
     :param tz_adjust: adjust file creation times by a set number of hours
     :type tz_adjust: int
@@ -109,7 +109,7 @@ def rename_mediafile(
         echo('Renamed media files: %s' % str(len(mediafiles)), indent=2)
 
     if verbose or notify:
-        pydoni.os.macos_notify(title='Mediafile Rename', message='Completed successfully!')
+        pydoni.opsys.macos_notify(title='Mediafile Rename', message='Completed successfully!')
 
     pydoni.pydonicli_register({k: v for k, v in locals().items() if k in ['args', 'result']})
 
