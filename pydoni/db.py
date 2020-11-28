@@ -691,6 +691,41 @@ class Postgres(object):
         return len(matching_tables) == 1
 
 
+    def create_table(self, table_schema, table_name, columnspec):
+        """
+        Create a Postgres table given a schema name, table name and column specification. The
+        specification must be in format:
+
+            [
+                (col1_name, col1_dtype),
+                (col2_name, col2_dtype),
+                ...
+            ]
+        """
+        tab_ws = '    '
+        
+        columnspec_str = tab_ws + tab_ws.join([col + ' ' + dtype + ',\n' for col, dtype in columnspec]).rstrip('\n,')
+        create_table_sql_lst = [
+            'create table {table_schema}.{table_name} ('.format(**locals()),
+            columnspec_str,
+            ');',
+        ]
+
+        create_table_sql = '\n'.join(create_table_sql_lst)
+        self.execute(create_table_sql)
+
+        return True
+
+    def create_table_if_not_exists(self, table_schema, table_name, columnspec):
+        """
+        Call `self.create_table` if table does not exist.
+        """
+        if not self.table_exists(table_schema, table_name):
+            self.create_table(table_schema, table_name, columnspec)
+            return True
+        else:
+            return False
+
     def __single_quote__(self, val):
         """
         Escape single quotes and put single quotes around value if string value.
