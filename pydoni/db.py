@@ -703,7 +703,7 @@ class Postgres(object):
             ]
         """
         tab_ws = '    '
-        
+
         columnspec_str = tab_ws + tab_ws.join([col + ' ' + dtype + ',\n' for col, dtype in columnspec]).rstrip('\n,')
         create_table_sql_lst = [
             'create table {table_schema}.{table_name} ('.format(**locals()),
