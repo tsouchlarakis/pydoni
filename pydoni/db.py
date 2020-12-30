@@ -726,6 +726,13 @@ class Postgres(object):
         else:
             return False
 
+    def wipe_table(self, table_schema, table_name):
+        """
+        Delete all records in a table.
+        """
+        if self.table_exists(table_schema, table_name):
+            self.execute(f'delete from {table_schema}.{table_name} where 1 = 1;')
+
     def __single_quote__(self, val):
         """
         Escape single quotes and put single quotes around value if string value.
