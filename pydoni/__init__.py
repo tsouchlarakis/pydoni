@@ -1515,6 +1515,14 @@ def dirsize(start_path='.'):
     return total_size
 
 
+def collapse_df_columns(df, sep='_'):
+    """
+    Collapse a multi-level column index.
+    """
+    df.columns = [sep.join(col).strip() for col in df.columns.values]
+    return df
+
+
 def pydonicli_register(var_dict):
     """
     Register variable as a part of the 'pydoni' module to be logged to the CLI's backend.
