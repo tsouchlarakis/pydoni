@@ -13,7 +13,7 @@ google-search==1.0.2
 html2text==2020.1.16
 idna==2.9
 kiwisolver==1.2.0
-lxml==4.5.0
+lxml==4.6.2
 matplotlib==3.2.1
 numpy==1.18.1
 omdb==0.10.1
