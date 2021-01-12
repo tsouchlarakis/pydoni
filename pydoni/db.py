@@ -733,6 +733,37 @@ class Postgres(object):
         if self.table_exists(table_schema, table_name):
             self.execute(f'delete from {table_schema}.{table_name} where 1 = 1;')
 
+    def get_triggers(self):
+        """
+        Query information schema for all database triggers.
+        """
+        sql = """
+        select
+            event_object_schema as table_schema,
+            event_object_table as table_name,
+            trigger_schema,
+            trigger_name,
+            string_agg(event_manipulation, ',') as event,
+            action_timing as activation,
+            action_condition as condition,
+            action_statement as definition
+        from
+            information_schema.triggers
+        group by
+            1, 2, 3, 4, 6, 7, 8
+        order by
+            table_schema,
+            table_name
+        """
+        return self.read_sql(sql)
+
+    def trigger_exists(self, trigger_name):
+        """
+        Return a boolean indicating whether a trigger is existent in a Postgres database.
+        """
+        triggers = self.get_triggers()
+        return trigger_name in triggers['trigger_name']
+
     def __single_quote__(self, val):
         """
         Escape single quotes and put single quotes around value if string value.
