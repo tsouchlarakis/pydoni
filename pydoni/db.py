@@ -682,15 +682,6 @@ class Postgres(object):
 
         return dumped_files
 
-    def table_exists(self, table_schema, table_name):
-        """
-        Return boolean indicating whether a given table exists in a given schema.
-        """
-        ischema = self.infoschema(infoschema_table='tables')
-        matching_tables = ischema.loc[(ischema['table_schema'] == table_schema) & (ischema['table_name'] == table_name)]
-        return len(matching_tables) == 1
-
-
     def create_table(self, table_schema, table_name, columnspec):
         """
         Create a Postgres table given a schema name, table name and column specification. The
@@ -733,36 +724,96 @@ class Postgres(object):
         if self.table_exists(table_schema, table_name):
             self.execute(f'delete from {table_schema}.{table_name} where 1 = 1;')
 
-    def get_triggers(self):
+    def list_tables(self, table_schema=None):
         """
-        Query information schema for all database triggers.
+        List tables present in the database connection.
         """
-        sql = """
+        additional_cond = f"and table_schema = '{table_schema}'" if isinstance(table_schema, str) else ''
+        sql = f"""
         select
-            event_object_schema as table_schema,
-            event_object_table as table_name,
-            trigger_schema,
-            trigger_name,
-            string_agg(event_manipulation, ',') as event,
-            action_timing as activation,
-            action_condition as condition,
-            action_statement as definition
+            table_schema
+            , "table_name"
         from
-            information_schema.triggers
-        group by
-            1, 2, 3, 4, 6, 7, 8
-        order by
-            table_schema,
-            table_name
+            information_schema.tables
+        where
+            table_type = 'BASE TABLE'
+            and table_schema <> 'pg_catalog'
+            {additional_cond}
         """
         return self.read_sql(sql)
 
-    def trigger_exists(self, trigger_name):
+    def table_exists(self, table_schema=None, table_name=None):
+        """
+        Return a boolean indicating whether a table is existent in a Postgres database.
+        """
+        assert table_name is not None
+        tables = self.list_tables(table_schema)
+        return table_name in tables['table_name'].tolist()
+
+    def list_views(self, view_schema=None):
+        """
+        List views present in the database connection.
+        """
+        additional_cond = f"and table_schema = '{view_schema}'" if isinstance(view_schema, str) else ''
+        sql = f"""
+        select
+            table_schema as view_schema
+            , "table_name" as view_name
+        from
+            information_schema.views
+        where
+            table_schema not in ('information_schema', 'pg_catalog')
+            {additional_cond}
+        order by
+            table_schema,
+            view_name
+        """
+        return self.read_sql(sql)
+
+    def view_exists(self, view_schema=None, view_name=None):
+        """
+        Return a boolean indicating whether a view is existent in a Postgres database.
+        """
+        assert view_name is not None
+        views = self.list_views(view_schema)
+        return view_name in views['view_name'].tolist()
+
+
+    def list_triggers(self, trigger_schema=None):
+        """
+        List triggers present in the database connection.
+        """
+        additional_cond = f"and trigger_schema = '{trigger_schema}'" if isinstance(trigger_schema, str) else ''
+        sql = f"""
+        select
+            event_object_schema as table_schema
+            , event_object_table as "table_name"
+            , trigger_schema
+            , trigger_name
+            , string_agg(event_manipulation, ',') as "event"
+            , action_timing as activation
+            , action_condition as "condition"
+            , action_statement as definition
+        from
+            information_schema.triggers
+        where
+            trigger_schema <> 'pg_catalog'
+            {additional_cond}
+        group by
+            1, 2, 3, 4, 6, 7, 8
+        order by
+            table_schema
+            , "table_name"
+        """
+        return self.read_sql(sql)
+
+    def trigger_exists(self, trigger_schema=None, trigger_name=None):
         """
         Return a boolean indicating whether a trigger is existent in a Postgres database.
         """
-        triggers = self.get_triggers()
-        return trigger_name in triggers['trigger_name']
+        assert trigger_name is not None
+        triggers = self.list_triggers(trigger_schema)
+        return trigger_name in triggers['trigger_name'].tolist()
 
     def __single_quote__(self, val):
         """
