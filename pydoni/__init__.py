@@ -1117,7 +1117,6 @@ def test(value, dtype, return_coerced_value=False, assertion=False):
     # Test float
     elif dtype == 'float':
         if isinstance(value, float) or isinstance(value, int):
-            import pdb; pdb.set_trace()
             coerced_value = float(value)
         elif '.' in str(value):
             try:
