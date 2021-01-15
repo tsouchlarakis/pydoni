@@ -12,6 +12,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 -->
 
+## Unreleased
+### Added
+- New exists class methods for `Postgres`
+### Modified
+### Addressed
+### Fixed
+### Removed
+
 ## 20201021.021
 ### Added
 - Function `test_url()`
